@@ -1,13 +1,17 @@
 {
-  "name": "mine-bbc",
+  "name": "bitbudcoin-core",
   "version": "1.0.0",
+  "description": "BitBudCoin Mainnet Core",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5"
+    "better-sqlite3": "^11.7.0",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "express": "^4.18.2"
   }
 }
