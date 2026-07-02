@@ -10,12 +10,10 @@ class Mempool {
     }
 
     addTransaction(tx) {
-        // 1. podpis
         if (!tx.isSignatureValid()) {
             throw new Error("Invalid transaction signature");
         }
 
-        // 2. balans
         if (tx.from !== null) {
             const balance = this.blockchain.getBalance(tx.from);
             const totalCost = tx.amount + (tx.fee || 0);
@@ -25,7 +23,6 @@ class Mempool {
             }
         }
 
-        // 3. prosta ochrona przed duplikatami
         const exists = this.transactions.find(
             (t) => t.txid === tx.txid
         );
