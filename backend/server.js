@@ -1,5 +1,5 @@
 // =====================================================
-// BitBudCoin Backend - Pełna wersja
+// BitBudCoin Backend - Finalna wersja
 // server.js
 // =====================================================
 
@@ -14,7 +14,7 @@ app.use(express.json());
 
 const blockchain = new Blockchain();
 
-// ====================== PODSTAWOWE ENDPOINTY ======================
+// ====================== PODSTAWOWE ======================
 
 app.get("/info", (req, res) => {
     res.json(blockchain.getInfo());
@@ -35,8 +35,8 @@ app.post("/transaction", (req, res) => {
         const result = blockchain.addTransaction(req.body);
         res.json({ 
             status: "success", 
-            message: "Transakcja dodana do puli",
-            ...result 
+            message: "Transakcja dodana pomyślnie",
+            txid: result.txid 
         });
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -51,13 +51,12 @@ app.get("/mine", async (req, res) => {
         const block = await blockchain.createNewBlock(miner);
         res.json({
             status: "success",
-            message: "Block mined!",
+            message: "Block mined successfully",
             block: {
                 height: block.height,
                 hash: block.hash,
                 miner: block.miner,
-                reward: block.reward,
-                transactions: block.transactions.length
+                reward: block.reward
             }
         });
     } catch (err) {
@@ -114,24 +113,4 @@ app.post("/mine/start", async (req, res) => {
         try {
             const block = await blockchain.createNewBlock(minerAddress);
             res.json({
-                status: "mined",
-                model: modelId,
-                modelName: model.name || "vMax",
-                blockHeight: block.height,
-                hash: block.hash,
-                reward: (CONFIG.BLOCK_REWARD * model.rewardMultiplier).toFixed(2)
-            });
-        } catch (e) {
-            res.status(500).json({ error: e.message });
-        }
-    }, model.speed);
-});
-
-// ====================== URUCHOMIENIE SERWERA ======================
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`🚀 BitBudCoin Backend uruchomiony na porcie ${PORT}`);
-    console.log(`   Sieć: \( {CONFIG.NETWORK_NAME} ( \){CONFIG.SYMBOL})`);
-    console.log(`   Dostępne endpointy: /info, /mine, /miners/models, /mine/start`);
-});
+                status: "min
