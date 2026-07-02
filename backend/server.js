@@ -7,6 +7,7 @@ const express = require("express");
 const cors = require("cors");
 const Blockchain = require("./bbcblockchain");
 const CONFIG = require("./config");
+const db = require("./database");
 
 const app = express();
 app.use(cors());
@@ -26,6 +27,27 @@ app.get("/blocks", (req, res) => {
 
 app.get("/latest", (req, res) => {
     res.json(blockchain.getLatestBlock());
+});
+
+// ====================== BALANCE ======================
+
+app.get("/balance/:address", (req, res) => {
+    const address = req.params.address;
+    
+    try {
+        // Proste sprawdzenie salda z bazy
+        const result = db.prepare("SELECT balance FROM balances WHERE address = ?").get(address);
+        
+        res.json({
+            address: address,
+            balance: result ? result.balance : 0.00
+        });
+    } catch (e) {
+        res.json({
+            address: address,
+            balance: 0.00
+        });
+    }
 });
 
 // ====================== TRANSAKCJE ======================
@@ -69,48 +91,4 @@ app.get("/mine", async (req, res) => {
 app.get("/miners/models", (req, res) => {
     res.json([
         {
-            id: "vmax1",
-            name: "vMax 1",
-            hashRate: 25,
-            power: 65,
-            efficiency: "0.38",
-            price: 499,
-            color: "#00ffaa"
-        },
-        {
-            id: "vmax2",
-            name: "vMax 2 Turbo",
-            hashRate: 65,
-            power: 140,
-            efficiency: "0.46",
-            price: 1299,
-            color: "#00ccff"
-        },
-        {
-            id: "vmax3",
-            name: "vMax 3 Pro",
-            hashRate: 120,
-            power: 220,
-            efficiency: "0.55",
-            price: 2499,
-            color: "#ff00aa"
-        }
-    ]);
-});
-
-app.post("/mine/start", async (req, res) => {
-    const { minerAddress, modelId } = req.body;
-    
-    const models = {
-        "vmax1": { speed: 1200, rewardMultiplier: 1.0 },
-        "vmax2": { speed: 800,  rewardMultiplier: 1.8 },
-        "vmax3": { speed: 500,  rewardMultiplier: 3.2 }
-    };
-
-    const model = models[modelId] || models.vmax1;
-
-    setTimeout(async () => {
-        try {
-            const block = await blockchain.createNewBlock(minerAddress);
-            res.json({
-                status: "min
+            id: "vmax1
