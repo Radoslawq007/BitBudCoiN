@@ -10,229 +10,61 @@
         color: #e5e5e5;
         font-family: Consolas, "JetBrains Mono", monospace;
     }
-
     header {
         background: #111;
-        padding: 18px 28px;
+        padding: 20px;
         border-bottom: 2px solid #222;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        letter-spacing: 1px;
     }
-
-    .logo {
-        font-size: 22px;
-        font-weight: bold;
-        color: #00ffaa;
-        text-shadow: 0 0 8px #00ffaa;
-    }
-
-    main {
-        padding: 20px;
-        max-width: 900px;
-        margin: auto;
-    }
-
+    .logo { font-size: 24px; color: #00ffaa; font-weight: bold; }
+    
+    main { max-width: 700px; margin: 30px auto; padding: 20px; }
     .panel {
         background: #111;
         border: 1px solid #222;
-        padding: 16px;
+        padding: 25px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+    }
+    input, textarea {
+        width: 100%;
+        padding: 12px;
+        background: #0f0f0f;
+        border: 1px solid #333;
+        color: #eee;
         border-radius: 6px;
-        margin-bottom: 20px;
-        box-shadow: 0 0 12px #000 inset;
+        margin-bottom: 15px;
+        font-family: inherit;
     }
-
-    h2 {
-        margin: 0 0 12px;
-        font-size: 16px;
-        color: #00ffaa;
-        text-shadow: 0 0 6px #00ffaa;
-        border-bottom: 1px solid #222;
-        padding-bottom: 6px;
-    }
-
     button {
-        padding: 10px 14px;
+        width: 100%;
+        padding: 14px;
         background: #00ffaa;
-        border: none;
         color: #000;
+        border: none;
         font-weight: bold;
         cursor: pointer;
-        border-radius: 4px;
-        margin-top: 10px;
+        border-radius: 6px;
     }
-
-    button:hover {
-        background: #00dd99;
-    }
-
-    .wallet-box {
-        background: #0f0f0f;
-        border: 1px solid #222;
-        padding: 12px;
-        border-radius: 4px;
-        margin-bottom: 10px;
-    }
-
-    .address {
-        font-size: 13px;
+    button:hover { background: #00dd99; }
+    .balance {
+        font-size: 42px;
+        font-weight: bold;
         color: #00ffaa;
+        text-align: center;
+        margin: 20px 0;
     }
-
-    .small {
-        font-size: 11px;
-        color: #888;
-    }
-
-    .btn-row {
-        margin-top: 8px;
-        display: flex;
-        gap: 10px;
-    }
-
-    .btn-small {
-        padding: 6px 10px;
-        font-size: 11px;
-        background: #1a1a1a;
-        color: #eee;
-        border: 1px solid #333;
-    }
-
-    .btn-small:hover {
-        background: #222;
-    }
+    .status { margin-top: 15px; padding: 10px; background: #1a1a1a; border-radius: 6px; }
 </style>
 </head>
 <body>
 
 <header>
     <div class="logo">BBC WALLET</div>
+    <a href="index.html" style="color:#888; text-decoration:none;">← Home</a>
 </header>
 
 <main>
-
-    <!-- GENERATOR PORTFELA -->
-    <div class="panel">
-        <h2>Stwórz nowy adres BBC</h2>
-        <button onclick="createWallet()">➕ Generuj nowy portfel</button>
-    </div>
-
-    <!-- LISTA PORTFELI -->
-    <div class="panel">
-        <h2>Twoje portfele</h2>
-        <div id="walletList">Brak portfeli…</div>
-    </div>
-
-    <!-- AKTYWNY PORTFEL -->
-    <div class="panel">
-        <h2>Aktywny portfel</h2>
-        <div id="activeWalletBox">Nie wybrano portfela.</div>
-    </div>
-
-</main>
-
-<script>
-const API = "http://localhost:5000";
-let wallets = JSON.parse(localStorage.getItem("bbc_wallets") || "[]");
-let activeWallet = localStorage.getItem("bbc_active_wallet") || null;
-
-function saveWallets() {
-    localStorage.setItem("bbc_wallets", JSON.stringify(wallets));
-}
-
-function setActive(address) {
-    activeWallet = address;
-    localStorage.setItem("bbc_active_wallet", address);
-    renderActiveWallet();
-}
-
-function copy(text) {
-    navigator.clipboard.writeText(text);
-    alert("Skopiowano!");
-}
-
-function generatePrivateKey() {
-    let array = new Uint8Array(32);
-    crypto.getRandomValues(array);
-    return Array.from(array).map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
-function privateKeyToAddress(pk) {
-    return "BBC-" + pk.slice(0, 32);
-}
-
-function createWallet() {
-    const pk = generatePrivateKey();
-    const address = privateKeyToAddress(pk);
-
-    wallets.push({ address, privateKey: pk });
-    saveWallets();
-    renderWallets();
-}
-
-async function getBalance(address) {
-    try {
-        const res = await fetch(API + "/balance/" + address);
-        const data = await res.json();
-        return data.balance;
-    } catch {
-        return "ERR";
-    }
-}
-
-async function renderWallets() {
-    const box = document.getElementById("walletList");
-    box.innerHTML = "";
-
-    if (wallets.length === 0) {
-        box.textContent = "Brak portfeli…";
-        return;
-    }
-
-    for (let w of wallets) {
-        const div = document.createElement("div");
-        div.className = "wallet-box";
-
-        const bal = await getBalance(w.address);
-
-        div.innerHTML = `
-            <div class="address">${w.address}</div>
-            <div class="small">Saldo: ${bal} BBC</div>
-
-            <div class="btn-row">
-                <button class="btn-small" onclick="setActive('${w.address}')">Użyj</button>
-                <button class="btn-small" onclick="copy('${w.address}')">Kopiuj</button>
-            </div>
-        `;
-
-        box.appendChild(div);
-    }
-}
-
-async function renderActiveWallet() {
-    const box = document.getElementById("activeWalletBox");
-
-    if (!activeWallet) {
-        box.textContent = "Nie wybrano portfela.";
-        return;
-    }
-
-    const bal = await getBalance(activeWallet);
-
-    box.innerHTML = `
-        <div class="address">${activeWallet}</div>
-        <div class="small">Saldo: ${bal} BBC</div>
-
-        <div class="btn-row">
-            <button class="btn-small" onclick="copy('${activeWallet}')">Kopiuj adres</button>
-        </div>
-    `;
-}
-
-renderWallets();
-renderActiveWallet();
-</script>
-
-</body>
-</html>
+    <div
