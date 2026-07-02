@@ -4,288 +4,62 @@
 <meta charset="UTF-8">
 <title>BBC Chain Explorer</title>
 <style>
-    body {
-        margin: 0;
-        background: #0a0a0a;
-        color: #e5e5e5;
-        font-family: Consolas, "JetBrains Mono", monospace;
-    }
-
-    header {
-        background: #111;
-        padding: 18px 28px;
-        border-bottom: 2px solid #222;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        letter-spacing: 1px;
-    }
-
-    .logo {
-        font-size: 22px;
-        font-weight: bold;
-        color: #00ffaa;
-        text-shadow: 0 0 8px #00ffaa;
-    }
-
-    .status {
-        font-size: 12px;
-        color: #888;
-    }
-
-    .status span {
-        color: #00ff88;
-        text-shadow: 0 0 6px #00ff88;
-    }
-
-    main {
-        display: grid;
-        grid-template-columns: 2fr 1fr;
-        gap: 20px;
-        padding: 20px;
-    }
-
-    .panel {
-        background: #111;
-        border: 1px solid #222;
-        padding: 16px;
-        border-radius: 6px;
-        box-shadow: 0 0 12px #000 inset;
-    }
-
-    .panel h2 {
-        margin: 0 0 12px;
-        font-size: 16px;
-        color: #00ffaa;
-        text-shadow: 0 0 6px #00ffaa;
-        border-bottom: 1px solid #222;
-        padding-bottom: 6px;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 12px;
-    }
-
-    th {
-        background: #1a1a1a;
-        padding: 6px;
-        text-align: left;
-        border-bottom: 1px solid #333;
-        color: #00ffaa;
-    }
-
-    td {
-        padding: 6px;
-        border-bottom: 1px solid #222;
-    }
-
-    tr:hover {
-        background: #1a1a1a;
-    }
-
-    .hash {
-        color: #bbb;
-        font-size: 11px;
-    }
-
-    .badge {
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 10px;
-        text-transform: uppercase;
-    }
-
-    .genesis {
-        background: #004466;
-        color: #66e0ff;
-    }
-
-    .normal {
-        background: #003322;
-        color: #00ffaa;
-    }
-
-    .royalty {
-        background: #440022;
-        color: #ff66cc;
-    }
-
-    .metric {
-        margin-bottom: 12px;
-        padding: 10px;
-        background: #0f0f0f;
-        border: 1px solid #222;
-        border-radius: 4px;
-    }
-
-    .metric label {
-        font-size: 11px;
-        color: #888;
-    }
-
-    .metric div {
-        font-size: 15px;
-        margin-top: 4px;
-        color: #00ffaa;
-    }
-
-    input {
-        width: 100%;
-        padding: 8px;
-        background: #0f0f0f;
-        border: 1px solid #333;
-        color: #eee;
-        border-radius: 4px;
-        margin-bottom: 8px;
-    }
-
-    button {
-        width: 100%;
-        padding: 10px;
-        background: #00ffaa;
-        border: none;
-        color: #000;
-        font-weight: bold;
-        cursor: pointer;
-        border-radius: 4px;
-        margin-bottom: 8px;
-    }
-
-    button:hover {
-        background: #00dd99;
-    }
-
-    .small {
-        font-size: 11px;
-        color: #888;
-    }
+    body { margin:0; background:#0a0a0a; color:#e5e5e5; font-family:Consolas, monospace; }
+    header { background:#111; padding:20px; display:flex; justify-content:space-between; align-items:center; }
+    .logo { font-size:24px; color:#00ffaa; font-weight:bold; }
+    main { padding:20px; max-width:1100px; margin:auto; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:10px; text-align:left; border-bottom:1px solid #222; }
+    th { background:#1a1a1a; color:#00ffaa; }
+    .hash { font-size:13px; color:#888; }
+    button { padding:8px 16px; background:#00ffaa; color:#000; border:none; border-radius:4px; cursor:pointer; }
 </style>
 </head>
 <body>
 
 <header>
     <div class="logo">BBC CHAIN EXPLORER</div>
-    <div class="status">NODE: <span>localhost:5000</span></div>
+    <div>Node: localhost:5000</div>
 </header>
 
 <main>
-    <!-- BLOKI -->
-    <div class="panel">
-        <h2>Bloki</h2>
-        <table id="blocksTable">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Typ</th>
-                    <th>Hash</th>
-                    <th>Miner</th>
-                    <th>Reward</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr><td colspan="5">Ładowanie…</td></tr>
-            </tbody>
-        </table>
-    </div>
-
-    <!-- METRYKI -->
-    <div class="panel">
-        <h2>Sieć • Metryki</h2>
-
-        <div class="metric">
-            <label>Total Supply</label>
-            <div id="totalSupply">–</div>
-        </div>
-
-        <div class="metric">
-            <label>Airdrop</label>
-            <div id="airdropInfo">–</div>
-        </div>
-
-        <div class="metric">
-            <label>Royalty 5%</label>
-            <div id="royaltyBalance">–</div>
-            <div class="small">Adres: bc1qdljw6d2fkhlp0k00wyttwamldxkh3mz4mg98dr</div>
-        </div>
-
-        <h2>Sprawdź saldo</h2>
-        <input id="addrInput" placeholder="Wklej adres BBC…">
-        <button onclick="checkBalance()">Sprawdź</button>
-        <div id="balanceResult" class="small">–</div>
-    </div>
+    <h2>Ostatnie bloki</h2>
+    <table id="blocksTable">
+        <thead>
+            <tr><th>#</th><th>Hash</th><th>Miner</th><th>Reward</th><th>Czas</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
 </main>
 
 <script>
 const API = "http://localhost:5000";
-const ROYALTY = "bc1qdljw6d2fkhlp0k00wyttwamldxkh3mz4mg98dr";
 
 async function loadBlocks() {
-    const res = await fetch(API + "/blocks");
-    const blocks = await res.json();
+    try {
+        const res = await fetch(API + "/blocks");
+        const blocks = await res.json();
+        const tbody = document.querySelector("#blocksTable tbody");
+        tbody.innerHTML = "";
 
-    const tbody = document.querySelector("#blocksTable tbody");
-    tbody.innerHTML = "";
-
-    blocks.reverse().forEach(b => {
-        const tr = document.createElement("tr");
-
-        const type = b.index === 0 ? 
-            '<span class="badge genesis">GENESIS</span>' :
-            '<span class="badge normal">BLOCK</span>';
-
-        const miner = b.data.miner || "–";
-        const reward = b.data.reward_total || b.data.reward || 0;
-
-        tr.innerHTML = `
-            <td>${b.index}</td>
-            <td>${type}</td>
-            <td class="hash">${b.hash.slice(0,12)}…</td>
-            <td>${miner}</td>
-            <td>${reward}</td>
-        `;
-
-        tbody.appendChild(tr);
-    });
-}
-
-async function loadSupply() {
-    const res = await fetch(API + "/supply");
-    const s = await res.json();
-
-    document.getElementById("totalSupply").textContent = s.total_supply + " BBC";
-    document.getElementById("airdropInfo").textContent =
-        s.airdrop_distributed + " / " + s.airdrop_limit;
-}
-
-async function loadRoyalty() {
-    const res = await fetch(API + "/balance/" + ROYALTY);
-    const b = await res.json();
-    document.getElementById("royaltyBalance").textContent = b.balance + " BBC";
-}
-
-async function checkBalance() {
-    const addr = document.getElementById("addrInput").value.trim();
-    if (!addr) return;
-
-    const res = await fetch(API + "/balance/" + addr);
-    const b = await res.json();
-
-    document.getElementById("balanceResult").textContent =
-        "Saldo: " + b.balance + " BBC";
+        blocks.slice(-10).reverse().forEach(b => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${b.height}</td>
+                <td class="hash">${b.hash ? b.hash.slice(0,16)+'...' : '–'}</td>
+                <td>${b.miner ? b.miner.slice(0,12)+'...' : '–'}</td>
+                <td>${b.reward} BBC</td>
+                <td>${new Date(b.timestamp).toLocaleTimeString()}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch(e) {
+        console.log("Błąd ładowania bloków");
+    }
 }
 
 loadBlocks();
-loadSupply();
-loadRoyalty();
-
-setInterval(() => {
-    loadBlocks();
-    loadSupply();
-    loadRoyalty();
-}, 8000);
+setInterval(loadBlocks, 5000);
 </script>
-
 </body>
 </html>
