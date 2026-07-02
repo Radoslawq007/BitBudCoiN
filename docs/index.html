@@ -2,64 +2,65 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>BitBudCoiN • Official Website</title>
+<title>BitBudCoiN • Bud Bitcoin</title>
 <style>
     body {
         margin: 0;
         background: #0a0a0a;
         color: #e5e5e5;
-        font-family: Consolas, "JetBrains Mono", monospace;
+        font-family: Consolas, monospace;
         text-align: center;
     }
     header {
-        padding: 40px 20px;
-        background: #111;
-        border-bottom: 2px solid #222;
+        padding: 60px 20px 40px;
+        background: linear-gradient(#111, #0a0a0a);
     }
-    img.logo {
-        width: 120px;
-        margin-bottom: 10px;
-        filter: drop-shadow(0 0 10px #00ffaa);
+    .logo-img {
+        width: 180px;
+        filter: drop-shadow(0 0 20px #00ff88);
+        margin-bottom: 20px;
     }
     h1 {
         color: #00ffaa;
-        text-shadow: 0 0 10px #00ffaa;
-        font-size: 32px;
-        margin-bottom: 10px;
+        font-size: 38px;
+        margin: 10px 0;
+        text-shadow: 0 0 15px #00ff88;
     }
-    p {
+    .tagline {
         color: #aaa;
-        font-size: 14px;
+        font-size: 18px;
+        margin-bottom: 40px;
     }
     .btn {
         display: inline-block;
         margin: 12px;
-        padding: 14px 22px;
+        padding: 16px 32px;
         background: #00ffaa;
         color: #000;
         font-weight: bold;
-        border-radius: 6px;
+        border-radius: 8px;
         text-decoration: none;
-        font-size: 14px;
+        font-size: 16px;
     }
     .btn:hover {
         background: #00dd99;
+        transform: scale(1.05);
     }
 </style>
 </head>
 <body>
 
 <header>
-    <img src="logo.png" class="logo">
+    <img src="logo.png" class="logo-img" alt="BitBudCoiN">
     <h1>BitBudCoiN</h1>
-    <p>Oficjalna strona projektu • Explorer • Wallet • Miner</p>
+    <p class="tagline">Bud Bitcoin • Decentralizowana kopalnia ziołowa</p>
+    
+    <div>
+        <a class="btn" href="miner.html">🚀 Uruchom Koparkę vMax</a>
+        <a class="btn" href="wallet.html">💰 Portfel</a>
+        <a class="btn" href="explorer.html">📊 Explorer</a>
+    </div>
 </header>
-
-<div style="margin-top: 40px;">
-    <a class="btn" href="explorer.html">Explorer</a>
-    <a class="btn" href="wallet.html">Wallet</a>
-    <a class="btn" href="miner.html">Miner</a>
-</div>
 
 </body>
 </html>
