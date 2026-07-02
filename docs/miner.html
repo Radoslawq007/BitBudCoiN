@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>BBC Miner • vMax</title>
+
 <style>
     body { margin:0; background:#0a0a0a; color:#e5e5e5; font-family:Consolas, monospace; text-align:center; }
     header { background:#111; padding:20px; border-bottom:2px solid #222; display:flex; justify-content:space-between; align-items:center; }
@@ -19,6 +20,7 @@
     @keyframes pulse { from {opacity:0.6;} to {opacity:1;} }
 </style>
 </head>
+
 <body>
 
 <header>
@@ -28,50 +30,70 @@
 
 <main>
     <h2>Wybierz model vMax</h2>
+
     <div class="models" id="modelsContainer"></div>
-    
-    <input type="text" id="minerAddress" placeholder="Twój adres BBC" style="width:80%;padding:12px;background:#111;border:1px solid #333;color:white;border-radius:6px;margin:15px 0;">
+
+    <input type="text" id="minerAddress" placeholder="Twój adres BBC"
+        style="width:80%;padding:12px;background:#111;border:1px solid #333;color:white;border-radius:6px;margin:15px 0;">
+
     <div id="status">Wybierz model i podaj adres...</div>
 </main>
 
 <script>
-const API = "http://localhost:5000"; // ZMIEŃ PO WDROŻENIU
+const API = "http://localhost:5000";
 
-async function loadModels() {
-    const res = await fetch(API + "/miners/models");
-    const models = await res.json();
+// MODELE vMax — frontend-only
+const MODELS = [
+    { id: "vmax1", name: "vMax 1", hashRate: "120 H/s" },
+    { id: "vmax2", name: "vMax 2 Turbo", hashRate: "240 H/s" },
+    { id: "vmax3", name: "vMax 3 Pro", hashRate: "480 H/s" }
+];
+
+// ŁADOWANIE MODELI
+function loadModels() {
     const container = document.getElementById("modelsContainer");
     container.innerHTML = "";
-    models.forEach(m => {
+
+    MODELS.forEach(m => {
         const card = document.createElement("div");
         card.className = "model-card";
+
         card.innerHTML = `
             <h3>${m.name}</h3>
-            <div class="hashrate">${m.hashRate} H/s</div>
-            <button onclick="startMining('\( {m.id}', ' \){m.name}')">Uruchom ${m.name}</button>
+            <div class="hashrate">${m.hashRate}</div>
+            <button onclick="startMining('${m.id}', '${m.name}')">Uruchom ${m.name}</button>
         `;
+
         container.appendChild(card);
     });
 }
 
+// START MINING
 async function startMining(modelId, modelName) {
     const addr = document.getElementById("minerAddress").value.trim();
-    if (!addr) return alert("Podaj adres!");
     const status = document.getElementById("status");
+
+    if (!addr) return alert("Podaj adres BBC!");
+
     status.innerHTML = `<span class="mining">⛏️ ${modelName} pracuje...</span>`;
+
     try {
-        const res = await fetch(API + "/mine/start", {
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({minerAddress:addr, modelId})
-        });
+        const res = await fetch(`${API}/mine`, { method: "POST" });
         const data = await res.json();
-        status.innerHTML = `✅ Sukces! Blok #${data.blockHeight} | Nagroda: ${data.reward} BBC`;
-    } catch(e) { status.textContent = "Błąd kopania"; }
+
+        status.innerHTML = `
+            ✅ Sukces!<br>
+            Blok #${data.block.index}<br>
+            Nagroda: 50 BBC<br>
+            Miner: ${addr.substring(0, 16)}...
+        `;
+    } catch (e) {
+        status.textContent = "❌ Błąd kopania";
+    }
 }
 
-setInterval(loadModels, 7000);
 loadModels();
 </script>
+
 </body>
 </html>
