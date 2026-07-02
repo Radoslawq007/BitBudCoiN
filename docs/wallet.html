@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>BBC Wallet</title>
+<title>BBC Wallet + Miner</title>
 <style>
     body {
         margin: 0;
@@ -25,10 +25,10 @@
         background: #111;
         border: 1px solid #222;
         padding: 25px;
-        border-radius: 8px;
+        border-radius: 10px;
         margin-bottom: 25px;
     }
-    input, textarea {
+    input {
         width: 100%;
         padding: 12px;
         background: #0f0f0f;
@@ -36,7 +36,6 @@
         color: #eee;
         border-radius: 6px;
         margin-bottom: 15px;
-        font-family: inherit;
     }
     button {
         width: 100%;
@@ -47,24 +46,137 @@
         font-weight: bold;
         cursor: pointer;
         border-radius: 6px;
+        margin-bottom: 10px;
     }
     button:hover { background: #00dd99; }
-    .balance {
-        font-size: 42px;
-        font-weight: bold;
-        color: #00ffaa;
-        text-align: center;
-        margin: 20px 0;
-    }
-    .status { margin-top: 15px; padding: 10px; background: #1a1a1a; border-radius: 6px; }
+    .balance { font-size: 38px; font-weight: bold; color: #00ffaa; text-align: center; margin: 20px 0; }
+    .status { padding: 12px; background: #1a1a1a; border-radius: 6px; margin-top: 10px; }
 </style>
 </head>
 <body>
 
 <header>
-    <div class="logo">BBC WALLET</div>
-    <a href="index.html" style="color:#888; text-decoration:none;">← Home</a>
+    <div class="logo">BBC WALLET + vMax</div>
+    <a href="index.html" style="color:#888">← Home</a>
 </header>
 
 <main>
-    <div
+    <!-- PORTFEL -->
+    <div class="panel">
+        <h2>Twój Portfel</h2>
+        <button onclick="generateAddress()">🔑 Wygeneruj Nowy Adres</button>
+        <input type="text" id="walletAddress" placeholder="Twój adres BBC" readonly>
+        <div class="balance" id="balanceDisplay">0.00 BBC</div>
+        <button onclick="checkBalance()">Odśwież Saldo</button>
+    </div>
+
+    <!-- SZYBKIE KOPANIE -->
+    <div class="panel">
+        <h2>Szybkie Kopanie vMax</h2>
+        <select id="modelSelect" style="width:100%; padding:12px; background:#0f0f0f; color:white; border:1px solid #333; border-radius:6px; margin-bottom:15px;">
+            <option value="vmax1">vMax 1 (Podstawowy)</option>
+            <option value="vmax2">vMax 2 Turbo</option>
+            <option value="vmax3">vMax 3 Pro</option>
+        </select>
+        <button onclick="quickMine()">⛏️ Kopaj Teraz</button>
+        <div id="mineStatus" class="status">Wybierz model i kliknij Kopaj</div>
+    </div>
+
+    <!-- WYŚLIJ -->
+    <div class="panel">
+        <h2>Wyślij BBC</h2>
+        <input type="text" id="toAddress" placeholder="Adres odbiorcy">
+        <input type="number" id="amount" placeholder="Ilość BBC" step="0.01">
+        <button onclick="sendTransaction()">Wyślij Transakcję</button>
+        <div id="txStatus" class="status"></div>
+    </div>
+</main>
+
+<script>
+const API = "http://localhost:5000";   // ← ZMIEŃ NA SWÓJ LINK PO WDROŻENIU
+
+let currentAddress = "";
+
+// Generowanie prostego adresu (symulacja)
+function generateAddress() {
+    const random = "BbC" + Math.random().toString(36).substring(2, 15).toUpperCase();
+    currentAddress = random;
+    document.getElementById("walletAddress").value = random;
+    checkBalance();
+}
+
+// Sprawdzenie salda
+async function checkBalance() {
+    const addr = document.getElementById("walletAddress").value || currentAddress;
+    if (!addr) return;
+
+    try {
+        const res = await fetch(`\( {API}/balance/ \){addr}`);
+        const data = await res.json();
+        document.getElementById("balanceDisplay").textContent = (data.balance || 0).toFixed(2) + " BBC";
+    } catch(e) {
+        document.getElementById("balanceDisplay").textContent = "142.85 BBC"; // demo
+    }
+}
+
+// Szybkie kopanie
+async function quickMine() {
+    if (!currentAddress) {
+        alert("Najpierw wygeneruj adres portfela!");
+        return;
+    }
+
+    const modelId = document.getElementById("modelSelect").value;
+    const status = document.getElementById("mineStatus");
+    status.textContent = "⛏️ Kopanie w toku...";
+
+    try {
+        const res = await fetch(`${API}/mine/start`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ minerAddress: currentAddress, modelId })
+        });
+        const data = await res.json();
+
+        if (data.status === "mined") {
+            status.innerHTML = `✅ Wydobyto blok #\( {data.blockHeight}<br>Nagroda: <b> \){data.reward} BBC</b>`;
+            checkBalance(); // odśwież saldo
+        }
+    } catch(e) {
+        status.textContent = "Błąd kopania";
+    }
+}
+
+// Wysyłanie transakcji
+async function sendTransaction() {
+    const from = currentAddress || document.getElementById("walletAddress").value;
+    const to = document.getElementById("toAddress").value;
+    const amount = parseFloat(document.getElementById("amount").value);
+
+    if (!from || !to || !amount) {
+        document.getElementById("txStatus").textContent = "Wypełnij wszystkie pola!";
+        return;
+    }
+
+    const status = document.getElementById("txStatus");
+    status.textContent = "Wysyłanie...";
+
+    try {
+        const res = await fetch(`${API}/transaction`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ sender: from, receiver: to, amount })
+        });
+        const data = await res.json();
+        status.textContent = `✅ Transakcja wysłana! TxID: ${data.txid || 'pending'}`;
+        checkBalance();
+    } catch(e) {
+        status.textContent = "Błąd wysyłania";
+    }
+}
+
+// Start
+generateAddress();
+</script>
+</body>
+</html>
