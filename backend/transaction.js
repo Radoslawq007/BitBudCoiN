@@ -8,14 +8,14 @@ const Wallet = require("./wallet");
 
 class Transaction {
     constructor(from, to, amount, fee, fromPublicKey = null, signature = null) {
-        this.from = from;                 // adres BbC...
-        this.to = to;                     // adres BbC...
+        this.from = from;
+        this.to = to;
         this.amount = amount;
         this.fee = fee;
         this.timestamp = Date.now();
 
-        this.fromPublicKey = fromPublicKey; // hex publicznego klucza
-        this.signature = signature;         // hex DER
+        this.fromPublicKey = fromPublicKey;
+        this.signature = signature;
 
         this.txid = this.calculateId();
     }
@@ -31,7 +31,6 @@ class Transaction {
         return crypto.createHash("sha256").update(data).digest("hex");
     }
 
-    // payload do podpisu (bez signature)
     getPayload() {
         return {
             from: this.from,
@@ -43,7 +42,6 @@ class Transaction {
         };
     }
 
-    // tworzenie transakcji podpisanej z walleta
     static createSigned(fromWallet, to, amount, fee) {
         const tx = new Transaction(
             fromWallet.address,
@@ -55,18 +53,13 @@ class Transaction {
         );
 
         const payload = tx.getPayload();
-        const signature = fromWallet.sign(payload);
-
-        tx.signature = signature;
+        tx.signature = fromWallet.sign(payload);
 
         return tx;
     }
 
-    // weryfikacja podpisu
     isSignatureValid() {
-        // coinbase (from = null) nie ma podpisu
         if (this.from === null) return true;
-
         if (!this.fromPublicKey || !this.signature) return false;
 
         const payload = this.getPayload();
