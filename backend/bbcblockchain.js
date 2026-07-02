@@ -1,6 +1,6 @@
 // =====================================================
 // BitBudCoin Core
-// bbcblockchain.js
+// bbcblockchain.js vMax
 // =====================================================
 
 const crypto = require("crypto");
@@ -62,7 +62,6 @@ class BBCBlockchain {
     isValidChain(chain) {
         if (chain.length === 0) return false;
 
-        // sprawdź genesis
         const genesis = chain[0];
         if (genesis.index !== 0) return false;
 
@@ -95,7 +94,6 @@ class BBCBlockchain {
         const index = previousBlock.index + 1;
         const timestamp = Date.now();
 
-        // nagroda za blok
         const coinbaseTx = new Transaction(
             null,
             this.genesisAddress,
@@ -142,7 +140,7 @@ class BBCBlockchain {
             blockData.difficulty,
             blockData.nonce
         );
-        block.hash = blockData.hash; // zachowaj hash z sieci
+        block.hash = blockData.hash;
 
         if (!this.isValidNewBlock(block, previousBlock)) {
             console.log("[CHAIN] Received block invalid");
@@ -155,10 +153,29 @@ class BBCBlockchain {
     }
 
     // -----------------------------
+    // BALANCE
+    // -----------------------------
+    getBalance(address) {
+        let balance = 0;
+
+        this.chain.forEach((block) => {
+            block.transactions.forEach((tx) => {
+                if (tx.to === address) {
+                    balance += tx.amount;
+                }
+                if (tx.from === address && tx.from !== null) {
+                    balance -= tx.amount + (tx.fee || 0);
+                }
+            });
+        });
+
+        return balance;
+    }
+
+    // -----------------------------
     // UTILS
     // -----------------------------
     getBlock(id) {
-        // id może być indexem lub hashem
         const byIndex = this.chain.find((b) => b.index == id);
         if (byIndex) return byIndex;
 
