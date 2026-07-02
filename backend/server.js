@@ -9,9 +9,10 @@ const WebSocket = require("ws");
 const CONFIG = require("./config");
 
 // CORE
-const Blockchain = require("./core/blockchain");
+const Blockchain = require("./core/bbcblockchain");
 const Transaction = require("./core/transaction");
 const Mempool = require("./core/mempool");
+const Wallet = require("./core/wallet");
 
 // =====================================================
 // INIT
@@ -20,8 +21,8 @@ const Mempool = require("./core/mempool");
 const app = express();
 app.use(bodyParser.json());
 
-const blockchain = new Blockchain(CONFIG);
-const mempool = new Mempool();
+const blockchain = new Blockchain();
+const mempool = new Mempool(blockchain);
 
 const sockets = [];
 
@@ -59,28 +60,17 @@ const initConnection = (ws) => {
         }
     });
 
-    ws.on("close", () => {
-        console.log("[P2P] Peer disconnected");
-    });
+    ws.on("close", () => console.log("[P2P] Peer disconnected"));
+    ws.on("error", (err) => console.log("[P2P] Peer error", err));
 
-    ws.on("error", (err) => {
-        console.log("[P2P] Peer error", err);
-    });
-
-    // po połączeniu wyślij aktualny chain
     send(ws, {
         type: MESSAGE_TYPES.CHAIN,
         chain: blockchain.chain
     });
 };
 
-const send = (ws, msg) => {
-    ws.send(JSON.stringify(msg));
-};
-
-const broadcast = (msg) => {
-    sockets.forEach((socket) => send(socket, msg));
-};
+const send = (ws, msg) => ws.send(JSON.stringify(msg));
+const broadcast = (msg) => sockets.forEach((socket) => send(socket, msg));
 
 const handleMessage = (ws, data) => {
     switch (data.type) {
@@ -89,19 +79,25 @@ const handleMessage = (ws, data) => {
             break;
 
         case MESSAGE_TYPES.TRANSACTION:
-            mempool.addTransaction(data.transaction);
+            try {
+                const tx = new Transaction(
+                    data.transaction.from,
+                    data.transaction.to,
+                    data.transaction.amount,
+                    data.transaction.fee,
+                    data.transaction.fromPublicKey,
+                    data.transaction.signature
+                );
+
+                mempool.addTransaction(tx);
+            } catch (e) {
+                console.log("[P2P] Invalid transaction:", e.message);
+            }
             break;
 
         case MESSAGE_TYPES.NEW_BLOCK:
             blockchain.addBlockFromNetwork(data.block);
             break;
-
-        case MESSAGE_TYPES.PEERS:
-            // tu możesz rozwinąć logikę zarządzania peerami
-            break;
-
-        default:
-            console.log("[P2P] Unknown message type:", data.type);
     }
 };
 
@@ -121,40 +117,48 @@ app.get("/info", (req, res) => {
     });
 });
 
-// CAŁY CHAIN
-app.get("/chain", (req, res) => {
-    res.json(blockchain.chain);
-});
+// CHAIN
+app.get("/chain", (req, res) => res.json(blockchain.chain));
 
-// BLOK PO INDEXIE / HASHU
+// BLOCK
 app.get("/block/:id", (req, res) => {
-    const id = req.params.id;
-    const block = blockchain.getBlock(id);
-
+    const block = blockchain.getBlock(req.params.id);
     if (!block) return res.status(404).json({ error: "Block not found" });
-
     res.json(block);
 });
 
-// MEMPOOL
-app.get("/mempool", (req, res) => {
-    res.json(mempool.transactions);
+// BALANCE
+app.get("/balance/:address", (req, res) => {
+    const balance = blockchain.getBalance(req.params.address);
+    res.json({ address: req.params.address, balance });
 });
 
-// NOWA TRANSAKCJA
+// MEMPOOL
+app.get("/mempool", (req, res) => res.json(mempool.transactions));
+
+// ADD SIGNED TRANSACTION
 app.post("/transaction", (req, res) => {
-    const { from, to, amount, fee } = req.body;
-
-    if (!from || !to || !amount) {
-        return res.status(400).json({ error: "Missing fields: from, to, amount" });
-    }
-
-    const txFee = fee || CONFIG.MIN_FEE;
-
     try {
-        const tx = new Transaction(from, to, amount, txFee);
+        const {
+            from,
+            to,
+            amount,
+            fee,
+            fromPublicKey,
+            signature
+        } = req.body;
+
+        const tx = new Transaction(
+            from,
+            to,
+            amount,
+            fee,
+            fromPublicKey,
+            signature
+        );
 
         mempool.addTransaction(tx);
+
         broadcast({ type: MESSAGE_TYPES.TRANSACTION, transaction: tx });
 
         res.json({ message: "Transaction added to mempool", tx });
@@ -163,7 +167,7 @@ app.post("/transaction", (req, res) => {
     }
 });
 
-// MINING
+// MINE BLOCK
 app.post("/mine", (req, res) => {
     try {
         const block = blockchain.mineBlock(mempool.transactions);
@@ -178,7 +182,7 @@ app.post("/mine", (req, res) => {
     }
 });
 
-// DODAWANIE PEERA
+// ADD PEER
 app.post("/peer", (req, res) => {
     const { peer } = req.body;
 
