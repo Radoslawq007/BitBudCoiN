@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>BBC Exchange • vMax</title>
+
+<style>
+    body { margin:0; background:#0a0a0a; color:#e5e5e5; font-family:Consolas, monospace; text-align:center; }
+    header { background:#111; padding:20px; border-bottom:2px solid #222; display:flex; justify-content:space-between; align-items:center; }
+    .logo { font-size:24px; color:#00ffaa; font-weight:bold; }
+    a { color:#888; text-decoration:none; }
+    main { max-width:900px; margin:30px auto; padding:20px; }
+
+    .card { background:#111; border:1px solid #222; border-radius:10px; padding:25px; margin-bottom:25px; }
+    .card h2 { margin-top:0; color:#00ffaa; }
+
+    input { width:100%; padding:12px; background:#0f0f0f; border:1px solid #333; color:#eee; border-radius:6px; margin-bottom:15px; }
+    button { width:100%; padding:14px; background:#00ffaa; color:#000; border:none; font-weight:bold; cursor:pointer; border-radius:6px; }
+    button:hover { background:#00dd99; }
+
+    .priceBox { font-size:28px; font-weight:bold; color:#00ffaa; margin:15px 0; }
+</style>
+</head>
+
+<body>
+
+<header>
+    <div class="logo">BBC EXCHANGE vMax</div>
+    <a href="index.html">← Home</a>
+</header>
+
+<main>
+
+<div class="card">
+    <h2>Aktualne ceny</h2>
+    <div class="priceBox">BTC: <span id="btcPrice">...</span> USD</div>
+    <div class="priceBox">BBC: <span id="bbcPrice">0.000002</span> USD</div>
+</div>
+
+<div class="card">
+    <h2>BBC → BTC / USD</h2>
+    <input type="number" id="bbcInput" placeholder="Ilość BBC" step="0.000001">
+    <button onclick="convertBBC()">Przelicz</button>
+
+    <div class="priceBox" id="bbcToBTC">BTC: ...</div>
+    <div class="priceBox" id="bbcToUSD">USD: ...</div>
+</div>
+
+<div class="card">
+    <h2>BTC → BBC</h2>
+    <input type="number" id="btcInput" placeholder="Ilość BTC" step="0.00000001">
+    <button onclick="convertBTC()">Przelicz</button>
+
+    <div class="priceBox" id="btcToBBC">BBC: ...</div>
+</div>
