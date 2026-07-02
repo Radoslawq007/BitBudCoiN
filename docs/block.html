@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>BBC Block • vMax</title>
+
+<style>
+    body { margin:0; background:#0a0a0a; color:#e5e5e5; font-family:Consolas, monospace; }
+    header { background:#111; padding:20px; border-bottom:2px solid #222; display:flex; justify-content:space-between; align-items:center; }
+    .logo { font-size:24px; color:#00ffaa; font-weight:bold; }
+    a { color:#888; text-decoration:none; }
+    main { max-width:900px; margin:30px auto; padding:20px; }
+
+    .card { background:#111; border:1px solid #222; border-radius:10px; padding:20px; margin-bottom:25px; }
+    .card h2 { margin-top:0; color:#00ffaa; }
+
+    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); gap:20px; }
+
+    .label { color:#00ffaa; font-size:14px; }
+    .value { font-size:16px; margin-bottom:10px; }
+
+    table { width:100%; border-collapse:collapse; background:#111; margin-top:20px; }
+    th { background:#181818; color:#00ffaa; padding:10px; }
+    td { padding:10px; border-bottom:1px solid #222; }
+    tr:hover { background:#161616; }
+    .hash { font-size:12px; color:#999; }
+</style>
+</head>
+
+<body>
+
+<header>
+    <div class="logo">BBC BLOCK vMax</div>
+    <a href="explorer.html">← Explorer</a>
+</header>
+
+<main>
+
+<div class="card">
+    <h2>Informacje o bloku</h2>
+
+    <div class="grid">
+        <div>
+            <div class="label">Numer bloku</div>
+            <div class="value" id="blockIndex">...</div>
+        </div>
+
+        <div>
+            <div class="label">Czas</div>
+            <div class="value" id="blockTime">...</div>
+        </div>
+
+        <div>
+            <div class="label">Trudność</div>
+            <div class="value" id="difficulty">...</div>
+        </div>
+
+        <div>
+            <div class="label">Nonce</div>
+            <div class="value" id="nonce">...</div>
+        </div>
+    </div>
+
+    <div class="label" style="margin-top:20px;">Hash bloku</div>
+    <div class="hash" id="blockHash">...</div>
+
+    <div class="label" style="margin-top:20px;">Poprzedni hash</div>
+    <div class="hash" id="prevHash">...</div>
+
+</div>
+
+<div class="card">
+    <h2>Transakcje</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Od</th>
+                <th>Do</th>
+                <th>Ilość</th>
+                <th>Fee</th>
+                <th>TXID</th>
+            </tr>
+        </thead>
+        <tbody id="txTable"></tbody>
+    </table>
+</div>
+
+</main>
+
+<script>
+const API = "http://localhost:5000";
+
+// Pobieranie ID bloku z URL
+const params = new URLSearchParams(window.location.search);
+const blockId = params.get("id");
+
+if (!blockId) {
+    alert("Brak ID bloku w URL!");
+}
+
+async function loadBlock() {
+    try {
+        const res = await fetch(`${API}/block/${blockId}`);
+        const block = await res.json();
+
+        document.getElementById("blockIndex").textContent = block.index;
+        document.getElementById("blockTime").textContent = new Date(block.timestamp).toLocaleString();
+        document.getElementById("difficulty").textContent = block.difficulty;
+        document.getElementById("nonce").textContent = block.nonce;
+
+        document.getElementById("blockHash").textContent = block.hash;
+        document.getElementById("prevHash").textContent = block.previousHash;
+
+        const tbody = document.getElementById("txTable");
+        tbody.innerHTML = "";
+
+        block.transactions.forEach(tx => {
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${tx.from || "COINBASE"}</td>
+                <td>${tx.to}</td>
+                <td>${tx.amount}</td>
+                <td>${tx.fee || 0}</td>
+                <td class="hash">${tx.txid.substring(0,20)}...</td>
+            `;
+
+            tbody.appendChild(tr);
+        });
+
+    } catch (e) {
+        alert("Nie udało się pobrać bloku.");
+    }
+}
+
+loadBlock();
+</script>
+
+</body>
+</html>
