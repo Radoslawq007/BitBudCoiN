@@ -1,5 +1,5 @@
 // =====================================================
-// BitBudCoin Backend - Finalna wersja
+// BitBudCoin Backend - Debug Version
 // server.js
 // =====================================================
 
@@ -15,80 +15,49 @@ app.use(express.json());
 
 const blockchain = new Blockchain();
 
-// ====================== PODSTAWOWE ======================
-
-app.get("/info", (req, res) => {
-    res.json(blockchain.getInfo());
+// Debug log
+app.use((req, res, next) => {
+    console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
+    next();
 });
 
-app.get("/blocks", (req, res) => {
-    res.json(blockchain.chain);
-});
+// ====================== ENDPOINTY ======================
 
-app.get("/latest", (req, res) => {
-    res.json(blockchain.getLatestBlock());
-});
-
-// ====================== BALANCE ======================
-
-app.get("/balance/:address", (req, res) => {
-    const address = req.params.address;
-    
-    try {
-        // Proste sprawdzenie salda z bazy
-        const result = db.prepare("SELECT balance FROM balances WHERE address = ?").get(address);
-        
-        res.json({
-            address: address,
-            balance: result ? result.balance : 0.00
-        });
-    } catch (e) {
-        res.json({
-            address: address,
-            balance: 0.00
-        });
-    }
-});
-
-// ====================== TRANSAKCJE ======================
-
-app.post("/transaction", (req, res) => {
-    try {
-        const result = blockchain.addTransaction(req.body);
-        res.json({ 
-            status: "success", 
-            message: "Transakcja dodana pomyślnie",
-            txid: result.txid 
-        });
-    } catch (err) {
-        res.status(400).json({ error: err.message });
-    }
-});
-
-// ====================== KOPANIE ======================
-
-app.get("/mine", async (req, res) => {
-    const miner = req.query.miner || CONFIG.GENESIS_ADDRESS;
-    try {
-        const block = await blockchain.createNewBlock(miner);
-        res.json({
-            status: "success",
-            message: "Block mined successfully",
-            block: {
-                height: block.height,
-                hash: block.hash,
-                miner: block.miner,
-                reward: block.reward
-            }
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// ====================== KOPARKI vMax ======================
+app.get("/info", (req, res) => res.json(blockchain.getInfo()));
 
 app.get("/miners/models", (req, res) => {
     res.json([
-        {
-            id: "vmax1
+        {id: "vmax1", name: "vMax 1", hashRate: 25},
+        {id: "vmax2", name: "vMax 2 Turbo", hashRate: 65},
+        {id: "vmax3", name: "vMax 3 Pro", hashRate: 120}
+    ]);
+});
+
+app.post("/mine/start", async (req, res) => {
+    console.log("Otrzymano żądanie kopania:", req.body);
+    const { minerAddress, modelId } = req.body;
+    
+    if (!minerAddress) {
+        return res.status(400).json({ error: "Brak adresu minera" });
+    }
+
+    try {
+        const block = await blockchain.createNewBlock(minerAddress);
+        res.json({
+            status: "mined",
+            blockHeight: block.height,
+            hash: block.hash,
+            reward: CONFIG.BLOCK_REWARD
+        });
+    } catch (e) {
+        console.error("Błąd kopania:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get("/blocks", (req, res) => res.json(blockchain.chain));
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`🚀 Serwer działa na http://localhost:${PORT}`);
+});
