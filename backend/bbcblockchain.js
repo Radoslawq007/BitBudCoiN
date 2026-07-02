@@ -1,122 +1,170 @@
+// =====================================================
+// BitBudCoin Core
+// bbcblockchain.js
+// =====================================================
+
 const crypto = require("crypto");
-const CONFIG = require("./config");
+const CONFIG = require("../config");
+const Block = require("./block");
+const Transaction = require("./transaction");
 
-/**
- * Pojedynczy blok w łańcuchu.
- */
-class Block {
-    constructor(height, timestamp, previousHash, minerAddress, difficulty) {
-        this.height = height;
-        this.timestamp = timestamp;
-        this.previousHash = previousHash;
-        this.minerAddress = minerAddress;
-        this.difficulty = difficulty;
-        this.reward = CONFIG.BLOCK_REWARD;
-        this.nonce = 0;
-        this.hash = this.calculateHash();
-    }
-
-    calculateHash() {
-        return crypto
-            .createHash("sha256")
-            .update(
-                this.height +
-                    this.previousHash +
-                    this.timestamp +
-                    this.minerAddress +
-                    this.difficulty +
-                    this.nonce
-            )
-            .digest("hex");
-    }
-
-    // Proof-of-work: szukamy hasha zaczynającego się od `difficulty` zer
-    mine() {
-        const target = "0".repeat(this.difficulty);
-        while (this.hash.substring(0, this.difficulty) !== target) {
-            this.nonce++;
-            this.hash = this.calculateHash();
-        }
-        return this.hash;
-    }
-}
-
-/**
- * Łańcuch bloków wraz z logiką kopania i walidacji.
- */
-class Blockchain {
+class BBCBlockchain {
     constructor() {
-        this.chain = [this.createGenesisBlock()];
+        this.chain = [];
+        this.difficulty = CONFIG.DIFFICULTY;
+        this.blockReward = CONFIG.BLOCK_REWARD;
+        this.genesisAddress = CONFIG.GENESIS_ADDRESS;
+
+        this.createGenesisBlock();
     }
 
+    // -----------------------------
+    // GENESIS
+    // -----------------------------
     createGenesisBlock() {
-        const genesis = new Block(0, Date.now(), "0".repeat(64), "genesis", CONFIG.DIFFICULTY);
-        genesis.hash = genesis.calculateHash();
-        return genesis;
+        const genesisTxs = CONFIG.GENESIS_TRANSACTIONS.map(
+            (t) => new Transaction(CONFIG.GENESIS_ADDRESS, t.to, t.amount, 0)
+        );
+
+        const genesisBlock = new Block(
+            0,
+            Date.now(),
+            genesisTxs,
+            "0",
+            this.difficulty
+        );
+
+        this.chain.push(genesisBlock);
     }
 
     getLatestBlock() {
         return this.chain[this.chain.length - 1];
     }
 
-    // Kopanie nowego bloku. Zwraca Promise, żeby dało się wywołać z `await`
-    // (docelowo tę pętlę można przenieść do worker threada, by nie blokować event loopa
-    // przy wyższej trudności)
-    async createNewBlock(minerAddress) {
-        if (!minerAddress) {
-            throw new Error("Brak adresu górnika");
+    getHeight() {
+        return this.chain.length - 1;
+    }
+
+    // -----------------------------
+    // VALIDATION
+    // -----------------------------
+    isValidNewBlock(newBlock, previousBlock) {
+        if (previousBlock.index + 1 !== newBlock.index) return false;
+        if (previousBlock.hash !== newBlock.previousHash) return false;
+        if (newBlock.calculateHash() !== newBlock.hash) return false;
+
+        const target = "0".repeat(newBlock.difficulty);
+        if (!newBlock.hash.startsWith(target)) return false;
+
+        return true;
+    }
+
+    isValidChain(chain) {
+        if (chain.length === 0) return false;
+
+        // sprawdź genesis
+        const genesis = chain[0];
+        if (genesis.index !== 0) return false;
+
+        for (let i = 1; i < chain.length; i++) {
+            if (!this.isValidNewBlock(chain[i], chain[i - 1])) {
+                return false;
+            }
         }
 
+        return true;
+    }
+
+    replaceChain(newChain) {
+        if (
+            newChain.length > this.chain.length &&
+            this.isValidChain(newChain)
+        ) {
+            console.log("[CHAIN] Replacing chain with received chain");
+            this.chain = newChain;
+        } else {
+            console.log("[CHAIN] Received chain invalid or shorter");
+        }
+    }
+
+    // -----------------------------
+    // MINING
+    // -----------------------------
+    mineBlock(mempoolTransactions) {
         const previousBlock = this.getLatestBlock();
-        const newBlock = new Block(
-            previousBlock.height + 1,
-            Date.now(),
-            previousBlock.hash,
-            minerAddress,
-            CONFIG.DIFFICULTY
+        const index = previousBlock.index + 1;
+        const timestamp = Date.now();
+
+        // nagroda za blok
+        const coinbaseTx = new Transaction(
+            null,
+            this.genesisAddress,
+            this.blockReward,
+            0
         );
 
-        newBlock.mine();
+        const blockTxs = [coinbaseTx, ...mempoolTransactions];
+
+        const newBlock = new Block(
+            index,
+            timestamp,
+            blockTxs,
+            previousBlock.hash,
+            this.difficulty
+        );
+
+        newBlock.mineBlock();
+
+        if (!this.isValidNewBlock(newBlock, previousBlock)) {
+            throw new Error("Invalid mined block");
+        }
+
         this.chain.push(newBlock);
+
+        console.log(
+            `[MINING] New block #${newBlock.index} mined: ${newBlock.hash}`
+        );
 
         return newBlock;
     }
 
-    isChainValid() {
-        for (let i = 1; i < this.chain.length; i++) {
-            const current = this.chain[i];
-            const previous = this.chain[i - 1];
+    // -----------------------------
+    // NETWORK BLOCKS
+    // -----------------------------
+    addBlockFromNetwork(blockData) {
+        const previousBlock = this.getLatestBlock();
 
-            if (current.previousHash !== previous.hash) return false;
-            if (current.hash !== current.calculateHash()) return false;
+        const block = new Block(
+            blockData.index,
+            blockData.timestamp,
+            blockData.transactions,
+            blockData.previousHash,
+            blockData.difficulty,
+            blockData.nonce
+        );
+        block.hash = blockData.hash; // zachowaj hash z sieci
+
+        if (!this.isValidNewBlock(block, previousBlock)) {
+            console.log("[CHAIN] Received block invalid");
+            return false;
         }
+
+        this.chain.push(block);
+        console.log(`[CHAIN] Block #${block.index} added from network`);
         return true;
     }
 
-    // Suma nagród wykopanych przez dany adres
-    getBalance(address) {
-        return this.chain
-            .filter((block) => block.minerAddress === address)
-            .reduce((sum, block) => sum + block.reward, 0);
-    }
+    // -----------------------------
+    // UTILS
+    // -----------------------------
+    getBlock(id) {
+        // id może być indexem lub hashem
+        const byIndex = this.chain.find((b) => b.index == id);
+        if (byIndex) return byIndex;
 
-    getChain() {
-        return this.chain;
-    }
-
-    getInfo() {
-        const latest = this.getLatestBlock();
-        return {
-            height: latest.height,
-            latestHash: latest.hash,
-            difficulty: CONFIG.DIFFICULTY,
-            totalBlocks: this.chain.length,
-            totalSupply: this.chain.length * CONFIG.BLOCK_REWARD,
-            blockReward: CONFIG.BLOCK_REWARD,
-            isValid: this.isChainValid()
-        };
+        const byHash = this.chain.find((b) => b.hash === id);
+        return byHash || null;
     }
 }
 
-module.exports = Blockchain;
-module.exports.Block = Block;
+module.exports = BBCBlockchain;
