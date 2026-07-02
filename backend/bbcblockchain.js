@@ -1,7 +1,6 @@
 // =====================================================
 // BitBudCoin Core
 // bbcblockchain.js
-// Główna klasa Blockchain
 // =====================================================
 
 const Block = require("./block");
@@ -16,19 +15,15 @@ class Blockchain {
         this.initializeChain();
     }
 
-    // =============================================
-    // INICJALIZACJA ŁAŃCUCHA
-    // =============================================
     async initializeChain() {
         const blockCount = db.prepare("SELECT COUNT(*) as count FROM blocks").get().count;
 
         if (blockCount === 0) {
-            // Tworzenie bloku genesis
             console.log("🔨 Tworzenie bloku genesis...");
 
             const genesisBlock = new Block(
                 0,
-                "0", // previousHash
+                "0",
                 CONFIG.GENESIS_TRANSACTIONS,
                 CONFIG.DIFFICULTY,
                 CONFIG.GENESIS_ADDRESS,
@@ -36,29 +31,22 @@ class Blockchain {
             );
 
             genesisBlock.mine();
-
-            // Zapis do bazy
             this.saveBlock(genesisBlock);
             this.chain.push(genesisBlock);
 
-            console.log("✅ Blok genesis utworzony:", genesisBlock.hash);
+            console.log("✅ Genesis block utworzony:", genesisBlock.hash);
         } else {
-            // Wczytanie istniejącego łańcucha
             this.loadChainFromDB();
         }
     }
 
-    // =============================================
-    // WCZYTYWANIE Z BAZY
-    // =============================================
     loadChainFromDB() {
         const blocks = db.prepare("SELECT * FROM blocks ORDER BY height ASC").all();
-
         this.chain = blocks.map(b => {
             const block = new Block(
                 b.height,
                 b.previousHash,
-                [], // transakcje wczytamy osobno jeśli potrzeba
+                [],
                 b.difficulty,
                 b.miner,
                 b.reward
@@ -68,16 +56,13 @@ class Blockchain {
             block.hash = b.hash;
             return block;
         });
-
-        console.log(`✅ Wczytano ${this.chain.length} bloków z bazy.`);
+        console.log(`✅ Wczytano ${this.chain.length} bloków`);
     }
 
-    // =============================================
-    // ZAPIS BLOKU DO BAZY
-    // =============================================
     saveBlock(block) {
         db.prepare(`
-            INSERT INTO blocks (height, hash, previousHash, timestamp, nonce, difficulty, miner, reward)
+            INSERT OR IGNORE INTO blocks 
+            (height, hash, previousHash, timestamp, nonce, difficulty, miner, reward)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
             block.height,
@@ -91,45 +76,34 @@ class Blockchain {
         );
     }
 
-    // =============================================
-    // DODAWANIE TRANSAKCJI
-    // =============================================
-    addTransaction(transaction) {
-        // Prosta walidacja
-        if (!transaction.sender || !transaction.receiver || transaction.amount <= 0) {
+    addTransaction(tx) {
+        if (!tx.sender || !tx.receiver || tx.amount <= 0) {
             throw new Error("Nieprawidłowa transakcja");
         }
-
-        this.pendingTransactions.push(transaction);
-        return true;
+        this.pendingTransactions.push(tx);
+        return { txid: crypto.randomBytes(16).toString('hex') };
     }
 
-    // =============================================
-    // TWORZENIE NOWEGO BLOKU
-    // =============================================
     async createNewBlock(minerAddress) {
         const previousBlock = this.getLatestBlock();
 
         const newBlock = new Block(
             previousBlock.height + 1,
             previousBlock.hash,
-            [...this.pendingTransactions], // kopia transakcji
+            [...this.pendingTransactions],
             CONFIG.DIFFICULTY,
             minerAddress,
             CONFIG.BLOCK_REWARD
         );
 
-        console.log(`⛏️  Kopanie bloku #${newBlock.height}...`);
+        console.log(`⛏️ Kopanie bloku #${newBlock.height}...`);
         newBlock.mine();
 
-        // Zapis
         this.saveBlock(newBlock);
         this.chain.push(newBlock);
-
-        // Czyszczenie oczekujących transakcji
         this.pendingTransactions = [];
 
-        console.log(`✅ Wydobyto blok #${newBlock.height} | Hash: ${newBlock.hash}`);
+        console.log(`✅ Wydobyto blok #${newBlock.height} → ${newBlock.hash}`);
         return newBlock;
     }
 
@@ -137,37 +111,27 @@ class Blockchain {
         return this.chain[this.chain.length - 1];
     }
 
-    // =============================================
-    // WALIDACJA ŁAŃCUCHA
-    // =============================================
     isChainValid() {
         for (let i = 1; i < this.chain.length; i++) {
-            const currentBlock = this.chain[i];
-            const previousBlock = this.chain[i - 1];
+            const current = this.chain[i];
+            const previous = this.chain[i - 1];
 
-            if (currentBlock.hash !== currentBlock.calculateHash()) {
-                return false;
-            }
-
-            if (currentBlock.previousHash !== previousBlock.hash) {
+            if (current.hash !== current.calculateHash() || 
+                current.previousHash !== previous.hash) {
                 return false;
             }
         }
         return true;
     }
 
-    // =============================================
-    // INFORMACJE O ŁAŃCUCHU
-    // =============================================
     getInfo() {
         return {
-            network: CONFIG.NETWORK_NAME,
+            name: CONFIG.NETWORK_NAME,
             symbol: CONFIG.SYMBOL,
-            version: CONFIG.VERSION,
-            chainLength: this.chain.length,
-            pendingTransactions: this.pendingTransactions.length,
-            latestBlock: this.getLatestBlock()?.height || 0,
-            difficulty: CONFIG.DIFFICULTY
+            blocks: this.chain.length,
+            pending: this.pendingTransactions.length,
+            difficulty: CONFIG.DIFFICULTY,
+            latestHash: this.getLatestBlock()?.hash
         };
     }
 }
