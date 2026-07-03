@@ -101,6 +101,26 @@ class Storage {
         }));
     }
 
+    // Zastępuje CAŁĄ zawartość bazy nowym łańcuchem (synchronizacja P2P, gdy peer
+    // ma dłuższy poprawny łańcuch). Atomowo - albo zapisze się cały, albo wcale.
+    replaceChain(records) {
+        this.db.exec("BEGIN");
+        try {
+            this.db.exec("DELETE FROM transactions");
+            this.db.exec("DELETE FROM blocks");
+            for (const r of records) {
+                this._insertBlock.run(r.height, r.timestamp, r.previousHash, r.hash, r.nonce, r.difficulty);
+                for (const tx of r.transactions) {
+                    this._insertTx.run(r.height, tx.from ?? null, tx.to, tx.amount, tx.type);
+                }
+            }
+            this.db.exec("COMMIT");
+        } catch (err) {
+            this.db.exec("ROLLBACK");
+            throw err;
+        }
+    }
+
     close() {
         this.db.close();
     }
