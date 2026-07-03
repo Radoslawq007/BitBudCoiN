@@ -1,187 +1,235 @@
-// =====================================================
-// BitBudCoin Core
-// bbcblockchain.js vMax
-// =====================================================
-
 const crypto = require("crypto");
-const CONFIG = require("../config");
-const Block = require("./block");
-const Transaction = require("./transaction");
+const CONFIG = require("./config");
 
-class BBCBlockchain {
-    constructor() {
-        this.chain = [];
-        this.difficulty = CONFIG.DIFFICULTY;
-        this.blockReward = CONFIG.BLOCK_REWARD;
-        this.genesisAddress = CONFIG.GENESIS_ADDRESS;
+// Maksymalna wartość 256-bitowego hasha - punkt odniesienia dla trudności/targetu
+const MAX_TARGET = (1n << 256n) - 1n;
 
-        this.createGenesisBlock();
+// Zamienia liczbę trudności na 64-znakowy hex target, do którego porównujemy hash.
+// Im WYŻSZA trudność, tym MNIEJSZY target, tym trudniej go "trafić".
+function difficultyToTargetHex(difficulty) {
+    const safeDifficulty = BigInt(Math.max(1, Math.round(difficulty)));
+    const target = MAX_TARGET / safeDifficulty;
+    return target.toString(16).padStart(64, "0");
+}
+
+/**
+ * Pojedynczy blok w łańcuchu. Zamiast pojedynczego "minerAddress" trzyma listę
+ * transakcji - blok genesis niesie premine, każdy kolejny blok niesie transakcję
+ * coinbase (nagrodę dla górnika).
+ */
+class Block {
+    constructor({ height, timestamp, previousHash, transactions, difficulty }) {
+        this.height = height;
+        this.timestamp = timestamp;
+        this.previousHash = previousHash;
+        this.transactions = transactions;
+        this.difficulty = difficulty;
+        this.nonce = 0;
+        this.hash = this.calculateHash();
     }
 
-    // -----------------------------
-    // GENESIS
-    // -----------------------------
+    calculateHash() {
+        return crypto
+            .createHash("sha256")
+            .update(
+                this.height +
+                    this.previousHash +
+                    this.timestamp +
+                    JSON.stringify(this.transactions) +
+                    this.difficulty +
+                    this.nonce
+            )
+            .digest("hex");
+    }
+
+    // Proof-of-work: szukamy hasha <= target (porównanie stringów działa poprawnie,
+    // bo digest("hex") zawsze zwraca 64-znakowy string z wiodącymi zerami)
+    mine(targetHex) {
+        while (this.hash > targetHex) {
+            this.nonce++;
+            this.hash = this.calculateHash();
+        }
+        return this.hash;
+    }
+}
+
+/**
+ * Łańcuch bloków: premine z configu, halving nagrody, pułap podaży,
+ * trudność jako ciągła liczba z okresowym retargetingiem (nie co blok!).
+ */
+class Blockchain {
+    constructor() {
+        // Trudność startowa wyrażona jako "oczekiwana liczba prób" (16^DIFFICULTY
+        // odtwarza starą skalę "N wiodących zer szesnastkowych"), ale dalej może się
+        // przestrajać płynnie, a nie skokowo x16.
+        this.difficulty = Math.pow(16, CONFIG.DIFFICULTY);
+
+        this.actualPremine = (CONFIG.GENESIS_TRANSACTIONS || []).reduce(
+            (sum, tx) => sum + tx.amount,
+            0
+        );
+        if (this.actualPremine !== CONFIG.PREMINE) {
+            console.warn(
+                `⚠️  PREMINE w config.js (${CONFIG.PREMINE}) nie zgadza się z sumą ` +
+                    `GENESIS_TRANSACTIONS (${this.actualPremine}). Traktuję sumę transakcji ` +
+                    `jako faktyczny premine - zaktualizuj config albo listę transakcji.`
+            );
+        }
+
+        this.chain = [this.createGenesisBlock()];
+    }
+
     createGenesisBlock() {
-        const genesisTxs = CONFIG.GENESIS_TRANSACTIONS.map(
-            (t) => new Transaction(CONFIG.GENESIS_ADDRESS, t.to, t.amount, 0)
-        );
+        const transactions = (CONFIG.GENESIS_TRANSACTIONS || []).map((tx) => ({
+            from: CONFIG.GENESIS_ADDRESS,
+            to: tx.to,
+            amount: tx.amount,
+            type: "genesis"
+        }));
 
-        const genesisBlock = new Block(
-            0,
-            Date.now(),
-            genesisTxs,
-            "0",
-            this.difficulty
-        );
-
-        this.chain.push(genesisBlock);
+        return new Block({
+            height: 0,
+            timestamp: Date.now(),
+            previousHash: "0".repeat(64),
+            transactions,
+            difficulty: this.difficulty
+        });
     }
 
     getLatestBlock() {
         return this.chain[this.chain.length - 1];
     }
 
-    getHeight() {
-        return this.chain.length - 1;
+    // Nagroda za dany blok po uwzględnieniu halvingu i pułapu MAX_SUPPLY
+    getRewardForHeight(height) {
+        const halvings = Math.floor(height / CONFIG.HALVING_INTERVAL);
+        const rawReward = CONFIG.BLOCK_REWARD / Math.pow(2, halvings);
+
+        const remaining = CONFIG.MAX_SUPPLY - this.getCirculatingSupply();
+        if (remaining <= 0) return 0;
+
+        return Math.min(rawReward, remaining);
     }
 
-    // -----------------------------
-    // VALIDATION
-    // -----------------------------
-    isValidNewBlock(newBlock, previousBlock) {
-        if (previousBlock.index + 1 !== newBlock.index) return false;
-        if (previousBlock.hash !== newBlock.previousHash) return false;
-        if (newBlock.calculateHash() !== newBlock.hash) return false;
-
-        const target = "0".repeat(newBlock.difficulty);
-        if (!newBlock.hash.startsWith(target)) return false;
-
-        return true;
-    }
-
-    isValidChain(chain) {
-        if (chain.length === 0) return false;
-
-        const genesis = chain[0];
-        if (genesis.index !== 0) return false;
-
-        for (let i = 1; i < chain.length; i++) {
-            if (!this.isValidNewBlock(chain[i], chain[i - 1])) {
-                return false;
+    getCirculatingSupply() {
+        let total = 0;
+        for (const block of this.chain) {
+            for (const tx of block.transactions) {
+                total += tx.amount;
             }
         }
-
-        return true;
+        return total;
     }
 
-    replaceChain(newChain) {
-        if (
-            newChain.length > this.chain.length &&
-            this.isValidChain(newChain)
-        ) {
-            console.log("[CHAIN] Replacing chain with received chain");
-            this.chain = newChain;
-        } else {
-            console.log("[CHAIN] Received chain invalid or shorter");
+    // Kopanie nowego bloku. Zwraca Promise, żeby dało się wywołać z `await`.
+    // UWAGA: przy CONFIG.BLOCK_TIME rzędu minut i uczciwym retargetingu, kopanie
+    // synchroniczne w handlerze requestu potrafi zablokować event loop na długo -
+    // patrz komentarz przy maybeRetarget().
+    async createNewBlock(minerAddress) {
+        if (!minerAddress) {
+            throw new Error("Brak adresu górnika");
         }
-    }
 
-    // -----------------------------
-    // MINING
-    // -----------------------------
-    mineBlock(mempoolTransactions) {
         const previousBlock = this.getLatestBlock();
-        const index = previousBlock.index + 1;
-        const timestamp = Date.now();
+        const height = previousBlock.height + 1;
+        const reward = this.getRewardForHeight(height);
 
-        const coinbaseTx = new Transaction(
-            null,
-            this.genesisAddress,
-            this.blockReward,
-            0
-        );
+        const transactions = [
+            { from: null, to: minerAddress, amount: reward, type: "coinbase" }
+        ];
 
-        const blockTxs = [coinbaseTx, ...mempoolTransactions];
+        const newBlock = new Block({
+            height,
+            timestamp: Date.now(),
+            previousHash: previousBlock.hash,
+            transactions,
+            difficulty: this.difficulty
+        });
 
-        const newBlock = new Block(
-            index,
-            timestamp,
-            blockTxs,
-            previousBlock.hash,
-            this.difficulty
-        );
-
-        newBlock.mineBlock();
-
-        if (!this.isValidNewBlock(newBlock, previousBlock)) {
-            throw new Error("Invalid mined block");
-        }
-
+        newBlock.mine(difficultyToTargetHex(this.difficulty));
         this.chain.push(newBlock);
+        this.maybeRetarget();
 
-        console.log(
-            `[MINING] New block #${newBlock.index} mined: ${newBlock.hash}`
-        );
+        // wygodne skróty używane też przez server.js
+        newBlock.reward = reward;
+        newBlock.minerAddress = minerAddress;
 
         return newBlock;
     }
 
-    // -----------------------------
-    // NETWORK BLOCKS
-    // -----------------------------
-    addBlockFromNetwork(blockData) {
-        const previousBlock = this.getLatestBlock();
+    // Retarguje trudność co CONFIG.DIFFICULTY_ADJUSTMENT bloków (nie co blok!),
+    // na podstawie realnego czasu ostatniego okresu względem BLOCK_TIME.
+    // Zmiana ograniczona do max 4x w górę / 4x w dół na raz (tak jak w Bitcoinie),
+    // żeby jedno odchylenie nie wywindowało trudności do poziomu blokującego serwer.
+    maybeRetarget() {
+        const period = CONFIG.DIFFICULTY_ADJUSTMENT;
+        const latest = this.getLatestBlock();
+        if (latest.height === 0 || latest.height % period !== 0) return;
 
-        const block = new Block(
-            blockData.index,
-            blockData.timestamp,
-            blockData.transactions,
-            blockData.previousHash,
-            blockData.difficulty,
-            blockData.nonce
-        );
-        block.hash = blockData.hash;
+        const periodStart = this.chain[this.chain.length - 1 - period];
+        if (!periodStart) return;
 
-        if (!this.isValidNewBlock(block, previousBlock)) {
-            console.log("[CHAIN] Received block invalid");
-            return false;
+        const actualMs = latest.timestamp - periodStart.timestamp;
+        const expectedMs = period * CONFIG.BLOCK_TIME * 1000;
+
+        const ratio = Math.max(0.25, Math.min(4, expectedMs / actualMs));
+        this.difficulty = Math.max(1, this.difficulty * ratio);
+    }
+
+    isChainValid() {
+        for (let i = 1; i < this.chain.length; i++) {
+            const current = this.chain[i];
+            const previous = this.chain[i - 1];
+
+            if (current.previousHash !== previous.hash) return false;
+            if (current.hash !== current.calculateHash()) return false;
+            if (current.hash > difficultyToTargetHex(current.difficulty)) return false;
         }
-
-        this.chain.push(block);
-        console.log(`[CHAIN] Block #${block.index} added from network`);
         return true;
     }
 
-    // -----------------------------
-    // BALANCE
-    // -----------------------------
+    // Saldo liczone z transakcji: genesis/coinbase tylko dopisują, "transfer"
+    // (gdy powstanie mempool) będzie też odejmować z adresu nadawcy
     getBalance(address) {
         let balance = 0;
-
-        this.chain.forEach((block) => {
-            block.transactions.forEach((tx) => {
-                if (tx.to === address) {
-                    balance += tx.amount;
-                }
-                if (tx.from === address && tx.from !== null) {
-                    balance -= tx.amount + (tx.fee || 0);
-                }
-            });
-        });
-
+        for (const block of this.chain) {
+            for (const tx of block.transactions) {
+                if (tx.to === address) balance += tx.amount;
+                if (tx.type === "transfer" && tx.from === address) balance -= tx.amount;
+            }
+        }
         return balance;
     }
 
-    // -----------------------------
-    // UTILS
-    // -----------------------------
-    getBlock(id) {
-        const byIndex = this.chain.find((b) => b.index == id);
-        if (byIndex) return byIndex;
+    getChain() {
+        return this.chain;
+    }
 
-        const byHash = this.chain.find((b) => b.hash === id);
-        return byHash || null;
+    getInfo() {
+        const latest = this.getLatestBlock();
+        const period = CONFIG.DIFFICULTY_ADJUSTMENT;
+
+        return {
+            network: CONFIG.NETWORK_NAME,
+            symbol: CONFIG.SYMBOL,
+            version: CONFIG.VERSION,
+            chainId: CONFIG.CHAIN_ID,
+            height: latest.height,
+            latestHash: latest.hash,
+            difficulty: Math.round(this.difficulty),
+            difficultyLeadingZerosApprox: Number((Math.log2(this.difficulty) / 4).toFixed(2)),
+            totalBlocks: this.chain.length,
+            currentBlockReward: this.getRewardForHeight(latest.height + 1),
+            circulatingSupply: this.getCirculatingSupply(),
+            maxSupply: CONFIG.MAX_SUPPLY,
+            premine: this.actualPremine,
+            blocksUntilHalving: CONFIG.HALVING_INTERVAL - (latest.height % CONFIG.HALVING_INTERVAL),
+            blocksUntilRetarget: period - (latest.height % period),
+            isValid: this.isChainValid()
+        };
     }
 }
 
-module.exports = BBCBlockchain;
+module.exports = Blockchain;
+module.exports.Block = Block;
+module.exports.difficultyToTargetHex = difficultyToTargetHex;
