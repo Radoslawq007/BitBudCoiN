@@ -157,4 +157,331 @@
         input:focus {
             outline: none;
             border-color: var(--neon-blue);
-            box-shadow: 0 0 10px rgba(0, 210, 255
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+        }
+
+        btn, button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #00ff66 0%, #00b347 100%);
+            border: none;
+            border-radius: 6px;
+            color: #000;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0, 255, 102, 0.3);
+        }
+
+        btn:hover, button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--neon-green);
+        }
+
+        /* MODELE VMAX CARDS */
+        .miners-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+        }
+
+        .miner-card {
+            background: #161b22;
+            border: 1px solid rgba(0, 210, 255, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .miner-card:hover {
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
+            transform: scale(1.03);
+        }
+
+        .miner-card h3 {
+            color: var(--neon-blue);
+            margin-bottom: 10px;
+        }
+
+        .hashrate {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fff;
+            margin: 10px 0;
+        }
+
+        /* BŁĘKITNY PŁOMIEŃ (ANIMACJA REKTORA KOPANIA) */
+        .mining-core {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            background: #090d13;
+            border-radius: 8px;
+            border: 1px dashed var(--neon-blue);
+            margin-top: 20px;
+            position: relative;
+        }
+
+        .flame-container {
+            position: relative;
+            width: 60px;
+            height: 60px;
+            margin-bottom: 15px;
+        }
+
+        .blue-flame {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            background: var(--neon-blue);
+            border-radius: 50% 0 50% 50%;
+            transform: rotate(-45deg) translateX(-0%);
+            animation: burn 1.2s infinite ease-in-out alternate;
+            box-shadow: 
+                0 0 20px var(--neon-blue),
+                0 0 40px rgba(0, 210, 255, 0.6),
+                inset 0 0 10px #fff;
+            filter: blur(1px);
+        }
+
+        @keyframes burn {
+            0% { transform: rotate(-45deg) scale(0.9) skew(2deg, 2deg); }
+            100% { transform: rotate(-45deg) scale(1.15) skew(-2deg, -2deg); }
+        }
+
+        /* LOGI TERMINALA */
+        .terminal-log {
+            background: #05070a;
+            border: 1px solid #222;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 15px;
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            color: #00ff66;
+            font-size: 0.85rem;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            background: rgba(0, 255, 102, 0.1);
+            color: var(--neon-green);
+            border: 1px solid var(--neon-green);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            <svg class="cannabis-icon" viewBox="0 0 24 24">
+                <path d="M12,2C12,2 11.5,6.5 9,8.5C6.5,6.5 6,2 6,2C6,2 6.5,6.5 4.5,8C2.5,6.5 2,4 2,4C2,4 2.5,7.5 5,9.5C2,10.5 1,13 1,13C1,13 3.5,12 5.5,10.5C4,12.5 4,15.5 4,15.5C4,15.5 5.5,13 7,11.5C6.5,14 7,17 7,17C7,17 8.5,14 9.5,12C10.5,14 11,19 11,19C11,19 11.5,15 12,12.5C12.5,15 13,19 13,19C13,19 13.5,14 14.5,12C15.5,14 17,17 17,17C17,17 17.5,14 17,11.5C18.5,13 20,15.5 20,15.5C20,15.5 20,12.5 18.5,10.5C20.5,12 23,13 23,13C23,13 22,10.5 19,9.5C21.5,7.5 22,4 22,4C22,4 21.5,6.5 19.5,8C17.5,6.5 18,2 18,2C18,2 17.5,6.5 15,8.5C12.5,6.5 12,2 12,2Z"/>
+            </svg>
+        </div>
+        <h1>BBC Blockchain Network</h1>
+        <p>Wypasione węzły vMax & Real-Time Mining System</p>
+    </header>
+
+    <main>
+        <div class="left-column">
+            
+            <div class="panel">
+                <h2>Dostępne Maszyny vMax</h2>
+                <div class="miners-grid" id="miners-list">
+                    <div class="miner-card">
+                        <h3>Ładowanie vMax...</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Panel Górniczy (Mine Block)</h2>
+                <div class="form-group">
+                    <label for="miner-address">Adres Portfela Górnika</label>
+                    <input type="text" id="miner-address" placeholder="Wprowadź swój adres BBC...">
+                </div>
+                <button onclick="startMining()">Uruchom Proces Kopania</button>
+
+                <div class="mining-core">
+                    <div class="flame-container">
+                        <div class="blue-flame"></div>
+                    </div>
+                    <div id="mining-status" style="text-align: center; font-size: 0.9rem; color: var(--neon-blue);">
+                        Rdzeń gotowy do generowania bloków.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="right-column">
+            
+            <div class="panel">
+                <h2>Sprawdź Saldo</h2>
+                <div class="form-group">
+                    <input type="text" id="balance-address" placeholder="Adres portfela...">
+                </div>
+                <button style="background: linear-gradient(135deg, #00d2ff 0%, #0066ff 100%); color: white;" onclick="checkBalance()">Pobierz Balans</button>
+                <div id="balance-result" style="margin-top: 15px; font-size: 1.2rem; font-weight: bold; text-align: center;"></div>
+            </div>
+
+            <div class="panel">
+                <h2>Sieć P2P Węzłów</h2>
+                <div style="margin-bottom: 15px;">
+                    Status połączeń: <span class="status-badge" id="peer-count">0 aktywnych</span>
+                </div>
+                <div class="form-group">
+                    <input type="text" id="peer-address" placeholder="host:port (np. localhost:6001)">
+                </div>
+                <button onclick="connectPeer()">Podłącz Nowy Węzeł</button>
+            </div>
+
+            <div class="panel">
+                <h2>Konsola Systemowa</h2>
+                <div class="terminal-log" id="log-screen">
+                    [SYSTEM] Panel kontrolny zainicjalizowany poprawnie...
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // ADRES TWOJEGO BACKENDU (server.js)
+        const API_BASE = 'http://localhost:3000';
+
+        // Funkcja logująca do wirtualnego terminala na stronie
+        function logToTerminal(message) {
+            const logScreen = document.getElementById('log-screen');
+            const time = new Date().toLocaleTimeString();
+            logScreen.innerHTML += `<br>[${time}] ${message}`;
+            logScreen.scrollTop = logScreen.scrollHeight;
+        }
+
+        // 1. Pobieranie modeli vMax z backendu
+        async function loadMiners() {
+            try {
+                const res = await fetch(`${API_BASE}/miners/models`);
+                const models = await res.json();
+                const container = document.getElementById('miners-list');
+                container.innerHTML = '';
+
+                models.forEach(model => {
+                    container.innerHTML += `
+                        <div class="miner-card">
+                            <h3>${model.name}</h3>
+                            <p style="color: var(--text-muted); font-size: 0.8rem;">ID: ${model.id}</p>
+                            <div class="hashrate">${model.hashRate} TH/s</div>
+                            <span class="status-badge" style="border-color: var(--neon-blue); color: var(--neon-blue);">READY</span>
+                        </div>
+                    `;
+                });
+                logToTerminal('Pomyślnie załadowano specyfikacje urządzeń vMax.');
+            } catch (err) {
+                logToTerminal('Błąd ładowania modeli vMax. Upewnij się, że server.js działa.');
+            }
+        }
+
+        // 2. Rozpoczęcie kopania bloków
+        async function startMining() {
+            const address = document.getElementById('miner-address').value;
+            const statusDiv = document.getElementById('mining-status');
+            
+            if (!address) {
+                alert('Musisz podać adres portfela!');
+                return;
+            }
+
+            statusDiv.innerHTML = "Generowanie dowodu pracy (PoW)... Trwa kopanie...";
+            logToTerminal(`Inicjalizacja kopania dla adresu: ${address}`);
+
+            try {
+                const res = await fetch(`${API_BASE}/mine/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ minerAddress: address })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    statusDiv.innerHTML = `<span style="color: var(--neon-green)">ZAKONCZONE SUKCESEM!</span>`;
+                    logToTerminal(`Wykopano blok #${data.blockHeight}! Hash: ${data.hash.substring(0,15)}... Nagroda: ${data.reward} BBC`);
+                } else {
+                    statusDiv.innerHTML = `<span style="color: red">Błąd: ${data.error}</span>`;
+                    logToTerminal(`Błąd serwera: ${data.error}`);
+                }
+            } catch (err) {
+                statusDiv.innerHTML = "Rdzeń rozłączony.";
+                logToTerminal(`Błąd komunikacji z backendem: ${err.message}`);
+            }
+        }
+
+        // 3. Sprawdzanie salda portfela
+        async function checkBalance() {
+            const address = document.getElementById('balance-address').value;
+            if (!address) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/balance/${address}`);
+                const data = await res.json();
+                document.getElementById('balance-result').innerHTML = `Saldo: <span style="color: var(--neon-green)">${data.balance} BBC</span>`;
+                logToTerminal(`Zaktualizowano stan konta dla: ${address}`);
+            } catch (err) {
+                logToTerminal('Nie udało się pobrać salda.');
+            }
+        }
+
+        // 4. Podłączenie do nowego peera P2P
+        async function connectPeer() {
+            const peerAddress = document.getElementById('peer-address').value;
+            if (!peerAddress) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/peers/connect`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address: peerAddress })
+                });
+                const data = await res.json();
+                logToTerminal(`Wysłano żądanie połączenia P2P do: ${peerAddress}`);
+                updatePeersCount();
+            } catch (err) {
+                logToTerminal('Błąd podczas próby łączenia z peerem.');
+            }
+        }
+
+        // 5. Pobieranie statusu sieci P2P (liczba połączeń)
+        async function updatePeersCount() {
+            try {
+                const res = await fetch(`${API_BASE}/peers`);
+                const data = await res.json();
+                // Zakładamy strukturę zwracaną przez p2p.getStatus() – dostosuj jeśli zwraca tablicę
+                const count = Array.isArray(data) ? data.length : (data.connectedPeers || 0);
+                document.getElementById('peer-count').innerText = `${count} aktywnych`;
+            } catch (e) {
+                // cichy fail przy braku sieci
+            }
+        }
+
+        // Odpalenie skryptów przy starcie strony
+        window.onload = () => {
+            loadMiners();
+            updatePeersCount();
+            setInterval(updatePeersCount, 10000); // Odświeżanie sieci co 10 sekund
+        };
+    </script>
+</body>
+</html>
