@@ -1,8 +1,11 @@
 {
   "name": "bbc-blockchain-backend",
   "version": "1.0.0",
-  "description": "Backend blockchainowy BBC z symulacją kopania (proof-of-work)",
+  "description": "BitBudCoin (BbC) - backend blockchainowy z proof-of-work i persystencją w SQLite",
   "main": "server.js",
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js"
@@ -12,3 +15,4 @@
     "express": "^4.19.2"
   }
 }
+
