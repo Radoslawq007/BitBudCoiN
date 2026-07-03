@@ -52,6 +52,17 @@ app.get("/balance/:address", (req, res) => {
 });
 
 const PORT = CONFIG.API_PORT;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`🚀 BBC Backend działa na porcie ${PORT}`);
 });
+
+// Łagodne zamknięcie - domykamy bazę, żeby nie zostawić otwartego pliku/WAL-a
+function shutdown() {
+    console.log("\n🛑 Zamykanie serwera...");
+    server.close(() => {
+        blockchain.close();
+        process.exit(0);
+    });
+}
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
