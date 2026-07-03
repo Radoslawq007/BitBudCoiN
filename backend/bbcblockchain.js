@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const CONFIG = require("./config");
+const Storage = require("./storage");
 
 // Maksymalna wartość 256-bitowego hasha - punkt odniesienia dla trudności/targetu
 const MAX_TARGET = (1n << 256n) - 1n;
@@ -51,6 +52,20 @@ class Block {
         }
         return this.hash;
     }
+
+    // Odtwarza blok 1:1 z rekordu bazy danych (gotowy nonce/hash, bez ponownego
+    // kopania). Zachowuje prototyp Block, więc calculateHash()/mine() nadal działają.
+    static fromRecord({ height, timestamp, previousHash, transactions, difficulty, nonce, hash }) {
+        const block = Object.create(Block.prototype);
+        block.height = height;
+        block.timestamp = timestamp;
+        block.previousHash = previousHash;
+        block.transactions = transactions;
+        block.difficulty = difficulty;
+        block.nonce = nonce;
+        block.hash = hash;
+        return block;
+    }
 }
 
 /**
@@ -58,25 +73,42 @@ class Block {
  * trudność jako ciągła liczba z okresowym retargetingiem (nie co blok!).
  */
 class Blockchain {
-    constructor() {
-        // Trudność startowa wyrażona jako "oczekiwana liczba prób" (16^DIFFICULTY
-        // odtwarza starą skalę "N wiodących zer szesnastkowych"), ale dalej może się
-        // przestrajać płynnie, a nie skokowo x16.
-        this.difficulty = Math.pow(16, CONFIG.DIFFICULTY);
+    constructor(dbPath = CONFIG.DATABASE) {
+        this.storage = new Storage(dbPath);
 
-        this.actualPremine = (CONFIG.GENESIS_TRANSACTIONS || []).reduce(
-            (sum, tx) => sum + tx.amount,
-            0
-        );
-        if (this.actualPremine !== CONFIG.PREMINE) {
-            console.warn(
-                `⚠️  PREMINE w config.js (${CONFIG.PREMINE}) nie zgadza się z sumą ` +
-                    `GENESIS_TRANSACTIONS (${this.actualPremine}). Traktuję sumę transakcji ` +
-                    `jako faktyczny premine - zaktualizuj config albo listę transakcji.`
+        if (this.storage.hasBlocks()) {
+            // Łańcuch już istnieje na dysku - wczytujemy go 1:1, genesis traktujemy
+            // jako historyczny fakt (nie przeliczamy go na nowo z aktualnego configu,
+            // bo config mógł się zmienić już po utworzeniu łańcucha)
+            this.chain = this.storage.loadChain().map((record) => Block.fromRecord(record));
+            this.difficulty = this.getLatestBlock().difficulty;
+            this.actualPremine = this.chain[0].transactions.reduce((sum, tx) => sum + tx.amount, 0);
+
+            console.log(
+                `📦 Wczytano istniejący łańcuch z "${dbPath}" - ${this.chain.length} bloków, ` +
+                    `wysokość ${this.getLatestBlock().height}`
             );
-        }
+        } else {
+            // Świeża baza - budujemy genesis z configu i od razu go zapisujemy
+            this.difficulty = Math.pow(16, CONFIG.DIFFICULTY);
+            this.actualPremine = (CONFIG.GENESIS_TRANSACTIONS || []).reduce(
+                (sum, tx) => sum + tx.amount,
+                0
+            );
+            if (this.actualPremine !== CONFIG.PREMINE) {
+                console.warn(
+                    `⚠️  PREMINE w config.js (${CONFIG.PREMINE}) nie zgadza się z sumą ` +
+                        `GENESIS_TRANSACTIONS (${this.actualPremine}). Traktuję sumę transakcji ` +
+                        `jako faktyczny premine - zaktualizuj config albo listę transakcji.`
+                );
+            }
 
-        this.chain = [this.createGenesisBlock()];
+            const genesis = this.createGenesisBlock();
+            this.chain = [genesis];
+            this.storage.saveBlock(genesis);
+
+            console.log(`🌱 Nowy łańcuch - zapisano genesis blok do "${dbPath}"`);
+        }
     }
 
     createGenesisBlock() {
@@ -148,6 +180,7 @@ class Blockchain {
 
         newBlock.mine(difficultyToTargetHex(this.difficulty));
         this.chain.push(newBlock);
+        this.storage.saveBlock(newBlock);
         this.maybeRetarget();
 
         // wygodne skróty używane też przez server.js
@@ -203,6 +236,11 @@ class Blockchain {
 
     getChain() {
         return this.chain;
+    }
+
+    // Bezpiecznie zamyka połączenie z bazą - wołać przy zamykaniu serwera (SIGINT/SIGTERM)
+    close() {
+        this.storage.close();
     }
 
     getInfo() {
