@@ -1,357 +1,160 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8">
-<title>Zielony BBc IntegracyjnY — ULTRA LEGEND</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBC Mining Network - vMax Control Panel</title>
+    <style>
+        /* MROCZNY MOTYW BAZOWY */
+        :root {
+            --bg-color: #06080c;
+            --card-bg: #0d1117;
+            --neon-green: #00ff66;
+            --neon-blue: #00d2ff;
+            --text-color: #e2e8f0;
+            --text-muted: #8b949e;
+        }
 
-<style>
-/* ====== ULTRA LEGEND BBC ====== */
-:root {
-  --brick1: #0d0d10;
-  --brick2: #1a1a1f;
-  --brick3: #101015;
-  --accent: #5bff8a;   /* neon jasnozielony */
-  --accent2: #9bffb8;
-  --text: #e5f7ea;
-  --muted: #9fbfae;
-  --border: #26302f;
-  --flame1: #6ecbff;   /* błękitne płomienie */
-  --flame2: #3aa0ff;
-  --smoke: #35ff7a55;  /* zielony dym neonowy */
-  --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
 
-/* ====== TŁO: CIEMNA CEGŁA ULTRA ====== */
-body {
-  margin: 0;
-  font-family: var(--font);
-  color: var(--text);
-  background:
-    linear-gradient(135deg, var(--brick1), var(--brick2), var(--brick3)),
-    linear-gradient(#111318 1px, transparent 1px),
-    linear-gradient(90deg, #111318 1px, transparent 1px);
-  background-size: cover, 28px 28px, 28px 28px;
-  overflow-x: hidden;
-}
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
 
-/* ====== ZIELONY DYM — ULTRA ====== */
-.smoke {
-  position: fixed;
-  top: -25%;
-  left: 0;
-  width: 100%;
-  height: 150%;
-  background: radial-gradient(circle, var(--smoke) 0%, transparent 60%);
-  filter: blur(45px);
-  animation: smokeMove 16s infinite linear;
-  pointer-events: none;
-  z-index: -1;
-}
-@keyframes smokeMove {
-  0% { transform: translateX(-25%) translateY(0); }
-  50% { transform: translateX(25%) translateY(-12%); }
-  100% { transform: translateX(-25%) translateY(0); }
-}
+        /* ZIELONY NEONOWY DYM (EFEKT W TLE) */
+        body::before, body::after {
+            content: "";
+            position: fixed;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(0, 255, 102, 0.15) 0%, rgba(0,0,0,0) 70%);
+            border-radius: 50%;
+            z-index: -1;
+            filter: blur(60px);
+            animation: smokeMovement 10s infinite alternate ease-in-out;
+        }
+        body::before { top: -100px; left: -100px; }
+        body::after { bottom: -100px; right: -100px; animation-delay: 5s; }
 
-/* ====== REALISTYCZNE BŁĘKITNE PŁOMIENIE — ULTRA ====== */
-.flames {
-  position: fixed;
-  bottom: -12%;
-  left: 0;
-  width: 100%;
-  height: 48%;
-  background:
-    radial-gradient(circle at 50% 100%, rgba(255,255,255,0.9) 0%, transparent 40%),
-    radial-gradient(circle at 30% 100%, var(--flame1) 0%, transparent 55%),
-    radial-gradient(circle at 70% 100%, var(--flame2) 0%, transparent 55%);
-  filter: blur(32px);
-  animation: flamesPulse 3.5s infinite ease-in-out;
-  pointer-events: none;
-  z-index: -1;
-}
-@keyframes flamesPulse {
-  0% { opacity: 0.35; }
-  50% { opacity: 0.85; }
-  100% { opacity: 0.35; }
-}
+        @keyframes smokeMovement {
+            0% { transform: translate(0, 0) scale(1); filter: blur(60px); }
+            100% { transform: translate(80px, 50px) scale(1.2); filter: blur(80px); rgba(0, 255, 102, 0.25); }
+        }
 
-/* ====== HEADER ====== */
-header {
-  padding: 1.2rem 1.4rem;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(5,6,8,0.92);
-  backdrop-filter: blur(14px);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-}
-.logo-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 20%, var(--accent) 0, #0b1510 40%, transparent 60%),
-    radial-gradient(circle at 70% 80%, var(--accent) 0, #0b1510 40%, transparent 60%);
-  box-shadow: 0 0 28px rgba(91,255,138,1);
-  position: relative;
-}
-.logo-icon::after {
-  content: "♣";
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #0b1510;
-  font-size: 26px;
-  font-weight: 700;
-}
-.logo-text h1 {
-  margin: 0;
-  font-size: 1.45rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--accent);
-  text-shadow: 0 0 18px rgba(91,255,138,1);
-}
-.logo-text span {
-  font-size: 0.85rem;
-  color: var(--muted);
-}
+        /* NAGŁÓWEK Z LOGO KONOPI */
+        header {
+            text-align: center;
+            padding: 30px 20px;
+            background: rgba(13, 17, 23, 0.8);
+            border-bottom: 2px solid var(--neon-green);
+            box-shadow: 0 0 20px rgba(0, 255, 102, 0.3);
+            backdrop-filter: blur(10px);
+        }
 
-nav {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-nav a {
-  text-decoration: none;
-  color: var(--text);
-  font-size: 0.9rem;
-  padding: 0.4rem 0.9rem;
-  border-radius: 999px;
-  background: rgba(16,18,24,0.9);
-  border: 1px solid transparent;
-  transition: 0.18s ease;
-}
-nav a:hover {
-  border-color: var(--accent);
-  background: rgba(27,59,38,1);
-  box-shadow: 0 0 14px rgba(91,255,138,0.7);
-}
+        .logo-container {
+            margin-bottom: 10px;
+        }
 
-/* ====== KONOPIA NEONOWA — ULTRA ====== */
-.big-weed {
-  width: 190px;
-  height: 190px;
-  margin: 1.6rem auto 0.8rem;
-  background: url('https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Cannabis_leaf.svg/1024px-Cannabis_leaf.svg.png')
-              center/contain no-repeat;
-  filter:
-    drop-shadow(0 0 22px rgba(91,255,138,1))
-    drop-shadow(0 0 40px rgba(91,255,138,0.9));
-  animation: weedPulse 2.8s infinite ease-in-out;
-}
-@keyframes weedPulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.12); }
-  100% { transform: scale(1); }
-}
+        /* JASNO ZIELONA KONOPIA INDYJSKA (SVG NEON) */
+        .cannabis-icon {
+            width: 80px;
+            height: 80px;
+            fill: var(--neon-green);
+            filter: drop-shadow(0 0 12px var(--neon-green));
+            animation: pulseGlow 3s infinite alternate;
+        }
 
-/* ====== POWITANIE ====== */
-.welcome {
-  text-align: center;
-  margin: 1rem auto 1.8rem;
-  padding: 1.6rem 1rem;
-  max-width: 900px;
-}
-.welcome-title {
-  font-size: 2.5rem;
-  margin: 0;
-  color: var(--accent);
-  text-shadow: 0 0 22px rgba(91,255,138,1);
-}
-.welcome-title span {
-  color: var(--accent2);
-  text-shadow: 0 0 26px rgba(91,255,138,1);
-}
-.welcome-sub {
-  margin-top: 0.8rem;
-  font-size: 1.15rem;
-  color: var(--muted);
-}
+        @keyframes pulseGlow {
+            0% { filter: drop-shadow(0 0 8px var(--neon-green)); }
+            100% { filter: drop-shadow(0 0 20px var(--neon-green)); }
+        }
 
-/* ====== KARTY ====== */
-main {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 1.4rem;
-}
-.card {
-  background: rgba(11,14,19,0.97);
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  padding: 1.2rem 1.3rem;
-  margin-bottom: 1.2rem;
-  box-shadow: 0 20px 45px rgba(0,0,0,0.85);
-}
-.card h2 {
-  margin: 0 0 0.7rem;
-  color: var(--accent);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-size: 1rem;
-}
-.info-list {
-  list-style: none;
-  padding: 0;
-  margin: 0.5rem 0 0;
-  font-size: 0.95rem;
-}
-.info-list li {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.3rem 0;
-  border-bottom: 1px dashed rgba(38,48,47,0.85);
-}
-.info-list li span:first-child {
-  color: var(--muted);
-}
-.info-list li span:last-child {
-  color: var(--text);
-  font-weight: 500;
-}
-.info-list a {
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: 500;
-}
-.info-list a:hover {
-  text-shadow: 0 0 10px rgba(91,255,138,1);
-}
+        header h1 {
+            font-size: 2rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #fff;
+            text-shadow: 0 0 10px var(--neon-green);
+        }
 
-/* ====== STOPKA ====== */
-footer {
-  padding: 1.2rem;
-  text-align: center;
-  color: var(--muted);
-  border-top: 1px solid var(--border);
-  margin-top: 1.6rem;
-  background: rgba(5,6,8,0.92);
-}
+        header p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
 
-/* ====== RESPONSYWNOŚĆ ====== */
-@media (max-width: 768px) {
-  header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.7rem;
-  }
-  .big-weed {
-    width: 150px;
-    height: 150px;
-    margin-top: 1rem;
-  }
-  .welcome-title {
-    font-size: 2rem;
-  }
-  main {
-    padding: 1rem 0.8rem;
-  }
-}
-</style>
-</head>
+        /* UKŁAD STRONY */
+        main {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+        }
 
-<body>
-<div class="smoke"></div>
-<div class="flames"></div>
+        @media (max-width: 900px) {
+            main { grid-template-columns: 1fr; }
+        }
 
-<header>
-  <div class="logo">
-    <div class="logo-icon"></div>
-    <div class="logo-text">
-      <h1>BitBudCoiN</h1>
-      <span>Zielony BBc IntegracyjnY</span>
-    </div>
-  </div>
+        /* SEKCJE / KARTY */
+        .panel {
+            background: var(--card-bg);
+            border: 1px solid rgba(0, 255, 102, 0.2);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+        }
 
-  <nav>
-    <a href="index.html">🏠 Hub</a>
-    <a href="wallet.html">👛 Portfel</a>
-    <a href="miner.html">⛏️ Koparka</a>
-    <a href="explorer.html">🔍 Explorer</a>
-    <a href="network.html">🌐 Sieć</a>
-  </nav>
-</header>
+        /* Efekt poświaty dymu na panelach */
+        .panel::border-inside {
+            box-shadow: inset 0 0 15px rgba(0, 255, 102, 0.05);
+        }
 
-<div class="big-weed"></div>
+        h2 {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--neon-green);
+            padding-left: 10px;
+            text-shadow: 0 0 5px rgba(0, 255, 102, 0.5);
+        }
 
-<section class="welcome">
-  <h1 class="welcome-title">🍃 Zielony <span>BBc IntegracyjnY</span></h1>
-  <p class="welcome-sub">dzień dobry radoslaw — ULTRA LEGEND BBCChain: cegła, neon, dym, płomienie</p>
-</section>
+        /* FORMULARZE I PRZYCISKI */
+        .form-group {
+            margin-bottom: 20px;
+        }
 
-<main>
-  <div class="card">
-    <h2>Status sieci BBC</h2>
-    <ul class="info-list" id="info-list">
-      <li><span>Wysokość łańcucha</span><span id="height">–</span></li>
-      <li><span>Liczba bloków</span><span id="blocks">–</span></li>
-      <li><span>Aktualna nagroda</span><span id="reward">–</span></li>
-      <li><span>Trudność</span><span id="difficulty">–</span></li>
-      <li><span>Nazwa sieci</span><span id="network">–</span></li>
-    </ul>
-  </div>
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
 
-  <div class="card">
-    <h2>Moduły BBC</h2>
-    <ul class="info-list">
-      <li><span>👛 Portfel</span><span><a href="wallet.html">Otwórz</a></span></li>
-      <li><span>⛏️ Koparka</span><span><a href="miner.html">Otwórz</a></span></li>
-      <li><span>🔍 Explorer</span><span><a href="explorer.html">Otwórz</a></span></li>
-      <li><span>🌐 Sieć</span><span><a href="network.html">Otwórz</a></span></li>
-    </ul>
-  </div>
-</main>
+        input {
+            width: 100%;
+            padding: 12px;
+            background: #161b22;
+            border: 1px solid rgba(0, 255, 102, 0.3);
+            border-radius: 6px;
+            color: #fff;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
 
-<footer>
-  BitBudCoiN • Zielony BBc IntegracyjnY • ULTRA LEGEND EDITION 🍃🔥💨
-</footer>
-
-<script>
-const API_BASE = "https://twoj-backend-url"; // PODMIEŃ NA SWÓJ BACKEND
-
-async function loadInfo() {
-  try {
-    const res = await fetch(API_BASE + "/info");
-    if (!res.ok) throw new Error("Backend niedostępny");
-    const data = await res.json();
-
-    document.getElementById("height").textContent = data.height ?? "–";
-    document.getElementById("blocks").textContent = data.blocks ?? "–";
-    document.getElementById("reward").textContent = data.currentReward ?? "–";
-    document.getElementById("difficulty").textContent = data.difficulty ?? "–";
-    document.getElementById("network").textContent = data.networkName ?? "BBC";
-  } catch (e) {
-    document.getElementById("height").textContent = "offline";
-    document.getElementById("blocks").textContent = "offline";
-    document.getElementById("reward").textContent = "offline";
-    document.getElementById("difficulty").textContent = "offline";
-    document.getElementById("network").textContent = "offline";
-  }
-}
-
-loadInfo();
-</script>
-
-</body>
-</html>
+        input:focus {
+            outline: none;
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 10px rgba(0, 210, 255
