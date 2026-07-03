@@ -1,185 +1,103 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8">
-<title>BBC Wallet + vMax</title>
-<style>
-    body { margin:0; background:#0a0a0a; color:#e5e5e5; font-family:Consolas, monospace; }
-    header { background:#111; padding:20px; border-bottom:2px solid #222; display:flex; justify-content:space-between; align-items:center; }
-    .logo { width: 140px; filter: drop-shadow(0 0 15px #00ff88); }
-    main { max-width:700px; margin:30px auto; padding:20px; }
-    .panel { background:#111; border:1px solid #222; padding:25px; border-radius:10px; margin-bottom:25px; }
-    input, select { width:100%; padding:12px; background:#0f0f0f; border:1px solid #333; color:#eee; border-radius:6px; margin-bottom:15px; }
-    button { width:100%; padding:14px; background:#00ffaa; color:#000; border:none; font-weight:bold; cursor:pointer; border-radius:6px; }
-    button:hover { background:#00dd99; }
-    .balance { font-size:38px; font-weight:bold; color:#00ffaa; text-align:center; margin:20px 0; }
-    .status { padding:12px; background:#1a1a1a; border-radius:6px; margin-top:10px; }
-</style>
+  <meta charset="UTF-8">
+  <title>BBC Portfel – balans adresu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin:0; font-family: system-ui; background:#050608; color:#e5f7ea; }
+    main { max-width:600px; margin:0 auto; padding:1.5rem; }
+    h1 { margin:0 0 0.5rem; }
+    p { margin:0 0 1rem; color:#7f8b86; }
+    .card {
+      background:#0b0e13;
+      border-radius:16px;
+      border:1px solid #202530;
+      padding:1.1rem;
+      box-shadow:0 18px 40px rgba(0,0,0,0.6);
+    }
+    label { display:block; font-size:0.85rem; margin-bottom:0.3rem; color:#7f8b86; }
+    input {
+      width:100%;
+      padding:0.5rem 0.7rem;
+      border-radius:999px;
+      border:1px solid #202530;
+      background:#050608;
+      color:#e5f7ea;
+      outline:none;
+      font-size:0.9rem;
+    }
+    input:focus {
+      border-color:#35ff7a;
+      box-shadow:0 0 10px rgba(53,255,122,0.5);
+    }
+    button {
+      margin-top:0.7rem;
+      width:100%;
+      padding:0.55rem 0.8rem;
+      border-radius:999px;
+      border:none;
+      background:#1b3b26;
+      color:#35ff7a;
+      font-weight:600;
+      cursor:pointer;
+      font-size:0.9rem;
+      box-shadow:0 0 12px rgba(53,255,122,0.4);
+    }
+    button:hover { filter:brightness(1.1); }
+    .result {
+      margin-top:0.8rem;
+      font-size:0.9rem;
+    }
+    .error { color:#ff4b6b; font-size:0.8rem; margin-top:0.4rem; }
+    a.back {
+      display:inline-block;
+      margin-bottom:0.8rem;
+      font-size:0.85rem;
+      color:#35ff7a;
+      text-decoration:none;
+    }
+  </style>
 </head>
 <body>
-
-<header>
-    <img src="https://i.imgur.com/OruL3.png" class="logo" alt="BitBudCoiN">
-    <div class="logo" style="font-size:22px;">BBC WALLET</div>
-    <a href="index.html" style="color:#888">← Home</a>
-</header>
-
 <main>
-    <div class="panel">
-        <h2>Twój Portfel</h2>
-        <button onclick="generateWallet()">🔑 Wygeneruj Nowy Portfel</button>
-        <input type="text" id="walletAddress" placeholder="Twój adres BBC" readonly>
-        <input type="text" id="privateKey" placeholder="Private Key" readonly>
-        <div class="balance" id="balanceDisplay">0.00 BBC</div>
-        <button onclick="checkBalance()">Odśwież Saldo</button>
-    </div>
+  <a href="index.html" class="back">← Powrót do hubu</a>
+  <h1>BBC Portfel</h1>
+  <p>Sprawdź balans dowolnego adresu w sieci BitBudCoiN. Idealne do testów i zabawy z nagrodami.</p>
 
-    <div class="panel">
-        <h2>Szybkie Kopanie vMax</h2>
-        <select id="modelSelect">
-            <option value="vmax1">vMax 1</option>
-            <option value="vmax2">vMax 2 Turbo</option>
-            <option value="vmax3">vMax 3 Pro</option>
-        </select>
-        <button onclick="quickMine()">⛏️ Kopaj Teraz</button>
-        <div id="mineStatus" class="status">Wybierz model i kliknij Kopaj</div>
-    </div>
-
-    <div class="panel">
-        <h2>Wyślij BBC</h2>
-        <input type="text" id="toAddress" placeholder="Adres odbiorcy">
-        <input type="number" id="amount" placeholder="Ilość BBC" step="0.01">
-        <input type="number" id="fee" placeholder="Opłata (fee)" step="0.001" value="0.001">
-        <button onclick="sendTransaction()">Wyślij Transakcję</button>
-        <div id="txStatus" class="status"></div>
-    </div>
+  <div class="card">
+    <label for="address">Adres BBC (np. hash portfela)</label>
+    <input id="address" placeholder="Wklej lub wpisz adres...">
+    <button onclick="checkBalance()">Sprawdź balans</button>
+    <div class="result" id="result"></div>
+    <div class="error" id="error"></div>
+  </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/elliptic@6.5.4/dist/elliptic.min.js"></script>
-
 <script>
-const API = "http://localhost:5000";
+  const API_BASE = "https://twoj-backend-url"; // PODMIEŃ
 
-let privateKey = "";
-let publicKey = "";
-let address = "";
+  async function checkBalance() {
+    const addr = document.getElementById("address").value.trim();
+    const resultEl = document.getElementById("result");
+    const errorEl = document.getElementById("error");
+    resultEl.textContent = "";
+    errorEl.textContent = "";
 
-// =====================================================
-// GENEROWANIE PORTFELA
-// =====================================================
-function generateWallet() {
-    const ec = new elliptic.ec("secp256k1");
-    const key = ec.genKeyPair();
-
-    privateKey = key.getPrivate("hex");
-    publicKey = key.getPublic("hex");
-
-    address = "BbC" + sha256(publicKey).substring(0, 40);
-
-    document.getElementById("walletAddress").value = address;
-    document.getElementById("privateKey").value = privateKey;
-
-    checkBalance();
-}
-
-function sha256(str) {
-    return CryptoJS.SHA256(str).toString();
-}
-
-// =====================================================
-// BALANCE
-// =====================================================
-async function checkBalance() {
-    if (!address) return;
+    if (!addr) {
+      errorEl.textContent = "Podaj adres, żeby sprawdzić balans.";
+      return;
+    }
 
     try {
-        const res = await fetch(`${API}/balance/${address}`);
-        const data = await res.json();
-        document.getElementById("balanceDisplay").textContent =
-            (data.balance || 0).toFixed(2) + " BBC";
-    } catch {
-        document.getElementById("balanceDisplay").textContent = "0.00 BBC";
+      const res = await fetch(`${API_BASE}/balance/${encodeURIComponent(addr)}`);
+      if (!res.ok) throw new Error("Backend niedostępny");
+      const data = await res.json();
+      resultEl.textContent = `Adres: ${data.address} • Balans: ${data.balance} BBC`;
+    } catch (e) {
+      errorEl.textContent = "Nie udało się pobrać balansu. Sprawdź backend.";
     }
-}
-
-// =====================================================
-// MINING
-// =====================================================
-async function quickMine() {
-    if (!address) return alert("Najpierw wygeneruj portfel!");
-
-    const status = document.getElementById("mineStatus");
-    status.textContent = "⛏️ Kopanie w toku...";
-
-    try {
-        const res = await fetch(`${API}/mine`, { method: "POST" });
-        const data = await res.json();
-
-        status.textContent = "✔ Blok wykopany!";
-        checkBalance();
-    } catch {
-        status.textContent = "❌ Błąd kopania";
-    }
-}
-
-// =====================================================
-// WYSYŁANIE TRANSAKCJI
-// =====================================================
-async function sendTransaction() {
-    if (!privateKey || !publicKey || !address)
-        return alert("Najpierw wygeneruj portfel!");
-
-    const to = document.getElementById("toAddress").value;
-    const amount = Number(document.getElementById("amount").value);
-    const fee = Number(document.getElementById("fee").value);
-
-    if (!to || !amount) return alert("Wypełnij wszystkie pola!");
-
-    const ec = new elliptic.ec("secp256k1");
-    const key = ec.keyFromPrivate(privateKey, "hex");
-
-    const payload = {
-        from: address,
-        to,
-        amount,
-        fee,
-        timestamp: Date.now()
-    };
-
-    const hash = CryptoJS.SHA256(JSON.stringify(payload)).toString();
-    const signature = key.sign(hash).toDER("hex");
-
-    const tx = {
-        ...payload,
-        fromPublicKey: publicKey,
-        signature
-    };
-
-    const status = document.getElementById("txStatus");
-    status.textContent = "📤 Wysyłanie...";
-
-    try {
-        const res = await fetch(`${API}/transaction`, {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify(tx)
-        });
-
-        const data = await res.json();
-
-        if (data.error) {
-            status.textContent = "❌ " + data.error;
-        } else {
-            status.textContent = "✔ Transakcja wysłana!";
-            checkBalance();
-        }
-    } catch {
-        status.textContent = "❌ Błąd wysyłania";
-    }
-}
+  }
 </script>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-
 </body>
 </html>
