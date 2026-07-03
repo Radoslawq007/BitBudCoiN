@@ -1,49 +1,136 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8">
-<title>BBC Network • Statystyki</title>
-
-<style>
-    body { margin:0; background:#0a0a0a; color:#e5e5e5; font-family:Consolas, monospace; }
-    header { background:#111; padding:20px; border-bottom:2px solid #222; display:flex; justify-content:space-between; align-items:center; }
-    .logo { font-size:24px; color:#00ffaa; font-weight:bold; }
-    a { color:#888; text-decoration:none; }
-    main { max-width:1000px; margin:30px auto; padding:20px; }
-
-    .card { background:#111; border:1px solid #222; border-radius:10px; padding:25px; margin-bottom:25px; }
-    .card h2 { margin-top:0; color:#00ffaa; }
-
-    .value { font-size:32px; font-weight:bold; color:#00ffaa; margin:10px 0; }
-
-    canvas { width:100%; height:300px; background:#0f0f0f; border-radius:10px; margin-top:20px; }
-</style>
+  <meta charset="UTF-8">
+  <title>BBC Sieć – peer‑to‑peer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin:0; font-family:system-ui; background:#050608; color:#e5f7ea; }
+    main { max-width:700px; margin:0 auto; padding:1.5rem; }
+    h1 { margin:0 0 0.5rem; }
+    p { margin:0 0 1rem; color:#7f8b86; }
+    .card {
+      background:#0b0e13;
+      border-radius:16px;
+      border:1px solid #202530;
+      padding:1.1rem;
+      box-shadow:0 18px 40px rgba(0,0,0,0.6);
+    }
+    .peers { list-style:none; padding:0; margin:0; font-size:0.9rem; }
+    .peers li {
+      padding:0.35rem 0;
+      border-bottom:1px dashed rgba(32,37,48,0.7);
+      display:flex;
+      justify-content:space-between;
+    }
+    .error { color:#ff4b6b; font-size:0.8rem; margin-top:0.4rem; }
+    label { display:block; font-size:0.85rem; margin-top:0.8rem; color:#7f8b86; }
+    input {
+      width:100%;
+      padding:0.5rem 0.7rem;
+      border-radius:999px;
+      border:1px solid #202530;
+      background:#050608;
+      color:#e5f7ea;
+      outline:none;
+      font-size:0.9rem;
+      margin-top:0.3rem;
+    }
+    input:focus {
+      border-color:#35ff7a;
+      box-shadow:0 0 10px rgba(53,255,122,0.5);
+    }
+    button {
+      margin-top:0.5rem;
+      width:100%;
+      padding:0.55rem 0.8rem;
+      border-radius:999px;
+      border:none;
+      background:#1b3b26;
+      color:#35ff7a;
+      font-weight:600;
+      cursor:pointer;
+      font-size:0.9rem;
+      box-shadow:0 0 12px rgba(53,255,122,0.4);
+    }
+    button:hover { filter:brightness(1.1); }
+    a.back { display:inline-block; margin-bottom:0.8rem; font-size:0.85rem; color:#35ff7a; text-decoration:none; }
+  </style>
 </head>
-
 <body>
-
-<header>
-    <div class="logo">BBC NETWORK STATS vMax</div>
-    <a href="index.html">← Home</a>
-</header>
-
 <main>
+  <a href="index.html" class="back">← Powrót do hubu</a>
+  <h1>BBC Sieć</h1>
+  <p>Podgląd peer‑to‑peer oraz możliwość ręcznego podłączenia się do innego węzła.</p>
 
-<div class="card">
-    <h2>Podsumowanie sieci</h2>
+  <div class="card">
+    <h2 style="font-size:0.95rem; margin:0 0 0.6rem;">Aktywne peery</h2>
+    <ul class="peers" id="peers"></ul>
+    <div class="error" id="error"></div>
 
-    <div>Aktywne węzły:</div>
-    <div class="value" id="nodeCount">0</div>
+    <label for="peerAddress">Dodaj peer (host:port)</label>
+    <input id="peerAddress" placeholder="np. 127.0.0.1:6001">
+    <button onclick="connectPeer()">Połącz z peerem</button>
+  </div>
+</main>
 
-    <div>Średni ping:</div>
-    <div class="value" id="avgPing">0 ms</div>
+<script>
+  const API_BASE = "https://twoj-backend-url"; // PODMIEŃ
 
-    <div>Średnia wysokość chainu:</div>
-    <div class="value" id="avgHeight">0</div>
+  async function loadPeers() {
+    const list = document.getElementById("peers");
+    const errorEl = document.getElementById("error");
+    list.innerHTML = "";
+    errorEl.textContent = "";
 
-    <div>Średnia trudność:</div>
-    <div class="value" id="avgDifficulty">0</div>
-</div>
+    try {
+      const res = await fetch(API_BASE + "/peers");
+      if (!res.ok) throw new Error("Backend niedostępny");
+      const data = await res.json();
 
-<div class="card">
-    <h2>Aktywność
+      if (!data.peers || !data.peers.length) {
+        list.innerHTML = "<li><span>Brak aktywnych peerów</span><span>–</span></li>";
+        return;
+      }
+
+      data.peers.forEach(p => {
+        const li = document.createElement("li");
+        li.innerHTML = `<span>${p.address}</span><span>${p.status || "online"}</span>`;
+        list.appendChild(li);
+      });
+    } catch (e) {
+      errorEl.textContent = "Nie udało się pobrać listy peerów.";
+    }
+  }
+
+  async function connectPeer() {
+    const addr = document.getElementById("peerAddress").value.trim();
+    const errorEl = document.getElementById("error");
+    errorEl.textContent = "";
+
+    if (!addr) {
+      errorEl.textContent = "Podaj adres w formacie host:port.";
+      return;
+    }
+
+    try {
+      const res = await fetch(API_BASE + "/peers/connect", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ address: addr })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Błąd połączenia");
+      errorEl.style.color = "#35ff7a";
+      errorEl.textContent = `Łączenie z peerem: ${data.address}`;
+      setTimeout(loadPeers, 1500);
+    } catch (e) {
+      errorEl.style.color = "#ff4b6b";
+      errorEl.textContent = "Nie udało się połączyć z peerem: " + e.message;
+    }
+  }
+
+  loadPeers();
+</script>
+</body>
+</html>
