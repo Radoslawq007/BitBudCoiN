@@ -13,6 +13,46 @@ function difficultyToTargetHex(difficulty) {
     return target.toString(16).padStart(64, "0");
 }
 
+// Liczy hash bloku z jego pól. Samodzielna funkcja (nie metoda Block), żeby dało
+// się nią walidować surowe rekordy przychodzące z sieci (JSON od peera), zanim
+// jeszcze zdecydujemy, czy w ogóle zamienić je na obiekty Block.
+function computeBlockHash({ height, previousHash, timestamp, transactions, difficulty, nonce }) {
+    return crypto
+        .createHash("sha256")
+        .update(height + previousHash + timestamp + JSON.stringify(transactions) + difficulty + nonce)
+        .digest("hex");
+}
+
+// Waliduje dowolną tablicę "rekordów bloków" (zwykłe obiekty, niekoniecznie
+// instancje Block) - używane zarówno dla this.chain, jak i łańcucha otrzymanego
+// od peera przez P2P, zanim go przyjmiemy. Genesis (i=0) NIE jest kopany, więc
+// sprawdzamy dla niego tylko spójność hasha z treścią, bez wymogu trudności.
+function isValidChainRecords(records) {
+    if (!Array.isArray(records) || records.length === 0) return false;
+
+    const genesis = records[0];
+    if (genesis.height !== 0 || genesis.previousHash !== "0".repeat(64)) return false;
+    if (computeBlockHash(genesis) !== genesis.hash) return false;
+
+    for (let i = 1; i < records.length; i++) {
+        const b = records[i];
+        const prev = records[i - 1];
+
+        if (computeBlockHash(b) !== b.hash) return false;
+        if (b.hash > difficultyToTargetHex(b.difficulty)) return false;
+        if (b.previousHash !== prev.hash) return false;
+        if (b.height !== prev.height + 1) return false;
+        if (b.timestamp < prev.timestamp) return false;
+    }
+    return true;
+}
+
+// Genesis MUSI być deterministyczny - żeby dwa niezależnie odpalone węzły z tym
+// samym config.js dały IDENTYCZNY hash bloku 0 (inaczej nigdy nie zsynchronizują
+// się przez P2P, bo każdy "swój" genesis wygląda jak inna sieć). Dlatego stały
+// znacznik czasu, a nie Date.now() przy starcie procesu.
+const GENESIS_TIMESTAMP = Date.UTC(2026, 0, 1); // 2026-01-01T00:00:00Z
+
 /**
  * Pojedynczy blok w łańcuchu. Zamiast pojedynczego "minerAddress" trzyma listę
  * transakcji - blok genesis niesie premine, każdy kolejny blok niesie transakcję
@@ -30,17 +70,7 @@ class Block {
     }
 
     calculateHash() {
-        return crypto
-            .createHash("sha256")
-            .update(
-                this.height +
-                    this.previousHash +
-                    this.timestamp +
-                    JSON.stringify(this.transactions) +
-                    this.difficulty +
-                    this.nonce
-            )
-            .digest("hex");
+        return computeBlockHash(this);
     }
 
     // Proof-of-work: szukamy hasha <= target (porównanie stringów działa poprawnie,
@@ -121,7 +151,7 @@ class Blockchain {
 
         return new Block({
             height: 0,
-            timestamp: Date.now(),
+            timestamp: GENESIS_TIMESTAMP,
             previousHash: "0".repeat(64),
             transactions,
             difficulty: this.difficulty
@@ -210,15 +240,59 @@ class Blockchain {
     }
 
     isChainValid() {
-        for (let i = 1; i < this.chain.length; i++) {
-            const current = this.chain[i];
-            const previous = this.chain[i - 1];
+        return isValidChainRecords(this.chain);
+    }
 
-            if (current.previousHash !== previous.hash) return false;
-            if (current.hash !== current.calculateHash()) return false;
-            if (current.hash > difficultyToTargetHex(current.difficulty)) return false;
+    // Przyjmuje POJEDYNCZY blok od peera, który bezpośrednio przedłuża nasz czubek
+    // łańcucha (szybka ścieżka przy propagacji nowo wykopanego bloku - bez pełnej
+    // resynchronizacji). Zwraca {accepted, reason?/block}.
+    receiveBlock(record) {
+        const latest = this.getLatestBlock();
+
+        if (record.height !== latest.height + 1) {
+            return {
+                accepted: false,
+                reason: `oczekiwano wysokości ${latest.height + 1}, dostałem ${record.height}`
+            };
         }
-        return true;
+        if (record.previousHash !== latest.hash) {
+            return { accepted: false, reason: "previousHash nie pasuje do naszego czubka łańcucha" };
+        }
+        if (computeBlockHash(record) !== record.hash) {
+            return { accepted: false, reason: "hash bloku nie zgadza się z jego zawartością" };
+        }
+        if (record.hash > difficultyToTargetHex(record.difficulty)) {
+            return { accepted: false, reason: "hash nie spełnia deklarowanej trudności" };
+        }
+
+        const block = Block.fromRecord(record);
+        this.chain.push(block);
+        this.storage.saveBlock(block);
+        this.maybeRetarget();
+
+        return { accepted: true, block };
+    }
+
+    // Zastępuje CAŁY nasz łańcuch łańcuchem otrzymanym od peera (synchronizacja /
+    // reguła "najdłuższy poprawny łańcuch wygrywa"). Przyjmuje tylko jeśli: ten sam
+    // genesis (ta sama sieć), łańcuch w pełni poprawny i DŁUŻSZY niż nasz obecny.
+    replaceChain(records) {
+        if (!Array.isArray(records) || records.length <= this.chain.length) {
+            return { accepted: false, reason: "otrzymany łańcuch nie jest dłuższy niż nasz" };
+        }
+        if (!records[0] || records[0].hash !== this.chain[0].hash) {
+            return { accepted: false, reason: "inny blok genesis - to inna sieć" };
+        }
+        if (!isValidChainRecords(records)) {
+            return { accepted: false, reason: "łańcuch zawiera nieprawidłowe/niespójne bloki" };
+        }
+
+        this.storage.replaceChain(records);
+        this.chain = records.map((r) => Block.fromRecord(r));
+        this.difficulty = this.getLatestBlock().difficulty;
+        this.actualPremine = this.chain[0].transactions.reduce((sum, tx) => sum + tx.amount, 0);
+
+        return { accepted: true, height: this.getLatestBlock().height };
     }
 
     // Saldo liczone z transakcji: genesis/coinbase tylko dopisują, "transfer"
@@ -271,3 +345,5 @@ class Blockchain {
 module.exports = Blockchain;
 module.exports.Block = Block;
 module.exports.difficultyToTargetHex = difficultyToTargetHex;
+module.exports.computeBlockHash = computeBlockHash;
+module.exports.isValidChainRecords = isValidChainRecords;
