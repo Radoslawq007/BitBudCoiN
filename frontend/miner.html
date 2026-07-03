@@ -1,99 +1,134 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8">
-<title>BBC Miner • vMax</title>
-
-<style>
-    body { margin:0; background:#0a0a0a; color:#e5e5e5; font-family:Consolas, monospace; text-align:center; }
-    header { background:#111; padding:20px; border-bottom:2px solid #222; display:flex; justify-content:space-between; align-items:center; }
-    .logo { font-size:24px; color:#00ffaa; font-weight:bold; }
-    main { max-width:900px; margin:30px auto; padding:20px; }
-    .models { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:20px; margin:30px 0; }
-    .model-card { background:#111; border:2px solid #222; border-radius:10px; padding:20px; transition:0.3s; }
-    .model-card:hover { border-color:#00ffaa; transform:translateY(-5px); }
-    .hashrate { font-size:32px; font-weight:bold; color:#00ffaa; }
-    button { width:100%; padding:14px; background:#00ffaa; color:#000; border:none; font-weight:bold; cursor:pointer; border-radius:6px; margin-top:15px; }
-    button:hover { background:#00dd99; }
-    #status { margin:25px 0; padding:20px; background:#111; border-radius:10px; min-height:80px; }
-    .mining { animation: pulse 1.2s infinite alternate; color:#00ff88; }
-    @keyframes pulse { from {opacity:0.6;} to {opacity:1;} }
-</style>
+  <meta charset="UTF-8">
+  <title>BBC Koparka – kopanie bloków</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin:0; font-family:system-ui; background:#050608; color:#e5f7ea; }
+    main { max-width:700px; margin:0 auto; padding:1.5rem; }
+    h1 { margin:0 0 0.5rem; }
+    p { margin:0 0 1rem; color:#7f8b86; }
+    .card {
+      background:#0b0e13;
+      border-radius:16px;
+      border:1px solid #202530;
+      padding:1.1rem;
+      box-shadow:0 18px 40px rgba(0,0,0,0.6);
+    }
+    label { display:block; font-size:0.85rem; margin-bottom:0.3rem; color:#7f8b86; }
+    input, select {
+      width:100%;
+      padding:0.5rem 0.7rem;
+      border-radius:999px;
+      border:1px solid #202530;
+      background:#050608;
+      color:#e5f7ea;
+      outline:none;
+      font-size:0.9rem;
+      margin-bottom:0.5rem;
+    }
+    input:focus, select:focus {
+      border-color:#35ff7a;
+      box-shadow:0 0 10px rgba(53,255,122,0.5);
+    }
+    button {
+      margin-top:0.4rem;
+      width:100%;
+      padding:0.55rem 0.8rem;
+      border-radius:999px;
+      border:none;
+      background:#1b3b26;
+      color:#35ff7a;
+      font-weight:600;
+      cursor:pointer;
+      font-size:0.9rem;
+      box-shadow:0 0 12px rgba(53,255,122,0.4);
+    }
+    button:hover { filter:brightness(1.1); }
+    .result { margin-top:0.8rem; font-size:0.9rem; }
+    .error { color:#ff4b6b; font-size:0.8rem; margin-top:0.4rem; }
+    .models { font-size:0.85rem; margin-top:0.6rem; color:#7f8b86; }
+    a.back { display:inline-block; margin-bottom:0.8rem; font-size:0.85rem; color:#35ff7a; text-decoration:none; }
+  </style>
 </head>
-
 <body>
-
-<header>
-    <div class="logo">BBC MINER vMax</div>
-    <a href="index.html" style="color:#888">← Home</a>
-</header>
-
 <main>
-    <h2>Wybierz model vMax</h2>
+  <a href="index.html" class="back">← Powrót do hubu</a>
+  <h1>BBC Koparka</h1>
+  <p>Wybierz model koparki, podaj adres i spróbuj wykopać blok. Backend zadba o resztę.</p>
 
-    <div class="models" id="modelsContainer"></div>
+  <div class="card">
+    <label for="minerAddress">Adres kopacza (odbiorca nagrody)</label>
+    <input id="minerAddress" placeholder="Adres BBC, na który trafi nagroda...">
 
-    <input type="text" id="minerAddress" placeholder="Twój adres BBC"
-        style="width:80%;padding:12px;background:#111;border:1px solid #333;color:white;border-radius:6px;margin:15px 0;">
+    <label for="model">Model koparki</label>
+    <select id="model"></select>
 
-    <div id="status">Wybierz model i podaj adres...</div>
+    <button onclick="startMining()">Rozpocznij kopanie</button>
+
+    <div class="models" id="modelsInfo"></div>
+    <div class="result" id="result"></div>
+    <div class="error" id="error"></div>
+  </div>
 </main>
 
 <script>
-const API = "http://localhost:5000";
+  const API_BASE = "https://twoj-backend-url"; // PODMIEŃ
 
-// MODELE vMax — frontend-only
-const MODELS = [
-    { id: "vmax1", name: "vMax 1", hashRate: "120 H/s" },
-    { id: "vmax2", name: "vMax 2 Turbo", hashRate: "240 H/s" },
-    { id: "vmax3", name: "vMax 3 Pro", hashRate: "480 H/s" }
-];
+  async function loadModels() {
+    const select = document.getElementById("model");
+    const info = document.getElementById("modelsInfo");
+    try {
+      const res = await fetch(API_BASE + "/miners/models");
+      if (!res.ok) throw new Error("Backend niedostępny");
+      const models = await res.json();
+      select.innerHTML = "";
+      models.forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m.id;
+        opt.textContent = `${m.name} (${m.hashRate} H/s)`;
+        select.appendChild(opt);
+      });
+      info.textContent = "Modele dostępne w sieci BBC: " +
+        models.map(m => `${m.name} (${m.hashRate} H/s)`).join(", ");
+    } catch (e) {
+      info.textContent = "Nie udało się pobrać modeli koparek. Backend może być offline.";
+    }
+  }
 
-// ŁADOWANIE MODELI
-function loadModels() {
-    const container = document.getElementById("modelsContainer");
-    container.innerHTML = "";
-
-    MODELS.forEach(m => {
-        const card = document.createElement("div");
-        card.className = "model-card";
-
-        card.innerHTML = `
-            <h3>${m.name}</h3>
-            <div class="hashrate">${m.hashRate}</div>
-            <button onclick="startMining('${m.id}', '${m.name}')">Uruchom ${m.name}</button>
-        `;
-
-        container.appendChild(card);
-    });
-}
-
-// START MINING
-async function startMining(modelId, modelName) {
+  async function startMining() {
     const addr = document.getElementById("minerAddress").value.trim();
-    const status = document.getElementById("status");
+    const model = document.getElementById("model").value;
+    const resultEl = document.getElementById("result");
+    const errorEl = document.getElementById("error");
+    resultEl.textContent = "";
+    errorEl.textContent = "";
 
-    if (!addr) return alert("Podaj adres BBC!");
-
-    status.innerHTML = `<span class="mining">⛏️ ${modelName} pracuje...</span>`;
+    if (!addr) {
+      errorEl.textContent = "Podaj adres, na który ma trafić nagroda.";
+      return;
+    }
 
     try {
-        const res = await fetch(`${API}/mine`, { method: "POST" });
-        const data = await res.json();
-
-        status.innerHTML = `
-            ✅ Sukces!<br>
-            Blok #${data.block.index}<br>
-            Nagroda: 50 BBC<br>
-            Miner: ${addr.substring(0, 16)}...
-        `;
+      const res = await fetch(API_BASE + "/mine/start", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ minerAddress: addr, model })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Błąd kopania");
+      }
+      const data = await res.json();
+      resultEl.textContent =
+        `Status: ${data.status} • Wysokość bloku: ${data.blockHeight} • Hash: ${data.hash} • Nagroda: ${data.reward} BBC`;
     } catch (e) {
-        status.textContent = "❌ Błąd kopania";
+      errorEl.textContent = "Nie udało się wykopać bloku: " + e.message;
     }
-}
+  }
 
-loadModels();
+  loadModels();
 </script>
-
 </body>
 </html>
