@@ -16,13 +16,15 @@ const MAX_SEEN_SHARE_HASHES = 20000;
  * CONFIG.POOL_ADDRESS - tak to działa w prawdziwych pulach, bo tylko WSPÓLNY
  * szablon (ten sam hash do policzenia) pozwala wielu górnikom pracować nad tym
  * samym blokiem. Podział między górników jest liczony TUTAJ jako "należność"
- * (pool_credits) - realna WYPŁATA na indywidualne adresy górników wymaga systemu
- * transakcji/mempoola (kolejny temat z configu, jeszcze niezbudowany). Na razie
- * to widoczny, policzony dług, nie automatyczny przelew.
+ * (pool_credits, GET /pool/credits/:adres) - to widoczny, policzony dług.
+ * Realna WYPŁATA z portfela puli na indywidualne adresy górników to osobna
+ * transakcja typu "transfer" (patrz mempool.js) - portfel puli musiałby ją
+ * podpisać swoim kluczem prywatnym i wysłać, tak jak każdy inny użytkownik.
  */
 class MiningPool {
-    constructor(blockchain, { poolAddress, poolFee, shareDifficulty } = {}) {
+    constructor(blockchain, { poolAddress, poolFee, shareDifficulty, mempool } = {}) {
         this.blockchain = blockchain;
+        this.mempool = mempool ?? null;
         this.poolAddress = poolAddress ?? CONFIG.POOL_ADDRESS;
         this.poolFee = poolFee ?? CONFIG.POOL_FEE;
         this.shareDifficulty = Math.pow(16, shareDifficulty ?? CONFIG.SHARE_DIFFICULTY);
@@ -33,16 +35,15 @@ class MiningPool {
 
     // Świeży szablon pracy - liczony na bieżąco z AKTUALNEGO czubka łańcucha przy
     // każdym wywołaniu (nie cache'owany), więc samoczynnie "leczy się" po zmianach
-    // z P2P czy po /mine/start - zero osobnej logiki unieważniania.
+    // z P2P czy po /mine/start - zero osobnej logiki unieważniania. Dolicza też
+    // oczekujące transakcje z mempoola (jeśli podłączony) - pula zbiera ich opłaty.
     getWork(minerAddress) {
         const latest = this.blockchain.getLatestBlock();
         const height = latest.height + 1;
-        const reward = this.blockchain.getRewardForHeight(height);
         const blockDifficulty = this.blockchain.difficulty;
 
-        const transactions = [
-            { from: null, to: this.poolAddress, amount: reward, type: "coinbase" }
-        ];
+        const pendingTxs = this.mempool ? this.mempool.selectForBlock() : [];
+        const transactions = this.blockchain.buildBlockTransactions(this.poolAddress, pendingTxs);
 
         return {
             height,
@@ -104,6 +105,7 @@ class MiningPool {
         }
 
         const payouts = this._finalizeRound(result.block);
+        if (this.mempool) this.mempool.pruneConfirmed(result.block);
         return { accepted: true, share: true, blockFound: true, block: result.block, payouts };
     }
 
