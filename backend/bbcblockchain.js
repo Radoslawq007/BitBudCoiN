@@ -173,32 +173,65 @@ class Blockchain {
         return Math.min(rawReward, remaining);
     }
 
+    // Tylko genesis (premine) i coinbase (nagroda za blok) to NOWO wybite monety.
+    // "transfer" i "fee" tylko przesuwają już istniejące monety między adresami -
+    // liczenie ich tutaj podwajałoby podaż przy każdym przelewie.
     getCirculatingSupply() {
         let total = 0;
         for (const block of this.chain) {
             for (const tx of block.transactions) {
-                total += tx.amount;
+                if (tx.type === "genesis" || tx.type === "coinbase") total += tx.amount;
             }
         }
         return total;
     }
 
+    // Buduje listę transakcji nowego bloku: coinbase (nagroda) + wybrane transfery
+    // z mempoola + jedna zbiorcza transakcja opłat dla znalazcy bloku (jeśli jakieś
+    // opłaty zebrano). Współdzielone przez solo-mining (createNewBlock) i pulę (pool.js),
+    // żeby reguły "kto ile dostaje" istniały w JEDNYM miejscu.
+    buildBlockTransactions(rewardRecipient, pendingTransactions = []) {
+        const height = this.getLatestBlock().height + 1;
+        const reward = this.getRewardForHeight(height);
+
+        const transactions = [{ from: null, to: rewardRecipient, amount: reward, type: "coinbase" }];
+
+        let totalFees = 0;
+        for (const tx of pendingTransactions) {
+            transactions.push({
+                from: tx.from,
+                to: tx.to,
+                amount: tx.amount,
+                fee: tx.fee,
+                timestamp: tx.timestamp,
+                publicKey: tx.publicKey,
+                signature: tx.signature,
+                type: "transfer"
+            });
+            totalFees += tx.fee;
+        }
+
+        if (totalFees > 0) {
+            transactions.push({ from: null, to: rewardRecipient, amount: totalFees, type: "fee" });
+        }
+
+        return transactions;
+    }
+
     // Kopanie nowego bloku. Zwraca Promise, żeby dało się wywołać z `await`.
+    // `pendingTransactions` to transakcje wybrane WCZEŚNIEJ przez wywołującego
+    // (zwykle mempool.selectForBlock()) - Blockchain nie zna mempoola bezpośrednio.
     // UWAGA: przy CONFIG.BLOCK_TIME rzędu minut i uczciwym retargetingu, kopanie
     // synchroniczne w handlerze requestu potrafi zablokować event loop na długo -
     // patrz komentarz przy maybeRetarget().
-    async createNewBlock(minerAddress) {
+    async createNewBlock(minerAddress, pendingTransactions = []) {
         if (!minerAddress) {
             throw new Error("Brak adresu górnika");
         }
 
         const previousBlock = this.getLatestBlock();
         const height = previousBlock.height + 1;
-        const reward = this.getRewardForHeight(height);
-
-        const transactions = [
-            { from: null, to: minerAddress, amount: reward, type: "coinbase" }
-        ];
+        const transactions = this.buildBlockTransactions(minerAddress, pendingTransactions);
 
         const newBlock = new Block({
             height,
@@ -214,7 +247,7 @@ class Blockchain {
         this.maybeRetarget();
 
         // wygodne skróty używane też przez server.js
-        newBlock.reward = reward;
+        newBlock.reward = transactions[0].amount; // sama dotacja blokowa, bez opłat
         newBlock.minerAddress = minerAddress;
 
         return newBlock;
@@ -295,14 +328,16 @@ class Blockchain {
         return { accepted: true, height: this.getLatestBlock().height };
     }
 
-    // Saldo liczone z transakcji: genesis/coinbase tylko dopisują, "transfer"
-    // (gdy powstanie mempool) będzie też odejmować z adresu nadawcy
+    // Saldo liczone z transakcji: genesis/coinbase/fee tylko dopisują, "transfer"
+    // odejmuje nadawcy KWOTĘ + OPŁATĘ (opłata trafia do kogoś innego jako "fee")
     getBalance(address) {
         let balance = 0;
         for (const block of this.chain) {
             for (const tx of block.transactions) {
                 if (tx.to === address) balance += tx.amount;
-                if (tx.type === "transfer" && tx.from === address) balance -= tx.amount;
+                if (tx.type === "transfer" && tx.from === address) {
+                    balance -= tx.amount + (tx.fee || 0);
+                }
             }
         }
         return balance;
