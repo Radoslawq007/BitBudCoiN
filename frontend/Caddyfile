@@ -1,0 +1,33 @@
+# Konfiguracja Caddy dla BitBudCoin - automatyczne, darmowe HTTPS (Let's Encrypt),
+# bez ręcznego zarządzania certyfikatami.
+#
+# Instalacja Caddy: https://caddyserver.com/docs/install
+# Użycie:
+#   1. Podmień "twoja-domena.pl" na swoją prawdziwą domenę (musi wskazywać na ten serwer)
+#   2. Zapisz jako Caddyfile w katalogu projektu
+#   3. Uruchom Node normalnie (npm start) - domyślnie słucha na 127.0.0.1
+#   4. W OSOBNYM terminalu/usłudze: caddy run
+#
+# Caddy sam wystawi certyfikat i odnowi go automatycznie. Node dalej działa
+# tylko na loopbacku - z zewnątrz widoczny jest wyłącznie Caddy (port 443).
+
+twoja-domena.pl {
+    reverse_proxy 127.0.0.1:5000
+
+    # Podstawowe nagłówki bezpieczeństwa
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+    }
+
+    log {
+        output file /var/log/caddy/bitbudcoin-access.log
+    }
+}
+
+# Opcjonalnie: osobna subdomena tylko dla węzła P2P, jeśli chcesz go też
+# wystawić przez HTTPS/WSS - w tym projekcie P2P to surowe TCP, więc NIE
+# przechodzi przez Caddy (Caddy proxuje HTTP/HTTPS, nie surowe TCP portu 6001).
+# Port P2P (CONFIG.P2P_PORT) wystaw bezpośrednio przez firewall, jeśli inne
+# węzły mają się z Tobą łączyć spoza Twojej sieci.
