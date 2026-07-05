@@ -58,6 +58,22 @@ class Storage {
         `);
         this.db.exec("CREATE INDEX IF NOT EXISTS idx_credits_miner ON pool_credits(minerAddress)");
 
+        // Mempool: transakcje zaakceptowane (podpis OK, saldo starcza), ale jeszcze
+        // niewykopane w żadnym bloku. Trzymane trwale, żeby restart serwera ich nie gubił.
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS mempool (
+                signature TEXT PRIMARY KEY,
+                from_address TEXT NOT NULL,
+                to_address TEXT NOT NULL,
+                amount REAL NOT NULL,
+                fee REAL NOT NULL,
+                timestamp INTEGER NOT NULL,
+                publicKey TEXT NOT NULL,
+                receivedAt INTEGER NOT NULL
+            )
+        `);
+        this.db.exec("CREATE INDEX IF NOT EXISTS idx_mempool_from ON mempool(from_address)");
+
         this._insertBlock = this.db.prepare(
             "INSERT INTO blocks (height, timestamp, previousHash, hash, nonce, difficulty) VALUES (?, ?, ?, ?, ?, ?)"
         );
@@ -70,6 +86,11 @@ class Storage {
         this._selectCredits = this.db.prepare(
             "SELECT * FROM pool_credits WHERE minerAddress = ? ORDER BY blockHeight ASC"
         );
+        this._insertMempoolTx = this.db.prepare(
+            "INSERT OR REPLACE INTO mempool (signature, from_address, to_address, amount, fee, timestamp, publicKey, receivedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        );
+        this._deleteMempoolTx = this.db.prepare("DELETE FROM mempool WHERE signature = ?");
+        this._selectMempool = this.db.prepare("SELECT * FROM mempool ORDER BY fee DESC, receivedAt ASC");
     }
 
     hasBlocks() {
@@ -159,6 +180,36 @@ class Storage {
         const rows = this._selectCredits.all(minerAddress);
         const totalCredited = rows.reduce((sum, r) => sum + r.amount, 0);
         return { minerAddress, totalCredited, entries: rows };
+    }
+
+    saveMempoolTx(tx) {
+        this._insertMempoolTx.run(
+            tx.signature,
+            tx.from,
+            tx.to,
+            tx.amount,
+            tx.fee,
+            tx.timestamp,
+            tx.publicKey,
+            tx.receivedAt
+        );
+    }
+
+    deleteMempoolTx(signature) {
+        this._deleteMempoolTx.run(signature);
+    }
+
+    loadMempool() {
+        return this._selectMempool.all().map((row) => ({
+            from: row.from_address,
+            to: row.to_address,
+            amount: row.amount,
+            fee: row.fee,
+            timestamp: row.timestamp,
+            publicKey: row.publicKey,
+            signature: row.signature,
+            receivedAt: row.receivedAt
+        }));
     }
 }
 
