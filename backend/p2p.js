@@ -20,8 +20,9 @@ const RECONNECT_DELAY_MS = 5000;
  *   NEW_BLOCK  { block }                               - propagacja świeżo wykopanego bloku
  */
 class P2PNode {
-    constructor(blockchain, { port, peers } = {}) {
+    constructor(blockchain, { port, peers, mempool } = {}) {
         this.blockchain = blockchain;
+        this.mempool = mempool ?? null;
         this.port = port ?? CONFIG.P2P_PORT;
         this.initialPeers = peers ?? CONFIG.PEERS ?? [];
 
@@ -227,6 +228,7 @@ class P2PNode {
                 const result = this.blockchain.replaceChain(message.chain);
                 if (result.accepted) {
                     console.log(`✅ Przyjęto dłuższy łańcuch od ${remoteAddr} - nowa wysokość ${result.height}`);
+                    if (this.mempool) this.mempool.revalidateAll();
                 } else {
                     console.log(`↪️  Odrzucono łańcuch od ${remoteAddr}: ${result.reason}`);
                 }
@@ -243,6 +245,7 @@ class P2PNode {
                     const result = this.blockchain.receiveBlock(b);
                     if (result.accepted) {
                         console.log(`⛏️  Przyjęto nowy blok #${b.height} od ${remoteAddr}`);
+                        if (this.mempool) this.mempool.pruneConfirmed(result.block);
                         this.broadcast({ type: "NEW_BLOCK", block: b }, remoteAddr);
                     } else {
                         console.log(`↪️  Odrzucono blok #${b.height} od ${remoteAddr}: ${result.reason}`);
