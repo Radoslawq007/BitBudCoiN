@@ -2,54 +2,53 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>BBC Exchange • vMax</title>
-
-<style>
-    body { margin:0; background:#0a0a0a; color:#e5e5e5; font-family:Consolas, monospace; text-align:center; }
-    header { background:#111; padding:20px; border-bottom:2px solid #222; display:flex; justify-content:space-between; align-items:center; }
-    .logo { font-size:24px; color:#00ffaa; font-weight:bold; }
-    a { color:#888; text-decoration:none; }
-    main { max-width:900px; margin:30px auto; padding:20px; }
-
-    .card { background:#111; border:1px solid #222; border-radius:10px; padding:25px; margin-bottom:25px; }
-    .card h2 { margin-top:0; color:#00ffaa; }
-
-    input { width:100%; padding:12px; background:#0f0f0f; border:1px solid #333; color:#eee; border-radius:6px; margin-bottom:15px; }
-    button { width:100%; padding:14px; background:#00ffaa; color:#000; border:none; font-weight:bold; cursor:pointer; border-radius:6px; }
-    button:hover { background:#00dd99; }
-
-    .priceBox { font-size:28px; font-weight:bold; color:#00ffaa; margin:15px 0; }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Giełda — BitBudCoin</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
 </head>
-
 <body>
 
-<header>
-    <div class="logo">BBC EXCHANGE vMax</div>
-    <a href="index.html">← Home</a>
-</header>
+<nav class="nav">
+    <a href="index.html" class="brand"><img src="assets/logo.svg" alt="BitBudCoin"> BitBudCoin</a>
+    <div class="nav-links">
+        <a href="index.html" id="nav-index">Start</a>
+        <a href="dashboard.html" id="nav-dashboard">Dashboard</a>
+        <a href="explorer.html" id="nav-explorer">Explorer</a>
+        <a href="miner.html" id="nav-miner">Miner</a>
+        <a href="network.html" id="nav-network">Sieć</a>
+        <a href="peers.html" id="nav-peers">Peery</a>
+        <a href="exchange.html" id="nav-exchange">Giełda</a>
+        <a href="address.html" id="nav-address">Adres</a>
+        <a href="docks.html" id="nav-docks">Docs</a>
+    </div>
+    <div class="nav-status">
+        <span class="flame-pill" id="nav-status"><span class="flame-dot"></span><span id="nav-status-text">łączę…</span></span>
+    </div>
+</nav>
 
-<main>
-
-<div class="card">
-    <h2>Aktualne ceny</h2>
-    <div class="priceBox">BTC: <span id="btcPrice">...</span> USD</div>
-    <div class="priceBox">BBC: <span id="bbcPrice">0.000002</span> USD</div>
+<div class="page">
+    <div class="empty-state" style="margin-top:40px;">
+        <div class="glyph">🔥</div>
+        <h1 style="margin-bottom:8px;">Giełda jeszcze się nie pali</h1>
+        <p style="max-width:480px; margin:0 auto 20px;">
+            Handel BbC (order book, pary handlowe, dopasowywanie zleceń) nie jest jeszcze
+            częścią sieci — na razie BitBudCoin to warstwa łańcucha i portfeli, bez modułu giełdowego.
+        </p>
+        <p style="max-width:480px; margin:0 auto 24px; font-size:0.9rem;">
+            Do tego czasu monety BbC można przesyłać bezpośrednio między adresami
+            (podpisane transakcje Ed25519) — to już działa.
+        </p>
+        <a class="btn" href="address.html">Sprawdź swój adres</a>
+        <a class="btn secondary" href="docks.html" style="margin-left:10px;">Dokumentacja API</a>
+    </div>
 </div>
 
-<div class="card">
-    <h2>BBC → BTC / USD</h2>
-    <input type="number" id="bbcInput" placeholder="Ilość BBC" step="0.000001">
-    <button onclick="convertBBC()">Przelicz</button>
+<footer>BitBudCoin (BbC) · sieć proof-of-work · <a href="docks.html">dokumentacja</a></footer>
 
-    <div class="priceBox" id="bbcToBTC">BTC: ...</div>
-    <div class="priceBox" id="bbcToUSD">USD: ...</div>
-</div>
-
-<div class="card">
-    <h2>BTC → BBC</h2>
-    <input type="number" id="btcInput" placeholder="Ilość BTC" step="0.00000001">
-    <button onclick="convertBTC()">Przelicz</button>
-
-    <div class="priceBox" id="btcToBBC">BBC: ...</div>
-</div>
+<script src="assets/api.js"></script>
+<script src="assets/nav.js"></script>
+</body>
+</html>
