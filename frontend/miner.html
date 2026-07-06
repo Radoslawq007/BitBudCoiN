@@ -1,134 +1,115 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
-  <title>BBC Koparka – kopanie bloków</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { margin:0; font-family:system-ui; background:#050608; color:#e5f7ea; }
-    main { max-width:700px; margin:0 auto; padding:1.5rem; }
-    h1 { margin:0 0 0.5rem; }
-    p { margin:0 0 1rem; color:#7f8b86; }
-    .card {
-      background:#0b0e13;
-      border-radius:16px;
-      border:1px solid #202530;
-      padding:1.1rem;
-      box-shadow:0 18px 40px rgba(0,0,0,0.6);
-    }
-    label { display:block; font-size:0.85rem; margin-bottom:0.3rem; color:#7f8b86; }
-    input, select {
-      width:100%;
-      padding:0.5rem 0.7rem;
-      border-radius:999px;
-      border:1px solid #202530;
-      background:#050608;
-      color:#e5f7ea;
-      outline:none;
-      font-size:0.9rem;
-      margin-bottom:0.5rem;
-    }
-    input:focus, select:focus {
-      border-color:#35ff7a;
-      box-shadow:0 0 10px rgba(53,255,122,0.5);
-    }
-    button {
-      margin-top:0.4rem;
-      width:100%;
-      padding:0.55rem 0.8rem;
-      border-radius:999px;
-      border:none;
-      background:#1b3b26;
-      color:#35ff7a;
-      font-weight:600;
-      cursor:pointer;
-      font-size:0.9rem;
-      box-shadow:0 0 12px rgba(53,255,122,0.4);
-    }
-    button:hover { filter:brightness(1.1); }
-    .result { margin-top:0.8rem; font-size:0.9rem; }
-    .error { color:#ff4b6b; font-size:0.8rem; margin-top:0.4rem; }
-    .models { font-size:0.85rem; margin-top:0.6rem; color:#7f8b86; }
-    a.back { display:inline-block; margin-bottom:0.8rem; font-size:0.85rem; color:#35ff7a; text-decoration:none; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Miner — BitBudCoin</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
 </head>
 <body>
-<main>
-  <a href="index.html" class="back">← Powrót do hubu</a>
-  <h1>BBC Koparka</h1>
-  <p>Wybierz model koparki, podaj adres i spróbuj wykopać blok. Backend zadba o resztę.</p>
 
-  <div class="card">
-    <label for="minerAddress">Adres kopacza (odbiorca nagrody)</label>
-    <input id="minerAddress" placeholder="Adres BBC, na który trafi nagroda...">
+<nav class="nav">
+    <a href="index.html" class="brand"><img src="assets/logo.svg" alt="BitBudCoin"> BitBudCoin</a>
+    <div class="nav-links">
+        <a href="index.html" id="nav-index">Start</a>
+        <a href="dashboard.html" id="nav-dashboard">Dashboard</a>
+        <a href="explorer.html" id="nav-explorer">Explorer</a>
+        <a href="miner.html" id="nav-miner">Miner</a>
+        <a href="network.html" id="nav-network">Sieć</a>
+        <a href="peers.html" id="nav-peers">Peery</a>
+        <a href="exchange.html" id="nav-exchange">Giełda</a>
+        <a href="address.html" id="nav-address">Adres</a>
+        <a href="docks.html" id="nav-docks">Docs</a>
+    </div>
+    <div class="nav-status">
+        <span class="flame-pill" id="nav-status"><span class="flame-dot"></span><span id="nav-status-text">łączę…</span></span>
+    </div>
+</nav>
 
-    <label for="model">Model koparki</label>
-    <select id="model"></select>
+<div class="page">
+    <h1 style="margin-top:32px;">Kopanie</h1>
 
-    <button onclick="startMining()">Rozpocznij kopanie</button>
+    <div class="grid cols-2">
+        <div class="card">
+            <h3>Status puli</h3>
+            <div id="pool-box"><p class="skeleton">ładowanie ładowanie ładowanie</p></div>
+        </div>
+        <div class="card">
+            <h3>Solo — szybki test</h3>
+            <p>Kopie synchronicznie na serwerze. Dobre do testów, nie do stałego kopania — patrz <a href="docks.html">docs</a>.</p>
+            <div class="field">
+                <label for="miner-address">Twój adres</label>
+                <input id="miner-address" placeholder="BbC...">
+            </div>
+            <button class="btn flame" id="mine-btn">Wykop jeden blok</button>
+            <div id="mine-result" style="margin-top:12px;"></div>
+        </div>
+    </div>
 
-    <div class="models" id="modelsInfo"></div>
-    <div class="result" id="result"></div>
-    <div class="error" id="error"></div>
-  </div>
-</main>
+    <div class="card" style="margin-top:20px;">
+        <h3>Modele sprzętu (referencyjne)</h3>
+        <table id="models-table">
+            <thead><tr><th>Model</th><th>Hashrate</th></tr></thead>
+            <tbody><tr><td colspan="2" class="skeleton">ładowanie ładowanie</td></tr></tbody>
+        </table>
+    </div>
 
+    <div class="card" style="margin-top:20px;">
+        <h3>Kopanie w puli (realne, u siebie)</h3>
+        <p>Pula to jedyny sposób kopania, który nie blokuje serwera — Ty liczysz hashe lokalnie, wysyłasz shares.</p>
+        <pre style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px; overflow-x:auto; font-family:var(--font-mono); font-size:0.85rem;">node miner-client.js TwójAdresBbC http://twój-serwer:5000</pre>
+        <p>Skrypt referencyjny jest w repozytorium backendu (<code>miner-client.js</code>).</p>
+    </div>
+</div>
+
+<footer>BitBudCoin (BbC) · sieć proof-of-work · <a href="docks.html">dokumentacja</a></footer>
+
+<script src="assets/api.js"></script>
+<script src="assets/nav.js"></script>
 <script>
-  const API_BASE = "https://twoj-backend-url"; // PODMIEŃ
+setActiveNav("nav-miner");
 
-  async function loadModels() {
-    const select = document.getElementById("model");
-    const info = document.getElementById("modelsInfo");
+async function loadPool() {
     try {
-      const res = await fetch(API_BASE + "/miners/models");
-      if (!res.ok) throw new Error("Backend niedostępny");
-      const models = await res.json();
-      select.innerHTML = "";
-      models.forEach(m => {
-        const opt = document.createElement("option");
-        opt.value = m.id;
-        opt.textContent = `${m.name} (${m.hashRate} H/s)`;
-        select.appendChild(opt);
-      });
-      info.textContent = "Modele dostępne w sieci BBC: " +
-        models.map(m => `${m.name} (${m.hashRate} H/s)`).join(", ");
+        const pool = await apiGet("/pool/status");
+        document.getElementById("pool-box").innerHTML = `
+            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">Pracuje nad blokiem</span><span class="mono">#${fmtNumber(pool.workingOnHeight, 0)}</span></div>
+            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">Trudność share / bloku</span><span class="mono">${fmtNumber(pool.shareDifficulty,0)} / ${fmtNumber(pool.blockDifficulty,0)}</span></div>
+            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">Shares w tej rundzie</span><span class="mono">${fmtNumber(pool.totalSharesThisRound, 0)}</span></div>
+            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">Opłata puli</span><span class="mono">${(pool.poolFee*100).toFixed(0)}%</span></div>`;
     } catch (e) {
-      info.textContent = "Nie udało się pobrać modeli koparek. Backend może być offline.";
+        document.getElementById("pool-box").innerHTML = `<p style="color:var(--danger)">Pula niedostępna: ${escapeHtml(e.message)}</p>`;
     }
-  }
+}
 
-  async function startMining() {
-    const addr = document.getElementById("minerAddress").value.trim();
-    const model = document.getElementById("model").value;
-    const resultEl = document.getElementById("result");
-    const errorEl = document.getElementById("error");
-    resultEl.textContent = "";
-    errorEl.textContent = "";
-
-    if (!addr) {
-      errorEl.textContent = "Podaj adres, na który ma trafić nagroda.";
-      return;
-    }
-
+async function loadModels() {
     try {
-      const res = await fetch(API_BASE + "/mine/start", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ minerAddress: addr, model })
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Błąd kopania");
-      }
-      const data = await res.json();
-      resultEl.textContent =
-        `Status: ${data.status} • Wysokość bloku: ${data.blockHeight} • Hash: ${data.hash} • Nagroda: ${data.reward} BBC`;
+        const models = await apiGet("/miners/models");
+        document.querySelector("#models-table tbody").innerHTML = models.map(m => `<tr><td>${escapeHtml(m.name)}</td><td>${m.hashRate} H/s</td></tr>`).join("");
     } catch (e) {
-      errorEl.textContent = "Nie udało się wykopać bloku: " + e.message;
+        document.querySelector("#models-table tbody").innerHTML = `<tr><td colspan="2">błąd</td></tr>`;
     }
-  }
+}
 
-  loadModels();
+document.getElementById("mine-btn").addEventListener("click", async () => {
+    const addr = document.getElementById("miner-address").value.trim();
+    const box = document.getElementById("mine-result");
+    if (!addr) { box.innerHTML = '<div class="error-banner">Podaj adres</div>'; return; }
+    box.innerHTML = '<p style="color:var(--text-dim)">Kopię…</p>';
+    try {
+        const r = await apiPost("/mine/start", { minerAddress: addr });
+        box.innerHTML = `<div class="card" style="background:var(--surface-2);">⛏️ Wykopano blok <a href="block.html?height=${r.blockHeight}">#${r.blockHeight}</a>, nagroda ${fmtNumber(r.reward)} BbC</div>`;
+        loadPool();
+    } catch (e) {
+        box.innerHTML = `<div class="error-banner">${escapeHtml(e.message)}</div>`;
+    }
+});
+
+loadPool();
+loadModels();
 </script>
 </body>
 </html>
