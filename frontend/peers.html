@@ -2,147 +2,100 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>BBC Network • Peers</title>
-
-<style>
-    body { margin:0; background:#0a0a0a; color:#e5e5e5; font-family:Consolas, monospace; }
-    header { background:#111; padding:20px; border-bottom:2px solid #222; display:flex; justify-content:space-between; align-items:center; }
-    .logo { font-size:24px; color:#00ffaa; font-weight:bold; }
-    a { color:#888; text-decoration:none; }
-    main { max-width:900px; margin:30px auto; padding:20px; }
-
-    .card { background:#111; border:1px solid #222; border-radius:10px; padding:25px; margin-bottom:25px; }
-    .card h2 { margin-top:0; color:#00ffaa; }
-
-    table { width:100%; border-collapse:collapse; background:#111; margin-top:20px; }
-    th { background:#181818; color:#00ffaa; padding:10px; }
-    td { padding:10px; border-bottom:1px solid #222; }
-    tr:hover { background:#161616; }
-
-    .online { color:#00ffaa; font-weight:bold; }
-    .offline { color:#ff4444; font-weight:bold; }
-    .ping { color:#888; font-size:12px; }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Peery — BitBudCoin</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
 </head>
-
 <body>
 
-<header>
-    <div class="logo">BBC NETWORK vMax</div>
-    <a href="index.html">← Home</a>
-</header>
+<nav class="nav">
+    <a href="index.html" class="brand"><img src="assets/logo.svg" alt="BitBudCoin"> BitBudCoin</a>
+    <div class="nav-links">
+        <a href="index.html" id="nav-index">Start</a>
+        <a href="dashboard.html" id="nav-dashboard">Dashboard</a>
+        <a href="explorer.html" id="nav-explorer">Explorer</a>
+        <a href="miner.html" id="nav-miner">Miner</a>
+        <a href="network.html" id="nav-network">Sieć</a>
+        <a href="peers.html" id="nav-peers">Peery</a>
+        <a href="exchange.html" id="nav-exchange">Giełda</a>
+        <a href="address.html" id="nav-address">Adres</a>
+        <a href="docks.html" id="nav-docks">Docs</a>
+    </div>
+    <div class="nav-status">
+        <span class="flame-pill" id="nav-status"><span class="flame-dot"></span><span id="nav-status-text">łączę…</span></span>
+    </div>
+</nav>
 
-<main>
+<div class="page">
+    <h1 style="margin-top:32px;">Peery P2P</h1>
 
-<div class="card">
-    <h2>Lista węzłów P2P</h2>
+    <div class="grid cols-2">
+        <div class="card">
+            <h3>Połącz z nowym peerem</h3>
+            <div class="field">
+                <label for="peer-address">Adres (host:port)</label>
+                <input id="peer-address" placeholder="203.0.113.10:6001">
+            </div>
+            <button class="btn" id="connect-btn">Połącz</button>
+            <div id="connect-result" style="margin-top:12px;"></div>
+        </div>
+        <div class="card">
+            <h3>Status węzła</h3>
+            <div id="peers-summary"><p class="skeleton">ładowanie ładowanie</p></div>
+        </div>
+    </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Adres</th>
-                <th>Status</th>
-                <th>Ping</th>
-                <th>Height</th>
-            </tr>
-        </thead>
-        <tbody id="peerTable"></tbody>
-    </table>
+    <div class="grid cols-3" style="margin-top:20px;">
+        <div class="card"><h3>Połączeni</h3><ul id="list-connected" class="mono" style="padding-left:18px; margin:0;"></ul></div>
+        <div class="card"><h3>Skonfigurowani</h3><ul id="list-configured" class="mono" style="padding-left:18px; margin:0;"></ul></div>
+        <div class="card"><h3>Łączą się ponownie</h3><ul id="list-reconnecting" class="mono" style="padding-left:18px; margin:0;"></ul></div>
+    </div>
 </div>
 
-<div class="card">
-    <h2>Dodaj nowy peer</h2>
-    <input type="text" id="peerInput" placeholder="ws://IP:PORT" style="width:100%;padding:12px;background:#0f0f0f;border:1px solid #333;color:#eee;border-radius:6px;">
-    <button onclick="addPeer()">Dodaj Peer</button>
-    <div id="addStatus" style="margin-top:10px;color:#00ffaa;"></div>
-</div>
+<footer>BitBudCoin (BbC) · sieć proof-of-work · <a href="docks.html">dokumentacja</a></footer>
 
-</main>
-
+<script src="assets/api.js"></script>
+<script src="assets/nav.js"></script>
 <script>
-const API = "http://localhost:5000";
+setActiveNav("nav-peers");
 
-// Lista znanych peerów (możesz dodać swoje)
-let peers = [
-    "ws://localhost:6001",
-    "ws://localhost:6002"
-];
+function fillList(id, items) {
+    const el = document.getElementById(id);
+    el.innerHTML = items.length ? items.map(p => `<li>${escapeHtml(p)}</li>`).join("") : '<li style="color:var(--text-dim); list-style:none; margin-left:-18px;">— brak —</li>';
+}
 
-// Pingowanie peerów
-async function checkPeer(peer) {
-    const start = performance.now();
-
+async function load() {
     try {
-        const res = await fetch(API + "/info");
-        const localHeight = (await res.json()).height;
-
-        const ws = new WebSocket(peer);
-
-        return new Promise(resolve => {
-            ws.onopen = () => {
-                const ping = (performance.now() - start).toFixed(0);
-                resolve({ peer, status: "online", ping, height: localHeight });
-                ws.close();
-            };
-
-            ws.onerror = () => {
-                resolve({ peer, status: "offline", ping: "-", height: "-" });
-            };
-        });
-
-    } catch {
-        return { peer, status: "offline", ping: "-", height: "-" };
+        const p = await apiGet("/peers");
+        document.getElementById("peers-summary").innerHTML = `
+            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">Port P2P</span><span class="mono">${p.port}</span></div>
+            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">Połączeni peerzy</span><span class="mono">${p.connected.length}</span></div>`;
+        fillList("list-connected", p.connected);
+        fillList("list-configured", p.configured);
+        fillList("list-reconnecting", p.reconnecting);
+    } catch (e) {
+        document.getElementById("peers-summary").innerHTML = `<div class="error-banner">${escapeHtml(e.message)}</div>`;
     }
 }
 
-// Aktualizacja tabeli
-async function refreshPeers() {
-    const tbody = document.getElementById("peerTable");
-    tbody.innerHTML = "";
-
-    for (const p of peers) {
-        const info = await checkPeer(p);
-
-        const tr = document.createElement("tr");
-
-        tr.innerHTML = `
-            <td>${info.peer}</td>
-            <td class="${info.status === "online" ? "online" : "offline"}">${info.status}</td>
-            <td class="ping">${info.ping} ms</td>
-            <td>${info.height}</td>
-        `;
-
-        tbody.appendChild(tr);
-    }
-}
-
-async function addPeer() {
-    const peer = document.getElementById("peerInput").value.trim();
-    const status = document.getElementById("addStatus");
-
-    if (!peer) return;
-
+document.getElementById("connect-btn").addEventListener("click", async () => {
+    const addr = document.getElementById("peer-address").value.trim();
+    const box = document.getElementById("connect-result");
+    if (!addr) { box.innerHTML = '<div class="error-banner">Podaj adres w formacie host:port</div>'; return; }
     try {
-        const res = await fetch(API + "/peer", {
-            method: "POST",
-            headers: {"Content-Type":"application/json"},
-            body: JSON.stringify({ peer })
-        });
-
-        const data = await res.json();
-
-        peers.push(peer);
-        status.textContent = "✔ Peer dodany!";
-        refreshPeers();
-
-    } catch {
-        status.textContent = "❌ Błąd dodawania peer'a";
+        await apiPost("/peers/connect", { address: addr });
+        box.innerHTML = `<p style="color:var(--leaf)">Łączenie z ${escapeHtml(addr)} zainicjowane.</p>`;
+        setTimeout(load, 1000);
+    } catch (e) {
+        box.innerHTML = `<div class="error-banner">${escapeHtml(e.message)}</div>`;
     }
-}
+});
 
-refreshPeers();
-setInterval(refreshPeers, 7000);
+load();
+setInterval(load, 10000);
 </script>
-
 </body>
 </html>
