@@ -1,0 +1,348 @@
+/* =========================================================
+   BitBudCoin - wspólny motyw wizualny
+   Ciemne tło + liść konopi (zielony, łańcuch/wzrost) + niebieski
+   płomień z dymem (aktywność/kopanie) jako sygnaturowy motyw.
+   ========================================================= */
+
+:root {
+  /* --- Kolory (rdzeń palety) --- */
+  --bg: #0b0f0d;
+  --surface: #121815;
+  --surface-2: #1a211d;
+  --border: #263129;
+  --leaf: #8fd14f;
+  --leaf-dim: #5c9438;
+  --flame: #3fc5ff;
+  --flame-deep: #1656c9;
+  --smoke: #7e8b94;
+  --text: #e8ede9;
+  --text-dim: #9ba69e;
+  --danger: #ff6b5c;
+
+  /* --- Typografia --- */
+  --font-display: "Space Grotesk", "Segoe UI", sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "Courier New", monospace;
+
+  --radius: 12px;
+  --radius-sm: 7px;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+h1, h2, h3, .display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.4em;
+}
+
+h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); }
+h2 { font-size: 1.4rem; }
+h3 { font-size: 1.05rem; color: var(--text-dim); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+
+p { color: var(--text-dim); }
+a { color: var(--leaf); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+code, .mono, .hash, .address, td.num, .stat-value {
+  font-family: var(--font-mono);
+}
+
+::selection { background: var(--leaf-dim); color: #fff; }
+
+:focus-visible {
+  outline: 2px solid var(--flame);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* --- Layout --- */
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 20px 64px;
+  position: relative;
+  z-index: 1;
+}
+
+.grid {
+  display: grid;
+  gap: 20px;
+}
+.grid.cols-2 { grid-template-columns: 1fr; }
+.grid.cols-3 { grid-template-columns: 1fr; }
+@media (min-width: 720px) {
+  .grid.cols-2 { grid-template-columns: 1fr 1fr; }
+  .grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+/* --- Nawigacja --- */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 14px 20px;
+  background: rgba(11, 15, 13, 0.88);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+.nav .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--text);
+  white-space: nowrap;
+}
+.nav .brand img { width: 30px; height: 33px; }
+.nav-links {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+.nav-links a {
+  color: var(--text-dim);
+  font-size: 0.92rem;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+}
+.nav-links a:hover { color: var(--text); text-decoration: none; background: var(--surface-2); }
+.nav-links a.active { color: var(--leaf); background: var(--surface-2); }
+.nav-status {
+  margin-left: auto;
+}
+
+/* --- Wskaźnik płomienia: sygnaturowy element, ZNACZY coś (żywy/martwy) --- */
+.flame-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.flame-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--smoke);
+  flex-shrink: 0;
+}
+.flame-pill.lit .flame-dot {
+  background: var(--flame);
+  box-shadow: 0 0 8px 2px var(--flame);
+  animation: flicker 1.6s ease-in-out infinite;
+}
+.flame-pill.lit { color: var(--text); border-color: rgba(63, 197, 255, 0.35); }
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  45% { opacity: 0.7; transform: scale(0.85); }
+  60% { opacity: 1; transform: scale(1.05); }
+}
+
+/* --- Karty --- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+}
+.card + .card { margin-top: 20px; }
+.card-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.card-value {
+  font-family: var(--font-mono);
+  font-size: 1.7rem;
+  color: var(--text);
+}
+.card-value.leaf { color: var(--leaf); }
+.card-value.flame { color: var(--flame); }
+
+/* --- Hero (index/dashboard) --- */
+.hero {
+  padding: 56px 0 32px;
+  text-align: center;
+  position: relative;
+}
+.hero .kicker {
+  font-family: var(--font-mono);
+  color: var(--flame);
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.hero .big-number {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 12vw, 6rem);
+  color: var(--leaf);
+  line-height: 1;
+  margin: 8px 0;
+  text-shadow: 0 0 40px rgba(143, 209, 79, 0.25);
+}
+.hero .sub { color: var(--text-dim); font-size: 1.05rem; }
+
+/* --- Przyciski --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 11px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: var(--leaf);
+  color: #0b0f0d;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+.btn:hover { filter: brightness(1.1); }
+.btn:active { transform: scale(0.98); }
+.btn.secondary { background: transparent; border-color: var(--border); color: var(--text); }
+.btn.secondary:hover { border-color: var(--flame); color: var(--flame); background: transparent; }
+.btn.flame { background: var(--flame); color: #06131a; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+input, select {
+  font-family: var(--font-mono);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.92rem;
+  width: 100%;
+}
+input:focus, select:focus { border-color: var(--flame); }
+label { display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 6px; }
+.field { margin-bottom: 16px; }
+
+/* --- Tabele (bloki, transakcje, peery) --- */
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th {
+  text-align: left;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+td { padding: 12px; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 0.88rem; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface-2); }
+.truncate { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
+
+.badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  border: 1px solid var(--border);
+}
+.badge.coinbase { color: var(--leaf); border-color: var(--leaf-dim); }
+.badge.transfer { color: var(--flame); border-color: var(--flame-deep); }
+.badge.genesis { color: var(--text-dim); }
+.badge.fee { color: var(--smoke); }
+
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-dim);
+}
+.empty-state .glyph { font-size: 2rem; margin-bottom: 8px; opacity: 0.6; }
+
+.error-banner {
+  background: rgba(255, 107, 92, 0.1);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  margin-bottom: 16px;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: var(--radius-sm);
+  color: transparent;
+}
+@keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+footer {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  padding: 40px 20px;
+}
+
+/* --- Dym ambientowy w tle - subtelny, respektuje reduced-motion --- */
+.smoke-field {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.smoke-field span {
+  position: absolute;
+  bottom: -20%;
+  width: 340px;
+  height: 340px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(126, 139, 148, 0.14), transparent 70%);
+  filter: blur(6px);
+}
+.smoke-field span:nth-child(1) { left: 8%; animation: drift1 26s ease-in-out infinite; }
+.smoke-field span:nth-child(2) { left: 55%; width: 420px; height: 420px; animation: drift2 34s ease-in-out infinite; }
+.smoke-field span:nth-child(3) { left: 30%; width: 260px; height: 260px; background: radial-gradient(circle, rgba(63, 197, 255, 0.08), transparent 70%); animation: drift3 30s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes drift1 { 0%,100% { transform: translateY(0) translateX(0); } 50% { transform: translateY(-60px) translateX(30px); } }
+  @keyframes drift2 { 0%,100% { transform: translateY(0) translateX(0); } 50% { transform: translateY(-90px) translateX(-40px); } }
+  @keyframes drift3 { 0%,100% { transform: translateY(0) translateX(0); } 50% { transform: translateY(-50px) translateX(20px); } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flame-pill.lit .flame-dot { animation: none; }
+}
+
+@media (max-width: 640px) {
+  .nav { flex-wrap: wrap; }
+  .nav-links { order: 3; width: 100%; overflow-x: auto; }
+  .nav-status { margin-left: 0; }
+  .card-value { font-size: 1.3rem; }
+}
