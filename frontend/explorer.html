@@ -1,77 +1,104 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
-  <title>BBC Explorer – informacje o łańcuchu</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { margin:0; font-family:system-ui; background:#050608; color:#e5f7ea; }
-    main { max-width:700px; margin:0 auto; padding:1.5rem; }
-    h1 { margin:0 0 0.5rem; }
-    p { margin:0 0 1rem; color:#7f8b86; }
-    .card {
-      background:#0b0e13;
-      border-radius:16px;
-      border:1px solid #202530;
-      padding:1.1rem;
-      box-shadow:0 18px 40px rgba(0,0,0,0.6);
-    }
-    .info-list { list-style:none; padding:0; margin:0; font-size:0.9rem; }
-    .info-list li {
-      display:flex;
-      justify-content:space-between;
-      padding:0.3rem 0;
-      border-bottom:1px dashed rgba(32,37,48,0.7);
-    }
-    .info-list li span:first-child { color:#7f8b86; }
-    .info-list li span:last-child { color:#e5f7ea; font-weight:500; }
-    .error { color:#ff4b6b; font-size:0.8rem; margin-top:0.4rem; }
-    a.back { display:inline-block; margin-bottom:0.8rem; font-size:0.85rem; color:#35ff7a; text-decoration:none; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Explorer — BitBudCoin</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
 </head>
 <body>
-<main>
-  <a href="index.html" class="back">← Powrót do hubu</a>
-  <h1>BBC Explorer</h1>
-  <p>Podstawowe informacje o łańcuchu BitBudCoiN – wysokość, nagrody, trudność, nazwa sieci.</p>
 
-  <div class="card">
-    <ul class="info-list" id="info-list"></ul>
-    <div class="error" id="error"></div>
-  </div>
-</main>
+<nav class="nav">
+    <a href="index.html" class="brand"><img src="assets/logo.svg" alt="BitBudCoin"> BitBudCoin</a>
+    <div class="nav-links">
+        <a href="index.html" id="nav-index">Start</a>
+        <a href="dashboard.html" id="nav-dashboard">Dashboard</a>
+        <a href="explorer.html" id="nav-explorer">Explorer</a>
+        <a href="miner.html" id="nav-miner">Miner</a>
+        <a href="network.html" id="nav-network">Sieć</a>
+        <a href="peers.html" id="nav-peers">Peery</a>
+        <a href="exchange.html" id="nav-exchange">Giełda</a>
+        <a href="address.html" id="nav-address">Adres</a>
+        <a href="docks.html" id="nav-docks">Docs</a>
+    </div>
+    <div class="nav-status">
+        <span class="flame-pill" id="nav-status"><span class="flame-dot"></span><span id="nav-status-text">łączę…</span></span>
+    </div>
+</nav>
 
+<div class="page">
+    <h1 style="margin-top:32px;">Block explorer</h1>
+    <p>Każdy wykopany blok, jawnie. Kliknij wiersz, żeby zobaczyć pełne transakcje.</p>
+    <div id="error-box"></div>
+
+    <div class="card" style="padding:0; overflow:hidden;">
+        <table>
+            <thead><tr><th>Wysokość</th><th>Kiedy</th><th>Hash</th><th>Transakcje</th><th>Trudność</th></tr></thead>
+            <tbody id="blocks-tbody">
+                <tr><td colspan="5" class="skeleton">ładowanie ładowanie ładowanie ładowanie ładowanie</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div style="text-align:center; margin-top:20px;">
+        <button class="btn secondary" id="load-more" style="display:none;">Wczytaj starsze bloki</button>
+    </div>
+</div>
+
+<footer>BitBudCoin (BbC) · sieć proof-of-work · <a href="docks.html">dokumentacja</a></footer>
+
+<script src="assets/api.js"></script>
+<script src="assets/nav.js"></script>
 <script>
-  const API_BASE = "https://twoj-backend-url"; // PODMIEŃ
+setActiveNav("nav-explorer");
 
-  async function loadInfo() {
-    const list = document.getElementById("info-list");
-    const errorEl = document.getElementById("error");
-    list.innerHTML = "";
-    errorEl.textContent = "";
+let oldestLoaded = null;
 
+function renderRows(blocks, append) {
+    const tbody = document.getElementById("blocks-tbody");
+    const rows = blocks.map(b => {
+        const coinbase = b.transactions.find(t => t.type === "coinbase" || t.type === "genesis");
+        return `<tr onclick="location.href='block.html?height=${b.height}'" style="cursor:pointer">
+            <td>${b.height}</td>
+            <td>${timeAgo(b.timestamp)}</td>
+            <td class="truncate">${fmtHash(b.hash)}</td>
+            <td>${b.transactions.length}</td>
+            <td>${fmtNumber(b.difficulty, 0)}</td>
+        </tr>`;
+    }).join("");
+    tbody.innerHTML = append ? tbody.innerHTML + rows : rows;
+}
+
+async function loadInitial() {
     try {
-      const res = await fetch(API_BASE + "/info");
-      if (!res.ok) throw new Error("Backend niedostępny");
-      const data = await res.json();
-
-      const entries = Object.entries(data);
-      if (!entries.length) {
-        list.innerHTML = "<li><span>Brak danych</span><span>–</span></li>";
-        return;
-      }
-
-      entries.forEach(([key, value]) => {
-        const li = document.createElement("li");
-        li.innerHTML = `<span>${key}</span><span>${value}</span>`;
-        list.appendChild(li);
-      });
+        const blocks = await apiGet("/blocks?limit=15");
+        if (blocks.length === 0) {
+            document.getElementById("blocks-tbody").innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="glyph">🌱</div>Tylko genesis na razie — wykop pierwszy blok w <a href="miner.html">Minerze</a></div></td></tr>';
+            return;
+        }
+        renderRows(blocks, false);
+        oldestLoaded = blocks[blocks.length - 1].height;
+        if (oldestLoaded > 0) document.getElementById("load-more").style.display = "inline-flex";
     } catch (e) {
-      errorEl.textContent = "Nie udało się pobrać informacji o łańcuchu.";
+        document.getElementById("error-box").innerHTML = `<div class="error-banner">Nie można połączyć się z backendem: ${escapeHtml(e.message)}</div>`;
+        document.getElementById("blocks-tbody").innerHTML = "";
     }
-  }
+}
 
-  loadInfo();
+document.getElementById("load-more").addEventListener("click", async () => {
+    const blocks = await apiGet(`/blocks?limit=15&before=${oldestLoaded}`);
+    renderRows(blocks, true);
+    if (blocks.length === 0 || blocks[blocks.length - 1].height === 0) {
+        document.getElementById("load-more").style.display = "none";
+    } else {
+        oldestLoaded = blocks[blocks.length - 1].height;
+    }
+});
+
+loadInitial();
 </script>
 </body>
 </html>
