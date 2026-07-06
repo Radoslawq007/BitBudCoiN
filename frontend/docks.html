@@ -2,124 +2,127 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>BBC Docs • BitBudCoin vMax</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dokumentacja — BitBudCoin</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
 <style>
-    body { margin:0; background:#0a0a0a; color:#e5e5e5; font-family:Consolas, monospace; }
-    header { background:#111; padding:20px; border-bottom:2px solid #222; display:flex; justify-content:space-between; align-items:center; }
-    .logo { font-size:24px; color:#00ffaa; font-weight:bold; }
-    a { color:#888; text-decoration:none; }
-    main { max-width:900px; margin:30px auto; padding:20px; }
-
-    .section { background:#111; border:1px solid #222; border-radius:10px; padding:25px; margin-bottom:25px; }
-    .section h2 { margin-top:0; color:#00ffaa; }
-
-    code { background:#0f0f0f; padding:6px; border-radius:6px; display:block; margin:10px 0; color:#00ffaa; }
-    pre { background:#0f0f0f; padding:15px; border-radius:10px; overflow-x:auto; }
+  .endpoint { display:flex; gap:10px; align-items:baseline; font-family:var(--font-mono); font-size:0.88rem; padding:10px 0; border-bottom:1px solid var(--border); }
+  .endpoint:last-child { border-bottom:none; }
+  .method { font-weight:600; width:52px; flex-shrink:0; }
+  .method.get { color: var(--leaf); }
+  .method.post { color: var(--flame); }
+  .toc a { display:block; padding:4px 0; }
 </style>
 </head>
-
 <body>
 
-<header>
-    <div class="logo">BBC DOCUMENTATION vMax</div>
-    <a href="index.html">← Home</a>
-</header>
+<nav class="nav">
+    <a href="index.html" class="brand"><img src="assets/logo.svg" alt="BitBudCoin"> BitBudCoin</a>
+    <div class="nav-links">
+        <a href="index.html" id="nav-index">Start</a>
+        <a href="dashboard.html" id="nav-dashboard">Dashboard</a>
+        <a href="explorer.html" id="nav-explorer">Explorer</a>
+        <a href="miner.html" id="nav-miner">Miner</a>
+        <a href="network.html" id="nav-network">Sieć</a>
+        <a href="peers.html" id="nav-peers">Peery</a>
+        <a href="exchange.html" id="nav-exchange">Giełda</a>
+        <a href="address.html" id="nav-address">Adres</a>
+        <a href="docks.html" id="nav-docks">Docs</a>
+    </div>
+    <div class="nav-status">
+        <span class="flame-pill" id="nav-status"><span class="flame-dot"></span><span id="nav-status-text">łączę…</span></span>
+    </div>
+</nav>
 
-<main>
+<div class="page">
+    <h1 style="margin-top:32px;">Dokumentacja</h1>
+    <p>Skrócona referencja API i parametrów sieci BitBudCoin.</p>
 
-<div class="section">
-    <h2>1. Wprowadzenie</h2>
-    <p>BitBudCoin (BBC) to lekki, szybki i w pełni otwarty blockchain Proof‑of‑Work zbudowany w JavaScript.  
-    Sieć jest zdecentralizowana, każdy może uruchomić własny node, kopać bloki i wysyłać transakcje.</p>
+    <div class="grid cols-2" style="align-items:start;">
+        <div>
+            <div class="card">
+                <h3>Łańcuch</h3>
+                <div class="endpoint"><span class="method get">GET</span><span>/info</span></div>
+                <div class="endpoint"><span class="method get">GET</span><span>/blocks?limit&before</span></div>
+                <div class="endpoint"><span class="method get">GET</span><span>/blocks/:height</span></div>
+            </div>
+
+            <div class="card">
+                <h3>Portfele i transakcje</h3>
+                <div class="endpoint"><span class="method get">GET</span><span>/balance/:address</span></div>
+                <div class="endpoint"><span class="method get">GET</span><span>/transactions/address/:address</span></div>
+                <div class="endpoint"><span class="method get">GET</span><span>/transactions/pending</span></div>
+                <div class="endpoint"><span class="method post">POST</span><span>/transactions/send</span></div>
+                <p style="margin-top:10px; font-size:0.85rem;">Transakcje podpisujesz lokalnie kluczem prywatnym (Ed25519) — <code>wallet.js</code> i <code>send.js</code> w repo backendu.</p>
+            </div>
+
+            <div class="card">
+                <h3>Kopanie</h3>
+                <div class="endpoint"><span class="method post">POST</span><span>/mine/start</span></div>
+                <div class="endpoint"><span class="method get">GET</span><span>/miners/models</span></div>
+                <div class="endpoint"><span class="method get">GET</span><span>/pool/work?minerAddress</span></div>
+                <div class="endpoint"><span class="method post">POST</span><span>/pool/submit</span></div>
+                <div class="endpoint"><span class="method get">GET</span><span>/pool/status</span></div>
+                <div class="endpoint"><span class="method get">GET</span><span>/pool/credits/:address</span></div>
+            </div>
+
+            <div class="card">
+                <h3>P2P</h3>
+                <div class="endpoint"><span class="method get">GET</span><span>/peers</span></div>
+                <div class="endpoint"><span class="method post">POST</span><span>/peers/connect</span></div>
+            </div>
+        </div>
+
+        <div>
+            <div class="card">
+                <h3>Parametry protokołu (na żywo)</h3>
+                <table id="params-table"><tbody><tr><td colspan="2" class="skeleton">ładowanie ładowanie</td></tr></tbody></table>
+            </div>
+
+            <div class="card">
+                <h3>Jak to działa w skrócie</h3>
+                <p style="font-size:0.9rem;">Proof-of-work SHA-256, trudność jako ciągła liczba (nie skoki x16),
+                retarget co ~2028 bloków, halving nagrody co 210 000 bloków, twardy pułap podaży.
+                Baza SQLite (<code>node:sqlite</code>), P2P po surowym TCP (linie JSON),
+                pula ze share-based proof of work, transakcje podpisane Ed25519.</p>
+            </div>
+
+            <div class="card">
+                <h3>Uruchomienie własnego węzła</h3>
+                <pre style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px; overflow-x:auto; font-family:var(--font-mono); font-size:0.82rem; white-space:pre-wrap;">npm install
+npm start
+node wallet.js          # nowy portfel
+node miner-client.js &lt;adres&gt;   # kopanie w puli
+node backup.js           # backup bazy</pre>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="section">
-    <h2>2. Architektura</h2>
-    <p>BBC składa się z kilku głównych modułów:</p>
+<footer>BitBudCoin (BbC) · sieć proof-of-work · <a href="index.html">strona główna</a></footer>
 
-    <ul>
-        <li>Blockchain — struktura bloków</li>
-        <li>Block — pojedynczy blok</li>
-        <li>Transaction — podpisane transakcje ECDSA</li>
-        <li>Mempool — oczekujące transakcje</li>
-        <li>Wallet — generowanie kluczy i podpisy</li>
-        <li>P2P — synchronizacja między węzłami</li>
-        <li>API — REST dla użytkowników</li>
-    </ul>
-</div>
+<script src="assets/api.js"></script>
+<script src="assets/nav.js"></script>
+<script>
+setActiveNav("nav-docks");
 
-<div class="section">
-    <h2>3. API Node'a</h2>
-
-    <h3>GET /info</h3>
-    <p>Zwraca podstawowe informacje o node.</p>
-
-    <h3>GET /chain</h3>
-    <p>Zwraca cały blockchain.</p>
-
-    <h3>GET /block/:id</h3>
-    <p>Zwraca pojedynczy blok.</p>
-
-    <h3>GET /balance/:address</h3>
-    <p>Zwraca saldo adresu.</p>
-
-    <h3>GET /mempool</h3>
-    <p>Zwraca oczekujące transakcje.</p>
-
-    <h3>POST /transaction</h3>
-    <p>Dodaje podpisaną transakcję do mempoola.</p>
-
-    <pre>{
-  "from": "BbC123...",
-  "to": "BbC456...",
-  "amount": 10,
-  "fee": 0.001,
-  "fromPublicKey": "...",
-  "signature": "..."
-}</pre>
-
-    <h3>POST /mine</h3>
-    <p>Kopie nowy blok.</p>
-</div>
-
-<div class="section">
-    <h2>4. Portfel BBC</h2>
-    <p>Portfel generuje klucze ECDSA secp256k1:</p>
-
-    <pre>
-privateKey → hex
-publicKey  → hex
-address    → BbC + sha256(publicKey).slice(0,40)
-    </pre>
-
-    <p>Podpisy transakcji:</p>
-
-    <pre>
-hash = sha256(JSON.stringify(payload))
-signature = key.sign(hash).toDER("hex")
-    </pre>
-</div>
-
-<div class="section">
-    <h2>5. Mining</h2>
-    <p>BBC używa klasycznego Proof‑of‑Work:</p>
-
-    <pre>
-while(hash.substring(0, difficulty) !== "0".repeat(difficulty)) {
-    nonce++;
-    hash = sha256(blockData + nonce);
+async function load() {
+    try {
+        const info = await apiGet("/info");
+        document.querySelector("#params-table tbody").innerHTML = `
+            <tr><td style="color:var(--text-dim)">Symbol</td><td>${info.symbol}</td></tr>
+            <tr><td style="color:var(--text-dim)">Chain ID</td><td>${info.chainId}</td></tr>
+            <tr><td style="color:var(--text-dim)">Pułap podaży</td><td>${fmtNumber(info.maxSupply)}</td></tr>
+            <tr><td style="color:var(--text-dim)">Nagroda bazowa</td><td>50 BbC (halving /210000 bloków)</td></tr>
+            <tr><td style="color:var(--text-dim)">Wersja</td><td>${info.version}</td></tr>`;
+    } catch (e) {
+        document.querySelector("#params-table tbody").innerHTML = `<tr><td colspan="2">węzeł offline</td></tr>`;
+    }
 }
-    </pre>
-
-    <p>Nagroda za blok: <strong>50 BBC</strong></p>
-</div>
-
-<div class="section">
-    <h2>6. P2P</h2>
-    <p>Węzły komunikują się przez WebSocket:</p>
-
-    <ul>
-        <li>CHAIN — synchronizacja chainu</li>
-        <li>TRANSACTION — broadcast transakcji</li>
-        <li>NEW_BLOCK — broadcast nowego bloku</li>
+load();
+</script>
+</body>
+</html>
