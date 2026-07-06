@@ -2,140 +2,100 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>BBC Block • vMax</title>
-
-<style>
-    body { margin:0; background:#0a0a0a; color:#e5e5e5; font-family:Consolas, monospace; }
-    header { background:#111; padding:20px; border-bottom:2px solid #222; display:flex; justify-content:space-between; align-items:center; }
-    .logo { font-size:24px; color:#00ffaa; font-weight:bold; }
-    a { color:#888; text-decoration:none; }
-    main { max-width:900px; margin:30px auto; padding:20px; }
-
-    .card { background:#111; border:1px solid #222; border-radius:10px; padding:20px; margin-bottom:25px; }
-    .card h2 { margin-top:0; color:#00ffaa; }
-
-    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); gap:20px; }
-
-    .label { color:#00ffaa; font-size:14px; }
-    .value { font-size:16px; margin-bottom:10px; }
-
-    table { width:100%; border-collapse:collapse; background:#111; margin-top:20px; }
-    th { background:#181818; color:#00ffaa; padding:10px; }
-    td { padding:10px; border-bottom:1px solid #222; }
-    tr:hover { background:#161616; }
-    .hash { font-size:12px; color:#999; }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blok — BitBudCoin</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
 </head>
-
 <body>
 
-<header>
-    <div class="logo">BBC BLOCK vMax</div>
-    <a href="explorer.html">← Explorer</a>
-</header>
-
-<main>
-
-<div class="card">
-    <h2>Informacje o bloku</h2>
-
-    <div class="grid">
-        <div>
-            <div class="label">Numer bloku</div>
-            <div class="value" id="blockIndex">...</div>
-        </div>
-
-        <div>
-            <div class="label">Czas</div>
-            <div class="value" id="blockTime">...</div>
-        </div>
-
-        <div>
-            <div class="label">Trudność</div>
-            <div class="value" id="difficulty">...</div>
-        </div>
-
-        <div>
-            <div class="label">Nonce</div>
-            <div class="value" id="nonce">...</div>
-        </div>
+<nav class="nav">
+    <a href="index.html" class="brand"><img src="assets/logo.svg" alt="BitBudCoin"> BitBudCoin</a>
+    <div class="nav-links">
+        <a href="index.html" id="nav-index">Start</a>
+        <a href="dashboard.html" id="nav-dashboard">Dashboard</a>
+        <a href="explorer.html" id="nav-explorer">Explorer</a>
+        <a href="miner.html" id="nav-miner">Miner</a>
+        <a href="network.html" id="nav-network">Sieć</a>
+        <a href="peers.html" id="nav-peers">Peery</a>
+        <a href="exchange.html" id="nav-exchange">Giełda</a>
+        <a href="address.html" id="nav-address">Adres</a>
+        <a href="docks.html" id="nav-docks">Docs</a>
     </div>
+    <div class="nav-status">
+        <span class="flame-pill" id="nav-status"><span class="flame-dot"></span><span id="nav-status-text">łączę…</span></span>
+    </div>
+</nav>
 
-    <div class="label" style="margin-top:20px;">Hash bloku</div>
-    <div class="hash" id="blockHash">...</div>
-
-    <div class="label" style="margin-top:20px;">Poprzedni hash</div>
-    <div class="hash" id="prevHash">...</div>
-
+<div class="page" id="content">
+    <p style="margin-top:32px;"><a href="explorer.html">← wróć do explorera</a></p>
+    <div class="skeleton" style="height:200px; border-radius:12px;"></div>
 </div>
 
-<div class="card">
-    <h2>Transakcje</h2>
+<footer>BitBudCoin (BbC) · sieć proof-of-work · <a href="docks.html">dokumentacja</a></footer>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Od</th>
-                <th>Do</th>
-                <th>Ilość</th>
-                <th>Fee</th>
-                <th>TXID</th>
-            </tr>
-        </thead>
-        <tbody id="txTable"></tbody>
-    </table>
-</div>
-
-</main>
-
+<script src="assets/api.js"></script>
+<script src="assets/nav.js"></script>
 <script>
-const API = "http://localhost:5000";
+setActiveNav("nav-explorer");
 
-// Pobieranie ID bloku z URL
-const params = new URLSearchParams(window.location.search);
-const blockId = params.get("id");
-
-if (!blockId) {
-    alert("Brak ID bloku w URL!");
+function badgeFor(type) {
+    return `<span class="badge ${type}">${type}</span>`;
 }
 
-async function loadBlock() {
+async function load() {
+    const params = new URLSearchParams(location.search);
+    const height = params.get("height");
+    const content = document.getElementById("content");
+
+    if (height === null) {
+        content.innerHTML = '<p style="margin-top:32px;"><a href="explorer.html">← wróć do explorera</a></p><div class="empty-state"><div class="glyph">🔎</div>Brak numeru bloku w adresie. Wróć do explorera i kliknij blok.</div>';
+        return;
+    }
+
     try {
-        const res = await fetch(`${API}/block/${blockId}`);
-        const block = await res.json();
+        const b = await apiGet(`/blocks/${height}`);
+        const prevLink = b.height > 0 ? `<a href="block.html?height=${b.height - 1}">← blok ${b.height - 1}</a>` : "<span style='color:var(--text-dim)'>genesis</span>";
+        content.innerHTML = `
+            <p style="margin-top:32px;"><a href="explorer.html">← wróć do explorera</a></p>
+            <h1>Blok #${b.height}</h1>
+            <div class="grid cols-2">
+                <div class="card">
+                    <div class="card-label">Hash</div>
+                    <div class="mono" style="word-break:break-all; font-size:0.85rem;">${b.hash}</div>
+                </div>
+                <div class="card">
+                    <div class="card-label">Poprzedni hash</div>
+                    <div class="mono" style="word-break:break-all; font-size:0.85rem;">${b.previousHash}</div>
+                </div>
+                <div class="card"><div class="card-label">Czas</div><div class="card-value" style="font-size:1.1rem;">${fmtTime(b.timestamp)}</div></div>
+                <div class="card"><div class="card-label">Trudność / nonce</div><div class="card-value" style="font-size:1.1rem;">${fmtNumber(b.difficulty, 0)} / ${fmtNumber(b.nonce, 0)}</div></div>
+            </div>
 
-        document.getElementById("blockIndex").textContent = block.index;
-        document.getElementById("blockTime").textContent = new Date(block.timestamp).toLocaleString();
-        document.getElementById("difficulty").textContent = block.difficulty;
-        document.getElementById("nonce").textContent = block.nonce;
-
-        document.getElementById("blockHash").textContent = block.hash;
-        document.getElementById("prevHash").textContent = block.previousHash;
-
-        const tbody = document.getElementById("txTable");
-        tbody.innerHTML = "";
-
-        block.transactions.forEach(tx => {
-            const tr = document.createElement("tr");
-
-            tr.innerHTML = `
-                <td>${tx.from || "COINBASE"}</td>
-                <td>${tx.to}</td>
-                <td>${tx.amount}</td>
-                <td>${tx.fee || 0}</td>
-                <td class="hash">${tx.txid.substring(0,20)}...</td>
-            `;
-
-            tbody.appendChild(tr);
-        });
-
+            <h2 style="margin-top:28px;">Transakcje (${b.transactions.length})</h2>
+            <div class="card" style="padding:0; overflow:hidden;">
+                <table>
+                    <thead><tr><th>Typ</th><th>Od</th><th>Do</th><th>Kwota</th></tr></thead>
+                    <tbody>
+                        ${b.transactions.map(tx => `
+                            <tr>
+                                <td>${badgeFor(tx.type)}</td>
+                                <td>${tx.from ? `<a href="address.html?address=${encodeURIComponent(tx.from)}" class="truncate">${fmtAddress(tx.from)}</a>` : '<span style="color:var(--text-dim)">— nowa emisja —</span>'}</td>
+                                <td><a href="address.html?address=${encodeURIComponent(tx.to)}" class="truncate">${fmtAddress(tx.to)}</a></td>
+                                <td>${fmtNumber(tx.amount)}${tx.fee ? ` <span style="color:var(--text-dim)">(+${fmtNumber(tx.fee)} opłaty)</span>` : ""}</td>
+                            </tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>
+            <p style="margin-top:16px;">${prevLink} · <a href="block.html?height=${b.height + 1}">blok ${b.height + 1} →</a></p>
+        `;
     } catch (e) {
-        alert("Nie udało się pobrać bloku.");
+        content.innerHTML = `<p style="margin-top:32px;"><a href="explorer.html">← wróć do explorera</a></p><div class="empty-state"><div class="glyph">✕</div>Nie znaleziono bloku #${escapeHtml(height)}</div>`;
     }
 }
-
-loadBlock();
+load();
 </script>
-
 </body>
 </html>
