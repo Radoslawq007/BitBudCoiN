@@ -60,7 +60,7 @@ const CONFIG = {
     // przez pulę (tak to działa naprawdę - miner nie dostaje nagrody on-chain
     // bezpośrednio, tylko "kredyt" rozliczany przez pulę, patrz pool.js).
     // To pole nie istniało w oryginalnym configu - PODMIEŃ na swój prawdziwy adres.
-    POOL_ADDRESS: "BbC0000000000000000000000000000000000000",
+    POOL_ADDRESS: "BbC694f9417395ed990fce2b3c3fe3d756959bf3b1e",
 
     POOL_FEE: 0.02,
 
