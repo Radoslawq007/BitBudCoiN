@@ -1,6 +1,6 @@
 // Wspólna warstwa komunikacji z backendem BitBudCoin + funkcje formatujące.
 // Podmień API_BASE, jeśli backend stoi pod innym adresem.
-const API_BASE = window.BBC_API_BASE || "http://localhost:5000";
+const API_BASE = window.BBC_API_BASE || "http://141.147.98.57";
 
 async function apiGet(path) {
     const res = await fetch(API_BASE + path);
