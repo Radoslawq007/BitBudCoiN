@@ -45,6 +45,11 @@ const translations = {
         miner_solo_start: "Zacznij kopać solo",
         miner_models_title: "Modele sprzętu (referencyjne)",
         miner_blocks_label: "Bloki",
+        miner_bench_title: "Ile realnie liczy Twoje urządzenie?",
+        miner_bench_desc: "Prawdziwy pomiar wykonany teraz, na żywo — nie specyfikacja z ulotki.",
+        miner_bench_btn: "Sprawdź szybkość", miner_bench_running: "Liczę przez 1,5 sekundy...",
+        miner_bench_estimate: "Przy obecnej trudności sieci: średnio", miner_bench_sec: "s",
+        miner_bench_min: "min", miner_bench_hr: "godz.",
         miner_footer: "BitBudCoin (BbC) · sieć proof-of-work"
     },
     en: {
@@ -88,6 +93,11 @@ const translations = {
         miner_solo_start: "Start Solo Mining",
         miner_models_title: "Hardware Models (reference)",
         miner_blocks_label: "Blocks",
+        miner_bench_title: "How fast is your device, really?",
+        miner_bench_desc: "A real measurement taken right now, live — not a spec sheet.",
+        miner_bench_btn: "Check speed", miner_bench_running: "Measuring for 1.5 seconds...",
+        miner_bench_estimate: "At the current network difficulty: on average", miner_bench_sec: "s",
+        miner_bench_min: "min", miner_bench_hr: "hr",
         miner_footer: "BitBudCoin (BbC) · proof-of-work network"
     }
 };
