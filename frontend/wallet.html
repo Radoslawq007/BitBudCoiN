@@ -33,87 +33,88 @@
 <nav class="nav">
   <a class="brand" href="index.html">🌿 BitBudCoin</a>
   <div class="nav-links">
-    <a href="dashboard.html">Dashboard</a>
-    <a href="miner.html">Kopanie</a>
-    <a href="wallet.html" class="active">Portfel</a>
+    <a href="dashboard.html" data-i18n="nav_dashboard">Dashboard</a>
+    <a href="miner.html" data-i18n="nav_mining">Kopanie</a>
+    <a href="wallet.html" class="active" data-i18n="nav_wallet">Portfel</a>
   </div>
 </nav>
 
 <div class="page">
-  <h1 style="margin-top:32px;">Portfel</h1>
+  <h1 style="margin-top:32px;" data-i18n="wallet_h1">Portfel</h1>
 
   <div class="tabs">
-    <button class="tab-btn active" data-tab="create">Nowy portfel</button>
-    <button class="tab-btn" data-tab="manage">Mój portfel</button>
+    <button class="tab-btn active" data-tab="create" data-i18n="wallet_tab_create">Nowy portfel</button>
+    <button class="tab-btn" data-tab="manage" data-i18n="wallet_tab_manage">Mój portfel</button>
   </div>
 
   <!-- ========== TWORZENIE NOWEGO ========== -->
   <div class="tab-panel active" id="tab-create">
-    <p style="margin-top:20px;">Klucz prywatny powstaje <strong>tutaj, w tej przeglądarce</strong> i nigdy nigdzie nie jest wysyłany.</p>
+    <p style="margin-top:20px;" data-i18n="wallet_intro">Klucz prywatny powstaje <strong>tutaj, w tej przeglądarce</strong> i nigdy nigdzie nie jest wysyłany.</p>
 
     <div class="warning-banner">
-      ⚠️ Jeśli zgubisz klucz prywatny, tracisz dostęp do adresu na zawsze. Zapisz go, zanim zamkniesz tę kartę.
+      ⚠️ <span data-i18n="wallet_warning">Jeśli zgubisz klucz prywatny, tracisz dostęp do adresu na zawsze. Zapisz go, zanim zamkniesz tę kartę.</span>
     </div>
 
     <div class="card">
-      <button class="btn" id="generateBtn" style="width:100%;justify-content:center;font-size:1rem;padding:16px;">
+      <button class="btn" id="generateBtn" style="width:100%;justify-content:center;font-size:1rem;padding:16px;" data-i18n="wallet_generate_btn">
         Wygeneruj nowy portfel
       </button>
     </div>
 
     <div id="results">
       <div class="card">
-        <div class="card-label"><span class="step-badge">1</span>Twój adres BbC</div>
+        <div class="card-label"><span class="step-badge">1</span><span data-i18n="wallet_step1">Twój adres BbC</span></div>
         <div class="addr-display" id="addressOut"></div>
       </div>
 
       <div class="card">
-        <div class="card-label"><span class="step-badge">2</span>Klucz publiczny</div>
+        <div class="card-label"><span class="step-badge">2</span><span data-i18n="wallet_step2">Klucz publiczny</span></div>
         <div class="key-box">
           <textarea readonly id="pubKeyOut"></textarea>
-          <button class="btn secondary copy-btn" data-copy-target="pubKeyOut">Kopiuj</button>
+          <button class="btn secondary copy-btn" data-copy-target="pubKeyOut" data-i18n="wallet_copy_addr">Kopiuj</button>
         </div>
       </div>
 
       <div class="card" style="border-color:var(--danger);">
-        <div class="card-label" style="color:#ffb3a8;"><span class="step-badge" style="background:var(--danger);color:#fff;">3</span>Klucz PRYWATNY — nigdy nikomu nie pokazuj</div>
+        <div class="card-label" style="color:#ffb3a8;"><span class="step-badge" style="background:var(--danger);color:#fff;">3</span><span data-i18n="wallet_step3">Klucz PRYWATNY — nigdy nikomu nie pokazuj</span></div>
         <div class="key-box">
           <textarea readonly id="privKeyOut"></textarea>
-          <button class="btn secondary copy-btn" data-copy-target="privKeyOut">Kopiuj</button>
+          <button class="btn secondary copy-btn" data-copy-target="privKeyOut" data-i18n="wallet_copy_addr">Kopiuj</button>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-label"><span class="step-badge">4</span>Zapisz na dysk</div>
+        <div class="card-label"><span class="step-badge">4</span><span data-i18n="wallet_step4">Zapisz na dysk</span></div>
         <div class="btn-row">
-          <button class="btn flame" id="downloadBundleBtn">Pobierz oba klucze (1 plik)</button>
+          <button class="btn flame" id="downloadBundleBtn" data-i18n="wallet_download_bundle">Pobierz oba klucze (1 plik)</button>
         </div>
-        <p class="hint">Ten jeden plik wystarczy, żeby później wczytać ten portfel w zakładce "Mój portfel" i wysyłać/odbierać.</p>
+        <p class="hint" data-i18n="wallet_bundle_hint">Ten jeden plik wystarczy, żeby później wczytać ten portfel w zakładce "Mój portfel" i wysyłać/odbierać.</p>
       </div>
 
       <div class="confirm-row">
         <input type="checkbox" id="confirmSaved">
-        <label for="confirmSaved" style="margin:0;">Zapisałem klucz prywatny w bezpiecznym miejscu.</label>
+        <label for="confirmSaved" style="margin:0;" data-i18n="wallet_confirm_saved">Zapisałem klucz prywatny w bezpiecznym miejscu.</label>
       </div>
     </div>
   </div>
 
+
   <!-- ========== MÓJ PORTFEL (wyślij/odbierz) ========== -->
   <div class="tab-panel" id="tab-manage">
     <div class="card" id="importCard">
-      <h3>Wczytaj portfel</h3>
-      <p>Wklej tutaj treść pliku, który pobrałeś przy tworzeniu portfela (oba klucze naraz — rozpoznam je same).</p>
+      <h3 data-i18n="wallet_import_title">Wczytaj portfel</h3>
+      <p data-i18n="wallet_import_hint">Wklej tutaj treść pliku, który pobrałeś przy tworzeniu portfela (oba klucze naraz — rozpoznam je same).</p>
       <textarea id="importBundle" placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----BEGIN PUBLIC KEY-----&#10;..."></textarea>
-      <button class="btn" id="loadWalletBtn" style="margin-top:10px;">Wczytaj portfel</button>
+      <button class="btn" id="loadWalletBtn" style="margin-top:10px;" data-i18n="wallet_load_btn">Wczytaj portfel</button>
       <div id="importError" class="error-banner" style="display:none;margin-top:10px;"></div>
     </div>
 
     <div class="card" id="receiveCard" style="display:none;">
-      <h3>Odbierz</h3>
+      <h3 data-i18n="wallet_receive_title">Odbierz</h3>
       <div class="addr-display" id="myAddress"></div>
       <div class="btn-row">
-        <button class="btn secondary" id="copyAddrBtn">Kopiuj adres</button>
-        <button class="btn secondary" id="shareAddrBtn">Udostępnij</button>
+        <button class="btn secondary" id="copyAddrBtn" data-i18n="wallet_copy_addr">Kopiuj adres</button>
+        <button class="btn secondary" id="shareAddrBtn" data-i18n="wallet_share">Udostępnij</button>
       </div>
       <div class="balance-row">
         <span class="n" id="myBalance">—</span> BbC
@@ -122,22 +123,23 @@
     </div>
 
     <div class="card" id="sendCard" style="display:none;">
-      <h3>Wyślij</h3>
-      <div class="field"><label>Adres odbiorcy</label><input id="sendTo" placeholder="BbC..."></div>
-      <div class="field"><label>Kwota (BbC)</label><input id="sendAmount" type="number" step="any" placeholder="0.0"></div>
-      <div class="field"><label>Opłata</label><input id="sendFee" type="number" step="any" value="0.01"></div>
-      <button class="btn flame" id="sendBtn" style="width:100%;justify-content:center;">Wyślij</button>
+      <h3 data-i18n="wallet_send_title">Wyślij</h3>
+      <div class="field"><label data-i18n="wallet_send_to">Adres odbiorcy</label><input id="sendTo" placeholder="BbC..."></div>
+      <div class="field"><label data-i18n="wallet_send_amount">Kwota (BbC)</label><input id="sendAmount" type="number" step="any" placeholder="0.0"></div>
+      <div class="field"><label data-i18n="wallet_send_fee">Opłata</label><input id="sendFee" type="number" step="any" value="0.01"></div>
+      <button class="btn flame" id="sendBtn" style="width:100%;justify-content:center;" data-i18n="wallet_send_btn">Wyślij</button>
       <div id="sendResult" style="margin-top:12px;font-family:var(--font-mono);font-size:.85rem;"></div>
     </div>
   </div>
 </div>
 
-<footer style="text-align:center;color:var(--text-dim);font-size:.8rem;padding:40px 20px;">
+<footer style="text-align:center;color:var(--text-dim);font-size:.8rem;padding:40px 20px;" data-i18n="wallet_footer">
   BitBudCoin (BbC) · klucz prywatny nigdy nie opuszcza tej przeglądarki
 </footer>
 
 <script src="assets/api.js"></script>
 <script src="assets/wallet-crypto.js"></script>
+<script src="assets/i18n.js"></script>
 <script>
 // --- Zakładki ---
 document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -155,7 +157,7 @@ let lastGenerated = null;
 document.getElementById("generateBtn").addEventListener("click", async () => {
     const btn = document.getElementById("generateBtn");
     btn.disabled = true;
-    btn.textContent = "Generuję...";
+    btn.textContent = t("wallet_generating");
     try {
         const wallet = await generateWallet();
         lastGenerated = wallet;
@@ -166,10 +168,10 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
         document.getElementById("confirmSaved").checked = false;
         document.getElementById("results").scrollIntoView({ behavior: "smooth" });
     } catch (err) {
-        alert("Nie udało się wygenerować portfela: " + err.message);
+        alert(t("wallet_generate_error") + err.message);
     } finally {
         btn.disabled = false;
-        btn.textContent = "Wygeneruj nowy portfel";
+        btn.textContent = t("wallet_generate_btn");
     }
 });
 
@@ -184,10 +186,10 @@ document.querySelectorAll(".copy-btn").forEach((btn) => {
         const original = btn.textContent;
         try {
             await navigator.clipboard.writeText(target.value);
-            btn.textContent = "Skopiowano ✓";
+            btn.textContent = t("wallet_copied");
         } catch (err) {
             target.select();
-            btn.textContent = "Zaznaczono - Ctrl+C";
+            btn.textContent = t("wallet_selected");
         }
         setTimeout(() => { btn.textContent = original; }, 1500);
     });
@@ -209,7 +211,7 @@ document.getElementById("loadWalletBtn").addEventListener("click", async () => {
     const { publicKeyPem, privateKeyPem } = parseWalletBundle(text);
 
     if (!publicKeyPem || !privateKeyPem) {
-        errorEl.textContent = "Nie znalazłem obu kluczy w wklejonym tekście — upewnij się, że wkleiłeś zarówno klucz prywatny, jak i publiczny.";
+        errorEl.textContent = t("wallet_import_error");
         errorEl.style.display = "block";
         return;
     }
@@ -224,7 +226,7 @@ document.getElementById("loadWalletBtn").addEventListener("click", async () => {
         document.getElementById("sendCard").style.display = "block";
         await refreshBalance();
     } catch (err) {
-        errorEl.textContent = "Błąd wczytywania kluczy: " + err.message;
+        errorEl.textContent = t("wallet_load_error") + err.message;
         errorEl.style.display = "block";
     }
 });
@@ -237,7 +239,7 @@ async function refreshBalance() {
         const shown = bal.pendingAwareBalance ?? bal.balance;
         document.getElementById("myBalance").textContent = fmtNumber(shown);
     } catch (e) {
-        document.getElementById("myBalance").textContent = "błąd";
+        document.getElementById("myBalance").textContent = t("wallet_balance_error");
     }
 }
 document.getElementById("refreshBalanceBtn").addEventListener("click", refreshBalance);
@@ -246,7 +248,7 @@ document.getElementById("copyAddrBtn").addEventListener("click", async () => {
     await navigator.clipboard.writeText(currentWallet.address);
     const btn = document.getElementById("copyAddrBtn");
     const original = btn.textContent;
-    btn.textContent = "Skopiowano ✓";
+    btn.textContent = t("wallet_copied");
     setTimeout(() => { btn.textContent = original; }, 1500);
 });
 
@@ -256,7 +258,7 @@ document.getElementById("shareAddrBtn").addEventListener("click", async () => {
         catch (e) { /* użytkownik anulował - nic nie robimy */ }
     } else {
         await navigator.clipboard.writeText(currentWallet.address);
-        alert("Adres skopiowany (udostępnianie niedostępne w tej przeglądarce)");
+        alert(t("wallet_share_fallback"));
     }
 });
 
@@ -267,13 +269,13 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
     const amount = Number(document.getElementById("sendAmount").value);
     const fee = Number(document.getElementById("sendFee").value);
 
-    if (!to) { resultEl.textContent = "Podaj adres odbiorcy"; return; }
-    if (!amount || amount <= 0) { resultEl.textContent = "Podaj poprawną kwotę"; return; }
-    if (fee < 0) { resultEl.textContent = "Opłata nie może być ujemna"; return; }
+    if (!to) { resultEl.textContent = t("wallet_need_recipient"); return; }
+    if (!amount || amount <= 0) { resultEl.textContent = t("wallet_need_amount"); return; }
+    if (fee < 0) { resultEl.textContent = t("wallet_fee_negative"); return; }
 
     const btn = document.getElementById("sendBtn");
     btn.disabled = true;
-    resultEl.textContent = "Podpisuję i wysyłam...";
+    resultEl.textContent = t("wallet_signing");
 
     try {
         const tx = { from: currentWallet.address, to, amount, fee, timestamp: Date.now() };
@@ -281,7 +283,7 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
         const candidate = { ...tx, publicKey: currentWallet.publicKeyPem, signature };
 
         const result = await apiPost("/transactions/send", candidate);
-        resultEl.textContent = "✅ Wysłano, czeka na potwierdzenie w bloku";
+        resultEl.textContent = t("wallet_send_success");
         document.getElementById("sendAmount").value = "";
         document.getElementById("sendTo").value = "";
         await refreshBalance();
