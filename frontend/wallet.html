@@ -1,103 +1,141 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
-  <title>BBC Portfel – balans adresu</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { margin:0; font-family: system-ui; background:#050608; color:#e5f7ea; }
-    main { max-width:600px; margin:0 auto; padding:1.5rem; }
-    h1 { margin:0 0 0.5rem; }
-    p { margin:0 0 1rem; color:#7f8b86; }
-    .card {
-      background:#0b0e13;
-      border-radius:16px;
-      border:1px solid #202530;
-      padding:1.1rem;
-      box-shadow:0 18px 40px rgba(0,0,0,0.6);
-    }
-    label { display:block; font-size:0.85rem; margin-bottom:0.3rem; color:#7f8b86; }
-    input {
-      width:100%;
-      padding:0.5rem 0.7rem;
-      border-radius:999px;
-      border:1px solid #202530;
-      background:#050608;
-      color:#e5f7ea;
-      outline:none;
-      font-size:0.9rem;
-    }
-    input:focus {
-      border-color:#35ff7a;
-      box-shadow:0 0 10px rgba(53,255,122,0.5);
-    }
-    button {
-      margin-top:0.7rem;
-      width:100%;
-      padding:0.55rem 0.8rem;
-      border-radius:999px;
-      border:none;
-      background:#1b3b26;
-      color:#35ff7a;
-      font-weight:600;
-      cursor:pointer;
-      font-size:0.9rem;
-      box-shadow:0 0 12px rgba(53,255,122,0.4);
-    }
-    button:hover { filter:brightness(1.1); }
-    .result {
-      margin-top:0.8rem;
-      font-size:0.9rem;
-    }
-    .error { color:#ff4b6b; font-size:0.8rem; margin-top:0.4rem; }
-    a.back {
-      display:inline-block;
-      margin-bottom:0.8rem;
-      font-size:0.85rem;
-      color:#35ff7a;
-      text-decoration:none;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portfel — BitBudCoin</title>
+<link rel="icon" href="assets/logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  .addr-display { font-family:var(--font-mono); font-size:1.15rem; color:var(--leaf); word-break:break-all; background:var(--surface-2); padding:14px 16px; border-radius:var(--radius-sm); border:1px solid var(--leaf-dim); }
+  .key-box { display:flex; gap:8px; align-items:flex-start; }
+  .key-box textarea { flex:1; min-height:110px; resize:vertical; font-size:.72rem; line-height:1.4; }
+  .copy-btn { flex-shrink:0; }
+  .step-badge { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--leaf); color:#0b0f0d; font-size:.75rem; font-weight:700; margin-right:8px; }
+  #results { display:none; }
+  .confirm-row { display:flex; align-items:flex-start; gap:10px; margin:18px 0; }
+  .confirm-row input[type=checkbox] { width:auto; margin-top:3px; }
+  .hint { font-size:.8rem; color:var(--text-dim); margin-top:6px; }
+</style>
 </head>
 <body>
-<main>
-  <a href="index.html" class="back">← Powrót do hubu</a>
-  <h1>BBC Portfel</h1>
-  <p>Sprawdź balans dowolnego adresu w sieci BitBudCoiN. Idealne do testów i zabawy z nagrodami.</p>
+
+<nav class="nav">
+  <a class="brand" href="index.html">🌿 BitBudCoin</a>
+  <div class="nav-links" style="margin-left:auto;display:flex;gap:4px;">
+    <a href="dashboard.html" style="color:var(--text-dim);padding:8px 12px;">Dashboard</a>
+    <a href="address.html" style="color:var(--text-dim);padding:8px 12px;">Adres</a>
+    <a href="wallet.html" style="color:var(--leaf);padding:8px 12px;">Portfel</a>
+  </div>
+</nav>
+
+<div class="page">
+  <h1 style="margin-top:32px;">Stwórz portfel</h1>
+  <p>Klucz prywatny powstaje <strong>tutaj, w tej przeglądarce</strong> i nigdy nigdzie nie jest wysyłany — nie do serwera, nie do nikogo. Tylko Ty go widzisz.</p>
+
+  <div class="warning-banner">
+    ⚠️ Jeśli zgubisz klucz prywatny, tracisz dostęp do adresu na zawsze — nikt (łącznie z Tobą, jeśli go nie zapiszesz) nie może go odzyskać. Zapisz go, zanim zamkniesz tę kartę.
+  </div>
 
   <div class="card">
-    <label for="address">Adres BBC (np. hash portfela)</label>
-    <input id="address" placeholder="Wklej lub wpisz adres...">
-    <button onclick="checkBalance()">Sprawdź balans</button>
-    <div class="result" id="result"></div>
-    <div class="error" id="error"></div>
+    <button class="btn" id="generateBtn" style="width:100%;justify-content:center;font-size:1rem;padding:16px;">
+      Wygeneruj nowy portfel
+    </button>
+    <p class="hint" style="text-align:center;margin-top:12px;">To nadpisze to, co widzisz poniżej, jeśli już coś wygenerowałeś — zapisz stary klucz najpierw, jeśli go potrzebujesz.</p>
   </div>
-</main>
 
+  <div id="results">
+    <div class="card">
+      <div class="card-label"><span class="step-badge">1</span>Twój adres BbC</div>
+      <div class="addr-display" id="addressOut"></div>
+      <p class="hint">Ten adres możesz podawać wszędzie — do niego inni wysyłają Ci BbC, tym adresem się kopie w puli.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-label"><span class="step-badge">2</span>Klucz publiczny (bezpieczny do udostępniania)</div>
+      <div class="key-box">
+        <textarea readonly id="pubKeyOut"></textarea>
+        <button class="btn secondary copy-btn" data-copy-target="pubKeyOut">Kopiuj</button>
+      </div>
+    </div>
+
+    <div class="card" style="border-color:var(--danger);">
+      <div class="card-label" style="color:#ffb3a8;"><span class="step-badge" style="background:var(--danger);color:#fff;">3</span>Klucz PRYWATNY — nigdy nikomu nie pokazuj</div>
+      <div class="key-box">
+        <textarea readonly id="privKeyOut"></textarea>
+        <button class="btn secondary copy-btn" data-copy-target="privKeyOut">Kopiuj</button>
+      </div>
+      <p class="hint">Ten klucz jest potrzebny, żeby wysyłać transakcje (<code>send.js</code>) — trzymaj go offline, np. w menedżerze haseł.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-label"><span class="step-badge">4</span>Zapisz na dysk</div>
+      <button class="btn flame" id="downloadPrivBtn">Pobierz klucz prywatny (.pem)</button>
+      <button class="btn secondary" id="downloadPubBtn" style="margin-left:8px;">Pobierz klucz publiczny (.pem)</button>
+    </div>
+
+    <div class="confirm-row">
+      <input type="checkbox" id="confirmSaved">
+      <label for="confirmSaved" style="margin:0;">Zapisałem klucz prywatny w bezpiecznym miejscu i rozumiem, że nie da się go odzyskać, jeśli go zgubię.</label>
+    </div>
+  </div>
+</div>
+
+<footer style="text-align:center;color:var(--text-dim);font-size:.8rem;padding:40px 20px;">
+  BitBudCoin (BbC) · klucz prywatny nigdy nie opuszcza tej przeglądarki
+</footer>
+
+<script src="assets/wallet-crypto.js"></script>
 <script>
-  const API_BASE = "https://twoj-backend-url"; // PODMIEŃ
-
-  async function checkBalance() {
-    const addr = document.getElementById("address").value.trim();
-    const resultEl = document.getElementById("result");
-    const errorEl = document.getElementById("error");
-    resultEl.textContent = "";
-    errorEl.textContent = "";
-
-    if (!addr) {
-      errorEl.textContent = "Podaj adres, żeby sprawdzić balans.";
-      return;
-    }
-
+document.getElementById("generateBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("generateBtn");
+    btn.disabled = true;
+    btn.textContent = "Generuję...";
     try {
-      const res = await fetch(`${API_BASE}/balance/${encodeURIComponent(addr)}`);
-      if (!res.ok) throw new Error("Backend niedostępny");
-      const data = await res.json();
-      resultEl.textContent = `Adres: ${data.address} • Balans: ${data.balance} BBC`;
-    } catch (e) {
-      errorEl.textContent = "Nie udało się pobrać balansu. Sprawdź backend.";
+        const wallet = await generateWallet();
+        document.getElementById("addressOut").textContent = wallet.address;
+        document.getElementById("pubKeyOut").value = wallet.publicKeyPem;
+        document.getElementById("privKeyOut").value = wallet.privateKeyPem;
+        document.getElementById("results").style.display = "block";
+        document.getElementById("confirmSaved").checked = false;
+
+        document.getElementById("downloadPrivBtn").onclick = () => downloadTextFile(wallet.address + "-private.pem", wallet.privateKeyPem);
+        document.getElementById("downloadPubBtn").onclick = () => downloadTextFile(wallet.address + "-public.pem", wallet.publicKeyPem);
+
+        document.getElementById("results").scrollIntoView({ behavior: "smooth" });
+    } catch (err) {
+        alert("Nie udało się wygenerować portfela: " + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Wygeneruj nowy portfel";
     }
-  }
+});
+
+document.querySelectorAll(".copy-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+        const target = document.getElementById(btn.dataset.copyTarget);
+        const original = btn.textContent;
+        try {
+            await navigator.clipboard.writeText(target.value);
+            btn.textContent = "Skopiowano ✓";
+        } catch (err) {
+            target.select();
+            btn.textContent = "Zaznaczono - Ctrl+C";
+        }
+        setTimeout(() => { btn.textContent = original; }, 1500);
+    });
+});
+
+window.addEventListener("beforeunload", (e) => {
+    const results = document.getElementById("results");
+    const confirmed = document.getElementById("confirmSaved").checked;
+    if (results.style.display === "block" && !confirmed) {
+        e.preventDefault();
+        e.returnValue = "";
+    }
+});
 </script>
 </body>
 </html>
