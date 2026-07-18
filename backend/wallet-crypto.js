@@ -81,6 +81,29 @@ async function signPayload(privateKey, payloadObject) {
     return bufferToBase64(signature);
 }
 
+// Rozpoznaje w dowolnym wklejonym tekście bloki PEM klucza prywatnego i/lub
+// publicznego, niezależnie od kolejności - żeby użytkownik mógł wkleić oba
+// naraz w jedno pole (np. treść dwóch pobranych plików połączoną razem).
+function parseWalletBundle(text) {
+    const pubMatch = text.match(/-----BEGIN PUBLIC KEY-----[\s\S]+?-----END PUBLIC KEY-----/);
+    const privMatch = text.match(/-----BEGIN PRIVATE KEY-----[\s\S]+?-----END PRIVATE KEY-----/);
+    return {
+        publicKeyPem: pubMatch ? pubMatch[0] + "\n" : null,
+        privateKeyPem: privMatch ? privMatch[0] + "\n" : null
+    };
+}
+
+async function deriveAddressFromPublicKeyPem(publicKeyPem) {
+    const der = pemToDer(publicKeyPem);
+    return deriveAddressFromSpkiDer(der);
+}
+
+function downloadWalletBundle(address, publicKeyPem, privateKeyPem) {
+    const content = `${publicKeyPem}\n${privateKeyPem}`;
+    downloadTextFile(address + "-wallet-bundle.pem", content);
+}
+
+
 function downloadTextFile(filename, content) {
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
