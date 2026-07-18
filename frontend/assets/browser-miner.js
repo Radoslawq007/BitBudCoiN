@@ -32,6 +32,7 @@ const BrowserMiner = (() => {
             candidate.nonce++;
             sessionStats.attempts++;
             if (candidate.nonce % 200 === 0) onUpdate(sessionStats);
+            if (candidate.nonce % 500 === 0) await new Promise((r) => setTimeout(r, 0));
             if (candidate.nonce >= maxAttempts) return "expired";
             hash = await computeBlockHash(candidate);
         }
