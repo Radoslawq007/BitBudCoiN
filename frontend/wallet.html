@@ -49,7 +49,36 @@
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="create" data-i18n="wallet_tab_create">Nowy portfel</button>
+    <button class="tab-btn" data-tab="phrase">Fraza (12 słów)</button>
     <button class="tab-btn" data-tab="manage" data-i18n="wallet_tab_manage">Mój portfel</button>
+  </div>
+
+  <!-- ========== FRAZA 12 SŁÓW ========== -->
+  <div class="tab-panel" id="tab-phrase">
+    <p style="margin-top:20px;">Zamiast surowego klucza - 12 zwykłych słów. Łatwiej przepisać ręcznie, łatwiej rozpoznać literówkę. Ta sama fraza zawsze odtwarza dokładnie ten sam portfel.</p>
+
+    <div class="card" id="phraseNewCard">
+      <h3>Nowa fraza</h3>
+      <button class="btn flame" id="generatePhraseBtn" style="width:100%;justify-content:center;">Wygeneruj nową frazę</button>
+      <div id="phraseResult" style="display:none;margin-top:16px;">
+        <div class="warning-banner">⚠️ Zapisz te 12 słów, w tej kolejności, na papierze. Kto je ma, ma dostęp do portfela.</div>
+        <div id="phraseWordsGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0;font-family:var(--font-mono);"></div>
+        <div class="addr-display" id="phraseAddressOut"></div>
+        <div class="confirm-row" style="margin-top:12px;">
+          <input type="checkbox" id="phraseConfirmSaved">
+          <label for="phraseConfirmSaved" style="margin:0;">Zapisałem te 12 słów w bezpiecznym miejscu.</label>
+        </div>
+        <button class="btn" id="usePhraseWalletBtn" style="width:100%;justify-content:center;margin-top:12px;" disabled>Użyj tego portfela</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Mam już frazę</h3>
+      <p style="font-size:.85rem;">Wpisz swoje 12 słów, oddzielone spacją, w tej samej kolejności co przy zapisywaniu.</p>
+      <textarea id="phraseRecoverInput" placeholder="np. drum here link fork help left chip join give call corn goat" style="min-height:70px;"></textarea>
+      <button class="btn secondary" id="recoverPhraseBtn" style="margin-top:10px;">Odzyskaj portfel</button>
+      <div id="phraseRecoverError" class="error-banner" style="display:none;margin-top:10px;"></div>
+    </div>
   </div>
 
   <!-- ========== TWORZENIE NOWEGO ========== -->
@@ -196,6 +225,8 @@
 <script src="assets/nav-responsive.js"></script>
 <script src="assets/wallet-crypto.js"></script>
 <script src="assets/capsule-crypto.js"></script>
+<script src="assets/seed-wordlist.js"></script>
+<script src="assets/seed-phrase.js"></script>
 <script src="assets/i18n.js"></script>
 <script>
 mountSmokeField();
@@ -309,6 +340,56 @@ async function loadWalletFromBundleText(text) {
     await refreshBalance();
     return true;
 }
+
+// --- Fraza 12 słów: generowanie ---
+let lastPhraseWallet = null;
+document.getElementById("generatePhraseBtn").addEventListener("click", async () => {
+    const words = generateSeedPhrase();
+    const { publicKeyPem, privateKeyPem } = await deriveKeyPairFromSeedPhrase(words);
+    const address = await deriveAddressFromPublicKeyPem(publicKeyPem);
+    lastPhraseWallet = { words, publicKeyPem, privateKeyPem, address };
+
+    const grid = document.getElementById("phraseWordsGrid");
+    grid.innerHTML = words.map((w, i) => `<div style="background:var(--surface-2);padding:8px 10px;border-radius:6px;"><span style="color:var(--text-dim);">${i + 1}.</span> ${w}</div>`).join("");
+    document.getElementById("phraseAddressOut").textContent = address;
+    document.getElementById("phraseResult").style.display = "block";
+    document.getElementById("phraseConfirmSaved").checked = false;
+    document.getElementById("usePhraseWalletBtn").disabled = true;
+});
+
+document.getElementById("phraseConfirmSaved").addEventListener("change", (e) => {
+    document.getElementById("usePhraseWalletBtn").disabled = !e.target.checked;
+});
+
+document.getElementById("usePhraseWalletBtn").addEventListener("click", async () => {
+    if (!lastPhraseWallet) return;
+    const bundleText = lastPhraseWallet.publicKeyPem + "\n" + lastPhraseWallet.privateKeyPem;
+    document.querySelector('[data-tab="manage"]').click();
+    await loadWalletFromBundleText(bundleText);
+});
+
+// --- Fraza 12 słów: odzyskiwanie ---
+document.getElementById("recoverPhraseBtn").addEventListener("click", async () => {
+    const errorEl = document.getElementById("phraseRecoverError");
+    errorEl.style.display = "none";
+    const raw = document.getElementById("phraseRecoverInput").value.trim();
+    const words = raw.split(/\s+/).filter(Boolean);
+
+    if (words.length !== 12) {
+        errorEl.textContent = `Potrzeba dokładnie 12 słów, wpisano: ${words.length}`;
+        errorEl.style.display = "block";
+        return;
+    }
+    try {
+        const { publicKeyPem, privateKeyPem } = await deriveKeyPairFromSeedPhrase(words);
+        const bundleText = publicKeyPem + "\n" + privateKeyPem;
+        document.querySelector('[data-tab="manage"]').click();
+        await loadWalletFromBundleText(bundleText);
+    } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = "block";
+    }
+});
 
 // Przy starcie - jeśli jest zapamiętany portfel, pokaż odblokowanie zamiast wklejania
 if (hasRememberedWallet()) {
