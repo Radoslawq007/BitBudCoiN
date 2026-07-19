@@ -1,139 +1,111 @@
 const express = require("express");
-const cors = require("cors");
-const Blockchain = require("./bbcblockchain");
 const CONFIG = require("./config");
-const P2PNode = require("./p2p");
-const MiningPool = require("./pool");
+const Blockchain = require("./bbcblockchain");
 const Mempool = require("./mempool");
-const { createRateLimiter } = require("./rate-limit");
+const Pool = require("./pool");
+const P2P = require("./p2p");
+const { rateLimiter, strictLimiter } = require("./rate-limit");
+const { difficultyToTargetHex } = require("./bbcblockchain");
 
 const app = express();
-// Wymagane, gdy serwer stoi za reverse proxy (Caddyfile w tym projekcie) -
-// inaczej req.ip to zawsze adres proxy i rate-limit dotyczy wszystkich naraz.
-// Jeśli NIE używasz reverse proxy, usuń tę linię.
-app.set("trust proxy", 1);
-app.use(cors());
 app.use(express.json());
+app.use(rateLimiter);
 
 const blockchain = new Blockchain();
 const mempool = new Mempool(blockchain, blockchain.storage);
-const p2p = new P2PNode(blockchain, { mempool });
-p2p.start();
-const pool = new MiningPool(blockchain, { mempool });
-
-// /mine/start kopie SYNCHRONICZNIE (realny koszt CPU serwera za każde żądanie) -
-// limit bardzo ostry. /pool/work i /pool/submit to normalny, częsty ruch
-// prawdziwych górników - limit swobodny. /transactions/send umiarkowany,
-// żeby nie zapychać mempoola śmieciowymi przelewami.
-const strictLimiter = createRateLimiter({ windowMs: 60_000, max: 5, name: "/mine/start" });
-const poolLimiter = createRateLimiter({ windowMs: 60_000, max: 300, name: "puli" });
-const txLimiter = createRateLimiter({ windowMs: 60_000, max: 30, name: "transakcji" });
-const defaultLimiter = createRateLimiter({ windowMs: 60_000, max: 120, name: "API" });
-app.use(defaultLimiter);
-
-// Logging
-app.use((req, res, next) => {
-    console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
-    next();
-});
+const pool = new Pool(blockchain, mempool, CONFIG.POOL_ADDRESS, CONFIG.POOL_FEE, CONFIG.SHARE_DIFFICULTY);
+const p2p = new P2P(blockchain, CONFIG.P2P_PORT, CONFIG.PEERS);
 
 app.get("/info", (req, res) => res.json(blockchain.getInfo()));
 
-app.get("/miners/models", (req, res) => {
-    res.json([
-        {id: "vmax1", name: "vMax 1", hashRate: 25},
-        {id: "vmax2", name: "vMax 2 Turbo", hashRate: 65},
-        {id: "vmax3", name: "vMax 3 Pro", hashRate: 120}
-    ]);
+app.get("/blocks", (req, res) => {
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const before = req.query.before !== undefined ? Number(req.query.before) : null;
+    res.json(blockchain.getRecentBlocks(limit, before));
 });
 
-app.post("/mine/start", strictLimiter, async (req, res) => {
-    console.log("Żądanie kopania:", req.body);
-    const { minerAddress } = req.body;
-    if (!minerAddress) return res.status(400).json({error: "Brak adresu"});
-
-    try {
-        const selected = mempool.selectForBlock();
-        const block = await blockchain.createNewBlock(minerAddress, selected);
-        mempool.pruneConfirmed(block);
-        p2p.broadcastNewBlock(block);
-        res.json({
-            status: "mined",
-            blockHeight: block.height,
-            hash: block.hash,
-            reward: block.reward,
-            transactionsIncluded: selected.length
-        });
-    } catch (e) {
-        console.error("Błąd:", e.message);
-        res.status(500).json({error: e.message});
-    }
+app.get("/blocks/:height", (req, res) => {
+    const block = blockchain.getChain().find((b) => b.height === Number(req.params.height));
+    if (!block) return res.status(404).json({ error: "Blok nie znaleziony" });
+    res.json(block);
 });
 
 app.get("/balance/:address", (req, res) => {
-    res.json({
-        address: req.params.address,
-        balance: blockchain.getBalance(req.params.address),
-        pendingAwareBalance: mempool.getPendingAwareBalance(req.params.address)
-    });
+    const address = req.params.address;
+    const confirmed = blockchain.getBalance(address);
+    const pending = mempool.getPendingDelta ? mempool.getPendingDelta(address) : 0;
+    res.json({ address, balance: confirmed, pendingAwareBalance: confirmed + pending });
 });
 
-app.post("/transactions/send", txLimiter, (req, res) => {
+app.post("/transactions/send", strictLimiter, (req, res) => {
     const result = mempool.addTransaction(req.body);
     if (!result.accepted) return res.status(400).json(result);
     res.json(result);
 });
 
-app.get("/transactions/pending", (req, res) => res.json(mempool.getPending()));
+app.get("/pool/status", (req, res) => res.json(pool.getStatus()));
 
-app.get("/peers", (req, res) => res.json(p2p.getStatus()));
-
-app.post("/peers/connect", (req, res) => {
-    const { address } = req.body;
-    if (!address) return res.status(400).json({error: "Brak adresu (oczekiwano \"host:port\")"});
-    p2p.connectToPeer(address);
-    res.json({status: "connecting", address});
+app.get("/network/miners", (req, res) => {
+    const poolMiners = blockchain.storage.getKnownPoolMiners().map((m) => ({
+        address: m.minerAddress, source: "pool", totalEarned: m.totalCredits,
+        lastBlockHeight: m.lastBlockHeight, roundsParticipated: m.roundsParticipated
+    }));
+    const soloMiners = blockchain.getSoloMiners().map((m) => ({
+        address: m.address, source: "solo", totalEarned: m.totalEarned,
+        lastBlockHeight: m.lastBlockHeight, blocksFound: m.blocksFound
+    }));
+    const all = [...poolMiners, ...soloMiners].sort((a, b) => b.lastBlockHeight - a.lastBlockHeight);
+    res.json(all);
 });
 
-app.get("/pool/work", poolLimiter, (req, res) => {
-    const { minerAddress } = req.query;
+app.get("/pool/work", (req, res) => {
+    const minerAddress = req.query.minerAddress;
+    if (!minerAddress) return res.status(400).json({ error: "Brak adresu" });
     res.json(pool.getWork(minerAddress));
 });
 
-app.post("/pool/submit", poolLimiter, (req, res) => {
-    const { minerAddress, candidate } = req.body;
-    if (!minerAddress) return res.status(400).json({error: "Brak adresu górnika"});
-    if (!candidate) return res.status(400).json({error: "Brak pola candidate (wykopany szablon + nonce/hash)"});
-
-    const result = pool.submitShare(minerAddress, candidate);
-    if (result.blockFound) {
-        p2p.broadcastNewBlock(result.block);
-        console.log(`⛏️  Pula znalazła blok #${result.block.height} dzięki ${minerAddress}`);
-    }
+app.post("/pool/submit", strictLimiter, (req, res) => {
+    const result = pool.submitShare(req.body.minerAddress, req.body.candidate);
+    if (!result.accepted) return res.status(400).json(result);
+    if (result.blockFound) p2p.broadcastNewBlock(result.block);
     res.json(result);
 });
 
-app.get("/pool/status", (req, res) => res.json(pool.getStatus()));
-
-app.get("/pool/credits/:address", (req, res) => res.json(pool.getCredits(req.params.address)));
-
-const PORT = CONFIG.API_PORT;
-// Domyślnie tylko localhost - Caddy/nginx (Caddyfile w tym projekcie) łączy się
-// z tym samym hostem po loopbacku. Jeśli proxy działa na INNEJ maszynie/kontenerze,
-// ustaw HOST=0.0.0.0 (i zabezpiecz to firewallem).
-const HOST = process.env.HOST || "127.0.0.1";
-const server = app.listen(PORT, HOST, () => {
-    console.log(`🚀 BBC Backend działa na ${HOST}:${PORT}`);
+// Solo (bezpieczne, liczenie po stronie klienta - serwer tylko weryfikuje)
+app.get("/solo/work", (req, res) => {
+    const minerAddress = req.query.minerAddress;
+    if (!minerAddress) return res.status(400).json({ error: "Brak adresu" });
+    const latest = blockchain.getLatestBlock();
+    const pendingTxs = mempool.selectForBlock();
+    res.json({
+        height: latest.height + 1, previousHash: latest.hash, timestamp: Date.now(),
+        transactions: blockchain.buildBlockTransactions(minerAddress, pendingTxs),
+        difficulty: blockchain.difficulty,
+        blockTarget: difficultyToTargetHex(blockchain.difficulty)
+    });
 });
 
-// Łagodne zamknięcie - domykamy P2P i bazę, żeby nie zostawić otwartych gniazd/pliku
-function shutdown() {
-    console.log("\n🛑 Zamykanie serwera...");
-    server.close(() => {
-        p2p.close();
-        blockchain.close();
-        process.exit(0);
-    });
-}
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
+app.post("/solo/submit", strictLimiter, (req, res) => {
+    const { candidate } = req.body;
+    if (!candidate) return res.status(400).json({ error: "Brak candidate" });
+    const result = blockchain.receiveBlock(candidate);
+    if (!result.accepted) return res.status(400).json(result);
+    mempool.pruneConfirmed(result.block);
+    p2p.broadcastNewBlock(result.block);
+    res.json({ status: "mined", blockHeight: result.block.height, hash: result.block.hash, reward: result.block.transactions[0].amount });
+});
+
+// Stare solo mining wyłączone - przy realnej trudności blokowało cały serwer
+// (Node.js jest jednowątkowy). Prawdziwe kopanie solo idzie teraz przez
+// /solo/work + /solo/submit, gdzie liczenie dzieje się u klienta.
+app.post("/mine/start", strictLimiter, (req, res) => {
+    res.status(410).json({ error: "Solo mining wyłączone przy tej trudności - użyj kopania przez pulę lub /solo/work (miner.html)" });
+});
+
+app.get("/miners/models", (req, res) => res.json([]));
+
+app.listen(CONFIG.API_PORT, "127.0.0.1", () => {
+    console.log(`BitBudCoin API nasłuchuje na porcie ${CONFIG.API_PORT}`);
+});
+
+module.exports = { app, blockchain, mempool, pool, p2p };
