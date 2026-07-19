@@ -74,9 +74,10 @@ function blockStory(block, previousTimestamp) {
     let durationText = "";
     if (previousTimestamp) {
         const seconds = Math.max(0, Math.round((block.timestamp - previousTimestamp) / 1000));
-        if (seconds < 60) durationText = `${seconds}s`;
-        else if (seconds < 3600) durationText = `${Math.round(seconds / 60)} min`;
-        else durationText = `${(seconds / 3600).toFixed(1)} godz.`;
+        if (seconds < 3600) durationText = seconds < 60 ? `${seconds}s` : `${Math.round(seconds / 60)} min`;
+        // Powyżej godziny to prawdopodobnie sztuczna przerwa (np. sąsiedztwo
+        // genesis, który ma zawsze tę samą, ustaloną datę) - nie prawdziwy
+        // czas kopania, więc nie pokazujemy mylącej liczby.
     }
 
     const workPhrase = durationText
@@ -96,7 +97,7 @@ function renderJournal(blocks, append) {
         const prevTs = blocks[i + 1] ? blocks[i + 1].timestamp : (i === blocks.length - 1 ? lastKnownTimestamp : null);
         const story = blockStory(b, prevTs);
         return `<div class="journal-entry" onclick="location.href='block.html?height=${b.height}'">
-            <div class="je-height">Blok #${b.height} <span style="color:var(--text-dim);font-weight:400;font-size:.8rem;">· ${timeAgo(b.timestamp)} temu</span></div>
+            <div class="je-height">Blok #${b.height} <span style="color:var(--text-dim);font-weight:400;font-size:.8rem;">· ${timeAgo(b.timestamp)}</span></div>
             <div class="je-story">${story}</div>
             <div class="je-meta">trudność ${fmtNumber(b.difficulty, 0)} · ${fmtHash(b.hash)}</div>
         </div>`;
