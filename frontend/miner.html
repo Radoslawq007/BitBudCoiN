@@ -65,7 +65,7 @@
       <input id="soloAutoAddress" placeholder="BbC...">
     </div>
     <button class="btn flame" id="soloAutoToggle" data-i18n="miner_solo_start">Zacznij kopać solo</button>
-    <div style="margin-top:14px;font-family:var(--font-mono);font-size:.85rem;"><span data-i18n="miner_blocks_label">Bloki</span>: <span id="soloAutoBlocks">0</span></div>
+    <div style="margin-top:14px;font-family:var(--font-mono);font-size:.85rem;"><span data-i18n="miner_blocks_label">Bloki</span>: <span id="soloAutoBlocks">0</span> · <span data-i18n="miner_attempts_label">Próby</span>: <span id="soloAutoAttempts">0</span></div>
     <div id="soloAutoLog" style="max-height:160px;overflow-y:auto;font-family:var(--font-mono);font-size:.78rem;color:var(--text-dim);margin-top:10px;"></div>
   </div>
 
@@ -114,7 +114,7 @@ async function benchmarkDevice(durationMs) {
         const data = new TextEncoder().encode("benchmark" + count);
         await crypto.subtle.digest("SHA-256", data);
         count++;
-        if (count % 500 === 0) await new Promise((r) => setTimeout(r, 0));
+        if (count % 150 === 0) await new Promise((r) => setTimeout(r, 0));
     }
     return Math.round(count / ((performance.now() - start) / 1000));
 }
@@ -189,7 +189,10 @@ document.getElementById("soloAutoToggle").addEventListener("click", () => {
         const addr = document.getElementById("soloAutoAddress").value.trim();
         if (!addr) { alert("Podaj adres BbC"); return; }
         SoloMiner.start(addr, API_BASE, {
-            onUpdate: (s) => { document.getElementById("soloAutoBlocks").textContent = s.blocksFound; },
+            onUpdate: (s) => {
+                document.getElementById("soloAutoBlocks").textContent = s.blocksFound;
+                document.getElementById("soloAutoAttempts").textContent = fmtNumber(s.attempts);
+            },
             onLog: (msg) => {
                 const line = document.createElement("div");
                 line.textContent = msg;
