@@ -9,6 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/theme.css">
 <style>
+  .fee-tiers { display:flex; gap:6px; margin-bottom:8px; }
+  .fee-tier-btn { flex:1; padding:9px 4px; font-family:var(--font-mono); font-size:.8rem; font-weight:600; border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); border-radius:var(--radius-sm); cursor:pointer; }
+  .fee-tier-btn.active { background:var(--leaf); color:#0b0f0d; border-color:var(--leaf); }
+  #sendFee[readonly] { opacity:.7; }
   .addr-display { font-family:var(--font-mono); font-size:1.05rem; color:var(--leaf); word-break:break-all; background:var(--surface-2); padding:14px 16px; border-radius:var(--radius-sm); border:1px solid var(--leaf-dim); }
   .key-box { display:flex; gap:8px; align-items:flex-start; }
   .key-box textarea { flex:1; min-height:110px; resize:vertical; font-size:.72rem; line-height:1.4; }
@@ -150,7 +154,16 @@
       <h3 data-i18n="wallet_send_title">Wyślij</h3>
       <div class="field"><label data-i18n="wallet_send_to">Adres odbiorcy</label><input id="sendTo" placeholder="BbC..."></div>
       <div class="field"><label data-i18n="wallet_send_amount">Kwota (BbC)</label><input id="sendAmount" type="number" step="any" placeholder="0.0"></div>
-      <div class="field"><label data-i18n="wallet_send_fee">Opłata</label><input id="sendFee" type="number" step="any" value="0.01"></div>
+      <div class="field">
+        <label data-i18n="wallet_send_fee">Opłata</label>
+        <div class="fee-tiers">
+          <button type="button" class="fee-tier-btn" data-fee="0.001">Low</button>
+          <button type="button" class="fee-tier-btn active" data-fee="0.01">Fast</button>
+          <button type="button" class="fee-tier-btn" data-fee="0.05">Turbo</button>
+          <button type="button" class="fee-tier-btn" data-fee="manual">Manual</button>
+        </div>
+        <input id="sendFee" type="number" step="any" value="0.01" readonly>
+      </div>
       <button class="btn flame" id="sendBtn" style="width:100%;justify-content:center;" data-i18n="wallet_send_btn">Wyślij</button>
       <div id="sendResult" style="margin-top:12px;font-family:var(--font-mono);font-size:.85rem;"></div>
     </div>
@@ -343,6 +356,22 @@ document.getElementById("shareAddrBtn").addEventListener("click", async () => {
 });
 
 // --- Wysyłanie ---
+// --- Poziomy opłaty ---
+document.querySelectorAll(".fee-tier-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        document.querySelectorAll(".fee-tier-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const feeInput = document.getElementById("sendFee");
+        if (btn.dataset.fee === "manual") {
+            feeInput.readOnly = false;
+            feeInput.focus();
+        } else {
+            feeInput.readOnly = true;
+            feeInput.value = btn.dataset.fee;
+        }
+    });
+});
+
 document.getElementById("sendBtn").addEventListener("click", async () => {
     const resultEl = document.getElementById("sendResult");
     const to = document.getElementById("sendTo").value.trim();
