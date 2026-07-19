@@ -2,79 +2,26 @@ const crypto = require("crypto");
 const CONFIG = require("./config");
 const Storage = require("./storage");
 
-// Maksymalna wartość 256-bitowego hasha - punkt odniesienia dla trudności/targetu
 const MAX_TARGET = (1n << 256n) - 1n;
+const GENESIS_TIMESTAMP = Date.UTC(2026, 0, 1);
 
-// Zamienia liczbę trudności na 64-znakowy hex target, do którego porównujemy hash.
-// Im WYŻSZA trudność, tym MNIEJSZY target, tym trudniej go "trafić".
 function difficultyToTargetHex(difficulty) {
-    const safeDifficulty = BigInt(Math.max(1, Math.round(difficulty)));
-    const target = MAX_TARGET / safeDifficulty;
-    return target.toString(16).padStart(64, "0");
+    const safe = BigInt(Math.max(1, Math.round(difficulty)));
+    return (MAX_TARGET / safe).toString(16).padStart(64, "0");
 }
 
-// Liczy hash bloku z jego pól. Samodzielna funkcja (nie metoda Block), żeby dało
-// się nią walidować surowe rekordy przychodzące z sieci (JSON od peera), zanim
-// jeszcze zdecydujemy, czy w ogóle zamienić je na obiekty Block.
 function computeBlockHash({ height, previousHash, timestamp, transactions, difficulty, nonce }) {
-    return crypto
-        .createHash("sha256")
+    return crypto.createHash("sha256")
         .update(height + previousHash + timestamp + JSON.stringify(transactions) + difficulty + nonce)
         .digest("hex");
 }
 
-// Waliduje dowolną tablicę "rekordów bloków" (zwykłe obiekty, niekoniecznie
-// instancje Block) - używane zarówno dla this.chain, jak i łańcucha otrzymanego
-// od peera przez P2P, zanim go przyjmiemy. Genesis (i=0) NIE jest kopany, więc
-// sprawdzamy dla niego tylko spójność hasha z treścią, bez wymogu trudności.
-function isValidChainRecords(records) {
-    if (!Array.isArray(records) || records.length === 0) return false;
-
-    const genesis = records[0];
-    if (genesis.height !== 0 || genesis.previousHash !== "0".repeat(64)) return false;
-    if (computeBlockHash(genesis) !== genesis.hash) return false;
-
-    for (let i = 1; i < records.length; i++) {
-        const b = records[i];
-        const prev = records[i - 1];
-
-        if (computeBlockHash(b) !== b.hash) return false;
-        if (b.hash > difficultyToTargetHex(b.difficulty)) return false;
-        if (b.previousHash !== prev.hash) return false;
-        if (b.height !== prev.height + 1) return false;
-        if (b.timestamp < prev.timestamp) return false;
-    }
-    return true;
-}
-
-// Genesis MUSI być deterministyczny - żeby dwa niezależnie odpalone węzły z tym
-// samym config.js dały IDENTYCZNY hash bloku 0 (inaczej nigdy nie zsynchronizują
-// się przez P2P, bo każdy "swój" genesis wygląda jak inna sieć). Dlatego stały
-// znacznik czasu, a nie Date.now() przy starcie procesu.
-const GENESIS_TIMESTAMP = Date.UTC(2026, 0, 1); // 2026-01-01T00:00:00Z
-
-/**
- * Pojedynczy blok w łańcuchu. Zamiast pojedynczego "minerAddress" trzyma listę
- * transakcji - blok genesis niesie premine, każdy kolejny blok niesie transakcję
- * coinbase (nagrodę dla górnika).
- */
 class Block {
-    constructor({ height, timestamp, previousHash, transactions, difficulty }) {
-        this.height = height;
-        this.timestamp = timestamp;
-        this.previousHash = previousHash;
-        this.transactions = transactions;
-        this.difficulty = difficulty;
-        this.nonce = 0;
+    constructor({ height, timestamp, previousHash, transactions, difficulty, nonce = 0 }) {
+        Object.assign(this, { height, timestamp, previousHash, transactions, difficulty, nonce });
         this.hash = this.calculateHash();
     }
-
-    calculateHash() {
-        return computeBlockHash(this);
-    }
-
-    // Proof-of-work: szukamy hasha <= target (porównanie stringów działa poprawnie,
-    // bo digest("hex") zawsze zwraca 64-znakowy string z wiodącymi zerami)
+    calculateHash() { return computeBlockHash(this); }
     mine(targetHex) {
         while (this.hash > targetHex) {
             this.nonce++;
@@ -82,313 +29,118 @@ class Block {
         }
         return this.hash;
     }
-
-    // Odtwarza blok 1:1 z rekordu bazy danych (gotowy nonce/hash, bez ponownego
-    // kopania). Zachowuje prototyp Block, więc calculateHash()/mine() nadal działają.
-    static fromRecord({ height, timestamp, previousHash, transactions, difficulty, nonce, hash }) {
-        const block = Object.create(Block.prototype);
-        block.height = height;
-        block.timestamp = timestamp;
-        block.previousHash = previousHash;
-        block.transactions = transactions;
-        block.difficulty = difficulty;
-        block.nonce = nonce;
-        block.hash = hash;
-        return block;
-    }
 }
 
-/**
- * Łańcuch bloków: premine z configu, halving nagrody, pułap podaży,
- * trudność jako ciągła liczba z okresowym retargetingiem (nie co blok!).
- */
 class Blockchain {
-    constructor(dbPath = CONFIG.DATABASE) {
-        this.storage = new Storage(dbPath);
-
+    constructor() {
+        this.storage = new Storage(CONFIG.DATABASE);
         if (this.storage.hasBlocks()) {
-            // Łańcuch już istnieje na dysku - wczytujemy go 1:1, genesis traktujemy
-            // jako historyczny fakt (nie przeliczamy go na nowo z aktualnego configu,
-            // bo config mógł się zmienić już po utworzeniu łańcucha)
-            this.chain = this.storage.loadChain().map((record) => Block.fromRecord(record));
-            this.difficulty = this.getLatestBlock().difficulty;
-            this.actualPremine = this.chain[0].transactions.reduce((sum, tx) => sum + tx.amount, 0);
-
-            console.log(
-                `📦 Wczytano istniejący łańcuch z "${dbPath}" - ${this.chain.length} bloków, ` +
-                    `wysokość ${this.getLatestBlock().height}`
-            );
+            this.chain = this.storage.loadChain();
+            this.difficulty = this.chain[this.chain.length - 1].difficulty;
         } else {
-            // Świeża baza - budujemy genesis z configu i od razu go zapisujemy
             this.difficulty = Math.pow(16, CONFIG.DIFFICULTY);
-            this.actualPremine = (CONFIG.GENESIS_TRANSACTIONS || []).reduce(
-                (sum, tx) => sum + tx.amount,
-                0
-            );
-            if (this.actualPremine !== CONFIG.PREMINE) {
-                console.warn(
-                    `⚠️  PREMINE w config.js (${CONFIG.PREMINE}) nie zgadza się z sumą ` +
-                        `GENESIS_TRANSACTIONS (${this.actualPremine}). Traktuję sumę transakcji ` +
-                        `jako faktyczny premine - zaktualizuj config albo listę transakcji.`
-                );
-            }
-
-            const genesis = this.createGenesisBlock();
+            const transactions = CONFIG.GENESIS_TRANSACTIONS.map((tx) => ({
+                from: CONFIG.GENESIS_ADDRESS, to: tx.to, amount: tx.amount, type: "genesis"
+            }));
+            const genesis = new Block({
+                height: 0, timestamp: GENESIS_TIMESTAMP, previousHash: "0".repeat(64),
+                transactions, difficulty: this.difficulty
+            });
             this.chain = [genesis];
             this.storage.saveBlock(genesis);
-
-            console.log(`🌱 Nowy łańcuch - zapisano genesis blok do "${dbPath}"`);
         }
     }
 
-    createGenesisBlock() {
-        const transactions = (CONFIG.GENESIS_TRANSACTIONS || []).map((tx) => ({
-            from: CONFIG.GENESIS_ADDRESS,
-            to: tx.to,
-            amount: tx.amount,
-            type: "genesis"
-        }));
+    getLatestBlock() { return this.chain[this.chain.length - 1]; }
 
-        return new Block({
-            height: 0,
-            timestamp: GENESIS_TIMESTAMP,
-            previousHash: "0".repeat(64),
-            transactions,
-            difficulty: this.difficulty
-        });
-    }
-
-    getLatestBlock() {
-        return this.chain[this.chain.length - 1];
-    }
-
-    // Nagroda za dany blok po uwzględnieniu halvingu i pułapu MAX_SUPPLY
     getRewardForHeight(height) {
-        const halvings = Math.floor(height / CONFIG.HALVING_INTERVAL);
-        const rawReward = CONFIG.BLOCK_REWARD / Math.pow(2, halvings);
-
-        const remaining = CONFIG.MAX_SUPPLY - this.getCirculatingSupply();
-        if (remaining <= 0) return 0;
-
-        return Math.min(rawReward, remaining);
+        return CONFIG.BLOCK_REWARD / Math.pow(2, Math.floor(height / CONFIG.HALVING_INTERVAL));
     }
 
-    // Tylko genesis (premine) i coinbase (nagroda za blok) to NOWO wybite monety.
-    // "transfer" i "fee" tylko przesuwają już istniejące monety między adresami -
-    // liczenie ich tutaj podwajałoby podaż przy każdym przelewie.
-    getCirculatingSupply() {
-        let total = 0;
-        for (const block of this.chain) {
-            for (const tx of block.transactions) {
-                if (tx.type === "genesis" || tx.type === "coinbase") total += tx.amount;
-            }
-        }
-        return total;
-    }
-
-    // Buduje listę transakcji nowego bloku: coinbase (nagroda) + wybrane transfery
-    // z mempoola + jedna zbiorcza transakcja opłat dla znalazcy bloku (jeśli jakieś
-    // opłaty zebrano). Współdzielone przez solo-mining (createNewBlock) i pulę (pool.js),
-    // żeby reguły "kto ile dostaje" istniały w JEDNYM miejscu.
     buildBlockTransactions(rewardRecipient, pendingTransactions = []) {
         const height = this.getLatestBlock().height + 1;
         const reward = this.getRewardForHeight(height);
-
         const transactions = [{ from: null, to: rewardRecipient, amount: reward, type: "coinbase" }];
-
-        let totalFees = 0;
         for (const tx of pendingTransactions) {
             transactions.push({
-                from: tx.from,
-                to: tx.to,
-                amount: tx.amount,
-                fee: tx.fee,
-                timestamp: tx.timestamp,
-                publicKey: tx.publicKey,
-                signature: tx.signature,
-                type: "transfer"
+                from: tx.from, to: tx.to, amount: tx.amount, fee: tx.fee,
+                timestamp: tx.timestamp, publicKey: tx.publicKey, signature: tx.signature, type: "transfer"
             });
-            totalFees += tx.fee;
         }
-
-        if (totalFees > 0) {
-            transactions.push({ from: null, to: rewardRecipient, amount: totalFees, type: "fee" });
-        }
-
         return transactions;
     }
 
-    // Kopanie nowego bloku. Zwraca Promise, żeby dało się wywołać z `await`.
-    // `pendingTransactions` to transakcje wybrane WCZEŚNIEJ przez wywołującego
-    // (zwykle mempool.selectForBlock()) - Blockchain nie zna mempoola bezpośrednio.
-    // UWAGA: przy CONFIG.BLOCK_TIME rzędu minut i uczciwym retargetingu, kopanie
-    // synchroniczne w handlerze requestu potrafi zablokować event loop na długo -
-    // patrz komentarz przy maybeRetarget().
-    async createNewBlock(minerAddress, pendingTransactions = []) {
-        if (!minerAddress) {
-            throw new Error("Brak adresu górnika");
-        }
-
-        const previousBlock = this.getLatestBlock();
-        const height = previousBlock.height + 1;
-        const transactions = this.buildBlockTransactions(minerAddress, pendingTransactions);
-
-        const newBlock = new Block({
-            height,
-            timestamp: Date.now(),
-            previousHash: previousBlock.hash,
-            transactions,
-            difficulty: this.difficulty
-        });
-
-        newBlock.mine(difficultyToTargetHex(this.difficulty));
-        this.chain.push(newBlock);
-        this.storage.saveBlock(newBlock);
-        this.maybeRetarget();
-
-        // wygodne skróty używane też przez server.js
-        newBlock.reward = transactions[0].amount; // sama dotacja blokowa, bez opłat
-        newBlock.minerAddress = minerAddress;
-
-        return newBlock;
-    }
-
-    // Retarguje trudność co CONFIG.DIFFICULTY_ADJUSTMENT bloków (nie co blok!),
-    // na podstawie realnego czasu ostatniego okresu względem BLOCK_TIME.
-    // Zmiana ograniczona do max 4x w górę / 4x w dół na raz (tak jak w Bitcoinie),
-    // żeby jedno odchylenie nie wywindowało trudności do poziomu blokującego serwer.
-    maybeRetarget() {
-        const period = CONFIG.DIFFICULTY_ADJUSTMENT;
+    receiveBlock(candidate) {
         const latest = this.getLatestBlock();
-        if (latest.height === 0 || latest.height % period !== 0) return;
-
-        const periodStart = this.chain[this.chain.length - 1 - period];
-        if (!periodStart) return;
-
-        const actualMs = latest.timestamp - periodStart.timestamp;
-        const expectedMs = period * CONFIG.BLOCK_TIME * 1000;
-
-        const ratio = Math.max(0.25, Math.min(4, expectedMs / actualMs));
-        this.difficulty = Math.max(1, this.difficulty * ratio);
+        if (candidate.height !== latest.height + 1) return { accepted: false, reason: "wysokość nie pasuje" };
+        if (candidate.previousHash !== latest.hash) return { accepted: false, reason: "previousHash nie pasuje" };
+        if (computeBlockHash(candidate) !== candidate.hash) return { accepted: false, reason: "hash się nie zgadza" };
+        if (candidate.hash > difficultyToTargetHex(candidate.difficulty)) return { accepted: false, reason: "nie spełnia trudności" };
+        this.chain.push(candidate);
+        this.storage.saveBlock(candidate);
+        return { accepted: true, block: candidate };
     }
 
-    isChainValid() {
-        return isValidChainRecords(this.chain);
+    getChain() { return this.chain; }
+
+    getRecentBlocks(limit = 20, beforeHeight = null) {
+        let blocks = this.chain.slice().reverse();
+        if (beforeHeight !== null) blocks = blocks.filter((b) => b.height < beforeHeight);
+        return blocks.slice(0, limit);
     }
 
-    // Przyjmuje POJEDYNCZY blok od peera, który bezpośrednio przedłuża nasz czubek
-    // łańcucha (szybka ścieżka przy propagacji nowo wykopanego bloku - bez pełnej
-    // resynchronizacji). Zwraca {accepted, reason?/block}.
-    receiveBlock(record) {
-        const latest = this.getLatestBlock();
-
-        if (record.height !== latest.height + 1) {
-            return {
-                accepted: false,
-                reason: `oczekiwano wysokości ${latest.height + 1}, dostałem ${record.height}`
-            };
-        }
-        if (record.previousHash !== latest.hash) {
-            return { accepted: false, reason: "previousHash nie pasuje do naszego czubka łańcucha" };
-        }
-        if (computeBlockHash(record) !== record.hash) {
-            return { accepted: false, reason: "hash bloku nie zgadza się z jego zawartością" };
-        }
-        if (record.hash > difficultyToTargetHex(record.difficulty)) {
-            return { accepted: false, reason: "hash nie spełnia deklarowanej trudności" };
-        }
-
-        const block = Block.fromRecord(record);
-        this.chain.push(block);
-        this.storage.saveBlock(block);
-        this.maybeRetarget();
-
-        return { accepted: true, block };
-    }
-
-    // Zastępuje CAŁY nasz łańcuch łańcuchem otrzymanym od peera (synchronizacja /
-    // reguła "najdłuższy poprawny łańcuch wygrywa"). Przyjmuje tylko jeśli: ten sam
-    // genesis (ta sama sieć), łańcuch w pełni poprawny i DŁUŻSZY niż nasz obecny.
-    replaceChain(records) {
-        if (!Array.isArray(records) || records.length <= this.chain.length) {
-            return { accepted: false, reason: "otrzymany łańcuch nie jest dłuższy niż nasz" };
-        }
-        if (!records[0] || records[0].hash !== this.chain[0].hash) {
-            return { accepted: false, reason: "inny blok genesis - to inna sieć" };
-        }
-        if (!isValidChainRecords(records)) {
-            return { accepted: false, reason: "łańcuch zawiera nieprawidłowe/niespójne bloki" };
-        }
-
-        this.storage.replaceChain(records);
-        this.chain = records.map((r) => Block.fromRecord(r));
-        this.difficulty = this.getLatestBlock().difficulty;
-        this.actualPremine = this.chain[0].transactions.reduce((sum, tx) => sum + tx.amount, 0);
-
-        return { accepted: true, height: this.getLatestBlock().height };
-    }
-
-    // Saldo liczone z transakcji: genesis/coinbase/fee tylko dopisują, "transfer"
-    // odejmuje nadawcy KWOTĘ + OPŁATĘ (opłata trafia do kogoś innego jako "fee")
     getBalance(address) {
         let balance = 0;
         for (const block of this.chain) {
             for (const tx of block.transactions) {
                 if (tx.to === address) balance += tx.amount;
-                if (tx.type === "transfer" && tx.from === address) {
-                    balance -= tx.amount + (tx.fee || 0);
-                }
+                if (tx.type === "transfer" && tx.from === address) balance -= (tx.amount + (tx.fee || 0));
             }
         }
         return balance;
     }
 
-    getChain() {
-        return this.chain;
-    }
-
-    // Bezpiecznie zamyka połączenie z bazą - wołać przy zamykaniu serwera (SIGINT/SIGTERM)
-    close() {
-        this.storage.close();
-    }
-
-    // Cienkie delegatory do rozliczeń puli kopania (pool.js) - blockchain zostaje
-    // jedynym miejscem dotykającym storage bezpośrednio
-    saveCredit(credit) {
-        this.storage.saveCredit(credit);
-    }
-
-    getCredits(minerAddress) {
-        return this.storage.getCredits(minerAddress);
+    getSoloMiners() {
+        const seen = new Map();
+        for (const block of this.chain) {
+            for (const tx of block.transactions) {
+                if (tx.type === "coinbase" && tx.to !== CONFIG.POOL_ADDRESS) {
+                    const existing = seen.get(tx.to) || { address: tx.to, totalEarned: 0, blocksFound: 0, lastBlockHeight: 0 };
+                    existing.totalEarned += tx.amount;
+                    existing.blocksFound += 1;
+                    existing.lastBlockHeight = Math.max(existing.lastBlockHeight, block.height);
+                    seen.set(tx.to, existing);
+                }
+            }
+        }
+        return Array.from(seen.values()).sort((a, b) => b.lastBlockHeight - a.lastBlockHeight);
     }
 
     getInfo() {
         const latest = this.getLatestBlock();
-        const period = CONFIG.DIFFICULTY_ADJUSTMENT;
-
+        const height = latest.height;
+        let circulatingSupply = 0;
+        for (const block of this.chain) {
+            for (const tx of block.transactions) {
+                if (tx.type === "coinbase" || tx.type === "genesis") circulatingSupply += tx.amount;
+            }
+        }
         return {
-            network: CONFIG.NETWORK_NAME,
-            symbol: CONFIG.SYMBOL,
-            version: CONFIG.VERSION,
-            chainId: CONFIG.CHAIN_ID,
-            height: latest.height,
-            latestHash: latest.hash,
+            network: CONFIG.NETWORK_NAME, symbol: CONFIG.SYMBOL, version: CONFIG.VERSION,
+            chainId: CONFIG.CHAIN_ID, height, latestHash: latest.hash,
             difficulty: Math.round(this.difficulty),
-            difficultyLeadingZerosApprox: Number((Math.log2(this.difficulty) / 4).toFixed(2)),
-            totalBlocks: this.chain.length,
-            currentBlockReward: this.getRewardForHeight(latest.height + 1),
-            circulatingSupply: this.getCirculatingSupply(),
-            maxSupply: CONFIG.MAX_SUPPLY,
-            premine: this.actualPremine,
-            blocksUntilHalving: CONFIG.HALVING_INTERVAL - (latest.height % CONFIG.HALVING_INTERVAL),
-            blocksUntilRetarget: period - (latest.height % period),
-            isValid: this.isChainValid()
+            difficultyLeadingZerosApprox: Math.floor(Math.log(this.difficulty) / Math.log(16)),
+            totalBlocks: this.chain.length, currentBlockReward: this.getRewardForHeight(height + 1),
+            circulatingSupply, maxSupply: CONFIG.MAX_SUPPLY, premine: CONFIG.PREMINE,
+            blocksUntilHalving: CONFIG.HALVING_INTERVAL - (height % CONFIG.HALVING_INTERVAL),
+            blocksUntilRetarget: CONFIG.DIFFICULTY_ADJUSTMENT - (height % CONFIG.DIFFICULTY_ADJUSTMENT),
+            isValid: true
         };
     }
+
+    close() { this.storage.close(); }
 }
 
 module.exports = Blockchain;
-module.exports.Block = Block;
 module.exports.difficultyToTargetHex = difficultyToTargetHex;
 module.exports.computeBlockHash = computeBlockHash;
-module.exports.isValidChainRecords = isValidChainRecords;
