@@ -1,4 +1,5 @@
 const express = require("express");
+const cors = require("cors");
 const CONFIG = require("./config");
 const Blockchain = require("./bbcblockchain");
 const Mempool = require("./mempool");
@@ -8,6 +9,7 @@ const { rateLimiter, strictLimiter } = require("./rate-limit");
 const { difficultyToTargetHex } = require("./bbcblockchain");
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 app.use(rateLimiter);
 
