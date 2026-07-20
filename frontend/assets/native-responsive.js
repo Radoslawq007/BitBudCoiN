@@ -1,12 +1,11 @@
 // Responsywne menu - na wąskich ekranach (telefon) chowa listę stron pod
 // przycisk ☰, na szerokich (komputer) pokazuje wszystko normalnie, jak dotąd.
 //
-// Dodatkowo: sprawdzamy nie tylko CSS viewport (window.innerWidth), ale też
-// realną szerokość fizycznego ekranu (window.screen.width). "Wersja na
-// komputery" w przeglądarce potrafi oszukać viewport, żeby strona myślała,
-// że jest szeroka - ale nie zmienia screen.width, bo to twardy parametr
-// sprzętu. Dzięki temu telefon dostaje hamburger niezależnie od tego
-// ustawienia przeglądarki.
+// "Wersja na komputery" w przeglądarce potrafi oszukać CSS viewport ORAZ
+// window.screen.width, więc żadnemu z wymiarów ekranu nie można tu ufać.
+// Zamiast tego sprawdzamy typ wejścia: ekran dotykowy bez możliwości
+// najeżdżania myszką (pointer: coarse + hover: none) to cecha SPRZĘTU,
+// nie sposobu wyświetlania strony - tego przeglądarka nie podmienia.
 function mountResponsiveNav() {
     const nav = document.querySelector(".nav");
     const links = document.querySelector(".nav-links");
@@ -26,7 +25,8 @@ function mountResponsiveNav() {
         a.addEventListener("click", () => links.classList.remove("open"));
     });
 
-    if (window.screen && window.screen.width <= 680) {
+    const isTouchOnly = window.matchMedia("(pointer: coarse) and (hover: none)").matches;
+    if (isTouchOnly) {
         nav.classList.add("force-mobile-nav");
     }
 
