@@ -234,7 +234,7 @@ code, .mono, .hash, .address, td.num, .stat-value {
 .btn.flame { background: var(--flame); color: #06131a; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-input, select {
+input, select, textarea {
   font-family: var(--font-mono);
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -244,9 +244,7 @@ input, select {
   font-size: 0.92rem;
   width: 100%;
 }
-input:focus, select:focus { border-color: var(--flame); }
-label { display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 6px; }
-.field { margin-bottom: 16px; }
+input:focus, select:focus, textarea:focus { border-color: var(--flame); }
 
 /* --- Tabele (bloki, transakcje, peery) --- */
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
