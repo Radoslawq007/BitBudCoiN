@@ -2,6 +2,7 @@ const CONFIG = require("./config");
 const { computeBlockHash, difficultyToTargetHex } = require("./bbcblockchain");
 
 const MAX_SEEN_SHARE_HASHES = 20000;
+const HASHRATE_WINDOW_MS = 5 * 60 * 1000; // okno do liczenia hashrate/aktywnych górników "na żywo"
 
 /**
  * Pula kopania: górnik SAM liczy hashe (u siebie, na własnym sprzęcie) i wysyła
@@ -31,6 +32,7 @@ class MiningPool {
 
         this.roundShares = new Map(); // minerAddress -> liczba shares w BIEŻĄCEJ rundzie
         this.seenShareHashes = new Set(); // ochrona przed powtórnym zgłoszeniem tego samego hasha
+        this.recentShares = []; // { minerAddress, timestamp } - do hashrate/aktywnych górników na żywo, niezależnie od rund
     }
 
     // Świeży szablon pracy - liczony na bieżąco z AKTUALNEGO czubka łańcucha przy
@@ -83,6 +85,8 @@ class MiningPool {
         // od tej linii share jest ważny i liczy się do rundy, niezależnie od dalszego przebiegu
         this._rememberShareHash(candidate.hash);
         this.roundShares.set(minerAddress, (this.roundShares.get(minerAddress) || 0) + 1);
+        this.recentShares.push({ minerAddress, timestamp: Date.now() });
+        this._pruneRecentShares();
 
         const blockTargetHex = difficultyToTargetHex(candidate.difficulty);
         const isFullBlock = candidate.hash <= blockTargetHex;
@@ -114,6 +118,16 @@ class MiningPool {
         this.seenShareHashes.add(hash);
     }
 
+    // Wyrzuca z recentShares wszystko starsze niż HASHRATE_WINDOW_MS - trzyma
+    // tylko świeże zgłoszenia, więc hashrate/aktywni górnicy zawsze odzwierciedlają
+    // ostatnie kilka minut, a nie całą historię rundy czy serwera.
+    _pruneRecentShares() {
+        const cutoff = Date.now() - HASHRATE_WINDOW_MS;
+        while (this.recentShares.length && this.recentShares[0].timestamp < cutoff) {
+            this.recentShares.shift();
+        }
+    }
+
     _finalizeRound(block) {
         const coinbase = block.transactions.find((tx) => tx.type === "coinbase");
         const totalReward = coinbase ? coinbase.amount : 0;
@@ -141,7 +155,22 @@ class MiningPool {
     }
 
     getStatus() {
+        this._pruneRecentShares();
         const latest = this.blockchain.getLatestBlock();
+
+        // Hashrate szacowany tak samo jak w benchmarku na miner.html: oczekiwana
+        // liczba prób na share ≈ shareDifficulty, więc suma prób w oknie / czas okna.
+        const windowSeconds = HASHRATE_WINDOW_MS / 1000;
+        const estimatedHashrate = (this.recentShares.length * this.shareDifficulty) / windowSeconds;
+
+        const byMiner = new Map();
+        for (const s of this.recentShares) {
+            byMiner.set(s.minerAddress, (byMiner.get(s.minerAddress) || 0) + 1);
+        }
+        const activeMiners = Array.from(byMiner.entries())
+            .map(([minerAddress, shares]) => ({ minerAddress, shares }))
+            .sort((a, b) => b.shares - a.shares);
+
         return {
             poolAddress: this.poolAddress,
             poolFee: this.poolFee,
@@ -149,7 +178,10 @@ class MiningPool {
             shareDifficulty: Math.round(this.shareDifficulty),
             blockDifficulty: Math.round(this.blockchain.difficulty),
             sharesThisRound: Object.fromEntries(this.roundShares),
-            totalSharesThisRound: Array.from(this.roundShares.values()).reduce((a, b) => a + b, 0)
+            totalSharesThisRound: Array.from(this.roundShares.values()).reduce((a, b) => a + b, 0),
+            estimatedHashrate,
+            activeMinersWindowSeconds: windowSeconds,
+            activeMiners
         };
     }
 
