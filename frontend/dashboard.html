@@ -140,4 +140,23 @@ setInterval(load, 15000);
     document.getElementById("minersListBox").innerHTML = '<p style="color:var(--text-dim);">Niedostępne.</p>';
   }
 })();
+</script><div class="card">
+  <h3>Adresy w sieci</h3>
+  <div id="addrStatsBox"></div>
+</div>
+<script>
+(async () => {
+  try {
+    const data = await apiGet("/network/addresses");
+    document.getElementById("addrStatsBox").innerHTML = `
+      <p style="font-family:var(--font-mono);margin-bottom:14px;">Łącznie znanych adresów: <strong>${data.totalAddresses}</strong></p>
+      <h4 style="color:var(--flame);margin-bottom:6px;">🐋 Wieloryby (najwięcej BbC)</h4>
+      ${data.whales.map(w => `<div style="padding:6px 0;font-family:var(--font-mono);font-size:.85rem;border-bottom:1px solid var(--border);">${w.address.slice(0,14)}...${w.address.slice(-6)} · ${fmtNumber(w.balance)} BbC</div>`).join("")}
+      <h4 style="color:var(--leaf);margin:14px 0 6px;">🌱 Najnowsze adresy</h4>
+      ${data.newest.map(n => `<div style="padding:6px 0;font-family:var(--font-mono);font-size:.85rem;border-bottom:1px solid var(--border);">${n.address.slice(0,14)}...${n.address.slice(-6)} · od bloku #${n.firstSeenHeight}</div>`).join("")}
+    `;
+  } catch (e) {
+    document.getElementById("addrStatsBox").innerHTML = '<p style="color:var(--text-dim);">Niedostępne.</p>';
+  }
+})();
 </script>
