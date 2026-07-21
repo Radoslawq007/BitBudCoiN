@@ -1,12 +1,15 @@
+// i18n tylko na kluczach, które NAPRAWDĘ istniały w Twoim kodzie (z miner.html).
+// Start/Giełda/Adres nie miały odpowiednika nigdzie - bez wymyślonych kluczy,
+// żeby nie wywalać i18n.js na nieznanym data-i18n.
 const NAV_PAGES = [
-    { href: "index.html",     label: "Start",     i18n: "nav_start" },
+    { href: "index.html",     label: "Start" },
     { href: "dashboard.html", label: "Dashboard", i18n: "nav_dashboard" },
     { href: "explorer.html",  label: "Explorer",  i18n: "nav_explorer" },
     { href: "miner.html",     label: "Kopanie",   i18n: "nav_mining" },
     { href: "network.html",   label: "Sieć",      i18n: "nav_network" },
     { href: "peers.html",     label: "Peery",     i18n: "nav_peers" },
-    { href: "exchange.html",  label: "Giełda",    i18n: "nav_exchange" },
-    { href: "address.html",   label: "Adres",     i18n: "nav_address" },
+    { href: "exchange.html",  label: "Giełda" },
+    { href: "address.html",   label: "Adres" },
     { href: "wallet.html",    label: "Portfel",   i18n: "nav_wallet" },
     { href: "docks.html",     label: "Docs",      i18n: "nav_docs" }
 ];
@@ -23,7 +26,8 @@ function injectNav() {
     const linksHtml = NAV_PAGES.map((p) => {
         const id = ' id="nav-' + p.href.replace(".html", "") + '"';
         const cls = p.href === current ? ' class="active"' : "";
-        return `<a href="${p.href}"${id}${cls} data-i18n="${p.i18n}">${p.label}</a>`;
+        const i18n = p.i18n ? ` data-i18n="${p.i18n}"` : "";
+        return `<a href="${p.href}"${id}${cls}${i18n}>${p.label}</a>`;
     }).join("\n    ");
 
     const navHtml = `<nav class="nav">
