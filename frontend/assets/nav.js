@@ -1,5 +1,3 @@
-// Jedna lista stron - jedyne miejsce, które trzeba zmienić, żeby dodać/
-// usunąć/przemianować pozycję w menu na WSZYSTKICH stronach naraz.
 const NAV_PAGES = [
     { href: "index.html",     label: "Start",     i18n: "nav_start" },
     { href: "dashboard.html", label: "Dashboard", i18n: "nav_dashboard" },
@@ -18,17 +16,14 @@ function currentPageFile() {
     return path === "" ? "index.html" : path;
 }
 
-// Wstrzykuje pasek nav jako pierwsze dziecko <body>. Wywoływane od razu,
-// synchronicznie, zanim przeglądarka dojdzie do native-responsive.js -
-// dzięki temu mountResponsiveNav() zawsze znajdzie już gotowe .nav/.nav-links,
-// niezależnie od tego, na której stronie jesteśmy.
 function injectNav() {
-    if (document.querySelector(".nav")) return; // nav już istnieje - nie duplikuj
+    if (document.querySelector(".nav")) return;
 
     const current = currentPageFile();
     const linksHtml = NAV_PAGES.map((p) => {
+        const id = ' id="nav-' + p.href.replace(".html", "") + '"';
         const cls = p.href === current ? ' class="active"' : "";
-        return `<a href="${p.href}"${cls} data-i18n="${p.i18n}">${p.label}</a>`;
+        return `<a href="${p.href}"${id}${cls} data-i18n="${p.i18n}">${p.label}</a>`;
     }).join("\n    ");
 
     const navHtml = `<nav class="nav">
@@ -44,9 +39,6 @@ function injectNav() {
 
 injectNav();
 
-// Zostaje dla zgodności wstecznej / ręcznego użycia gdzie indziej -
-// injectNav() już ustawia "active" sam, ale nic się nie stanie jeśli
-// jakaś strona nadal woła setActiveNav() ręcznie.
 function setActiveNav(id) {
     const el = document.getElementById(id);
     if (el) el.classList.add("active");
