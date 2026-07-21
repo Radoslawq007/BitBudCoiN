@@ -1,22 +1,23 @@
 /* =========================================================
    BitBudCoin - wspólny motyw wizualny
-   Ciemne tło + liść konopi (zielony, łańcuch/wzrost) + niebieski
-   płomień z dymem (aktywność/kopanie) jako sygnaturowy motyw.
+   Ciemne, fioletowe tło + zielony liść konopi (łańcuch/wzrost) +
+   niebieski płomień z fioletowym cieniem (aktywność/kopanie) -
+   paleta wyciągnięta z monety BbC (złoto/fiolet/zieleń/niebieski).
    ========================================================= */
 
 :root {
   /* --- Kolory (rdzeń palety) --- */
-  --bg: #0b0f0d;
-  --surface: #121815;
-  --surface-2: #1a211d;
-  --border: #263129;
-  --leaf: #8fd14f;
-  --leaf-dim: #5c9438;
-  --flame: #3fc5ff;
-  --flame-deep: #1656c9;
-  --smoke: #7e8b94;
+  --bg: #090614;
+  --surface: #161221;
+  --surface-2: #221c30;
+  --border: #4a2e6b;
+  --leaf: #7bd161;
+  --leaf-dim: #4fa136;
+  --flame: #5a7ef6;
+  --flame-deep: #5c1da5;
+  --smoke: #8b7b9d;
   --text: #e8ede9;
-  --text-dim: #9ba69e;
+  --text-dim: #ada7b4;
   --danger: #ff6b5c;
 
   /* --- Typografia --- */
@@ -98,7 +99,7 @@ code, .mono, .hash, .address, td.num, .stat-value {
   align-items: center;
   gap: 24px;
   padding: 14px 20px;
-  background: rgba(11, 15, 13, 0.88);
+  background: rgba(9, 6, 20, 0.88);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
 }
@@ -157,7 +158,7 @@ code, .mono, .hash, .address, td.num, .stat-value {
   box-shadow: 0 0 8px 2px var(--flame);
   animation: flicker 1.6s ease-in-out infinite;
 }
-.flame-pill.lit { color: var(--text); border-color: rgba(63, 197, 255, 0.35); }
+.flame-pill.lit { color: var(--text); border-color: rgba(90, 126, 246, 0.35); }
 
 @keyframes flicker {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -207,7 +208,7 @@ code, .mono, .hash, .address, td.num, .stat-value {
   color: var(--leaf);
   line-height: 1;
   margin: 8px 0;
-  text-shadow: 0 0 40px rgba(143, 209, 79, 0.25);
+  text-shadow: 0 0 40px rgba(123, 209, 97, 0.25);
 }
 .hero .sub { color: var(--text-dim); font-size: 1.05rem; }
 
@@ -324,12 +325,12 @@ footer {
   width: 340px;
   height: 340px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(126, 139, 148, 0.14), transparent 70%);
+  background: radial-gradient(circle, rgba(139, 123, 157, 0.14), transparent 70%);
   filter: blur(6px);
 }
 .smoke-field span:nth-child(1) { left: 8%; animation: drift1 26s ease-in-out infinite; }
 .smoke-field span:nth-child(2) { left: 55%; width: 420px; height: 420px; animation: drift2 34s ease-in-out infinite; }
-.smoke-field span:nth-child(3) { left: 30%; width: 260px; height: 260px; background: radial-gradient(circle, rgba(63, 197, 255, 0.08), transparent 70%); animation: drift3 30s ease-in-out infinite; }
+.smoke-field span:nth-child(3) { left: 30%; width: 260px; height: 260px; background: radial-gradient(circle, rgba(90, 126, 246, 0.08), transparent 70%); animation: drift3 30s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: no-preference) {
   @keyframes drift1 { 0%,100% { transform: translateY(0) translateX(0); } 50% { transform: translateY(-60px) translateX(30px); } }
