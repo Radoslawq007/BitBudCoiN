@@ -16,7 +16,7 @@ app.use(rateLimiter);
 
 const blockchain = new Blockchain();
 const mempool = new Mempool(blockchain, blockchain.storage);
-const pool = new Pool(blockchain, mempool, CONFIG.POOL_ADDRESS, CONFIG.POOL_FEE, CONFIG.SHARE_DIFFICULTY);
+const pool = new Pool(blockchain, { mempool, poolAddress: CONFIG.POOL_ADDRESS, poolFee: CONFIG.POOL_FEE, shareDifficulty: CONFIG.SHARE_DIFFICULTY });
 const p2p = new P2P(blockchain, CONFIG.P2P_PORT, CONFIG.PEERS);
 const soloTracker = new SoloTracker();
 
