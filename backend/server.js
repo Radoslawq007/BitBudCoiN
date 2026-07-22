@@ -47,12 +47,11 @@ app.post("/transactions/send", strictLimiter, (req, res) => {
     res.json(result);
 });
 
-// Status puli + górnicy aktywni "na żywo" - łączy dane z puli (shares) i solo
-// (heartbeaty) w jedną listę, oznaczoną polem source, żeby front mógł pokazać
-// jeden wspólny widok "kto teraz kopie" niezależnie od trybu.
 app.get("/pool/status", (req, res) => {
     const status = pool.getStatus();
-    const poolMiners = status.activeMiners.map((m) => ({ ...m, source: "pool" }));
+    const poolMiners = Object.entries(status.sharesThisRound || {}).map(([address, shares]) => ({
+        minerAddress: address, shares, source: "pool"
+    }));
     const soloMiners = soloTracker.getActiveMiners().map((m) => ({ ...m, source: "solo" }));
     res.json({
         ...status,
@@ -74,12 +73,12 @@ app.get("/network/miners", (req, res) => {
     res.json(all);
 });
 
-// Adresy w sieci: ile ich jest w ogóle, największe salda ("wieloryby") i
-// najświeżej zobaczone (po wysokości bloku pierwszego pojawienia się).
-// Cała logika liczenia siedzi w blockchain.getAddressStats() - jeden przebieg
-// przez łańcuch zamiast wołania getBalance() osobno dla każdego adresu.
 app.get("/network/addresses", (req, res) => {
     res.json(blockchain.getAddressStats());
+});
+
+app.get("/transactions/address/:address", (req, res) => {
+    res.json(blockchain.getTransactionsForAddress(req.params.address));
 });
 
 app.get("/pool/work", (req, res) => {
@@ -95,7 +94,6 @@ app.post("/pool/submit", strictLimiter, (req, res) => {
     res.json(result);
 });
 
-// Solo (bezpieczne, liczenie po stronie klienta - serwer tylko weryfikuje)
 app.get("/solo/work", (req, res) => {
     const minerAddress = req.query.minerAddress;
     if (!minerAddress) return res.status(400).json({ error: "Brak adresu" });
@@ -119,8 +117,6 @@ app.post("/solo/submit", strictLimiter, (req, res) => {
     res.json({ status: "mined", blockHeight: result.block.height, hash: result.block.hash, reward: result.block.transactions[0].amount });
 });
 
-// Lekki "sygnał życia" od solo-minera - nie zgłasza wyniku, tylko tempo,
-// żeby serwer wiedział że ktoś aktualnie liczy solo (patrz solo-tracker.js).
 app.post("/solo/heartbeat", (req, res) => {
     const { minerAddress, attempts, intervalSeconds } = req.body || {};
     if (!minerAddress) return res.status(400).json({ error: "Brak adresu" });
@@ -128,9 +124,6 @@ app.post("/solo/heartbeat", (req, res) => {
     res.json({ ok: true });
 });
 
-// Stare solo mining wyłączone - przy realnej trudności blokowało cały serwer
-// (Node.js jest jednowątkowy). Prawdziwe kopanie solo idzie teraz przez
-// /solo/work + /solo/submit, gdzie liczenie dzieje się u klienta.
 app.post("/mine/start", strictLimiter, (req, res) => {
     res.status(410).json({ error: "Solo mining wyłączone przy tej trudności - użyj kopania przez pulę lub /solo/work (miner.html)" });
 });
