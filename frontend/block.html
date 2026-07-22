@@ -11,90 +11,89 @@
 </head>
 <body>
 
-<nav class="nav">
-    <a href="index.html" class="brand"><img src="assets/logo.svg" alt="BitBudCoin"> BitBudCoin</a>
-    <div class="nav-links">
-        <a href="index.html" id="nav-index">Start</a>
-        <a href="dashboard.html" id="nav-dashboard">Dashboard</a>
-        <a href="explorer.html" id="nav-explorer">Explorer</a>
-        <a href="miner.html" id="nav-miner">Miner</a>
-        <a href="network.html" id="nav-network">Sieć</a>
-        <a href="peers.html" id="nav-peers">Peery</a>
-        <a href="exchange.html" id="nav-exchange">Giełda</a>
-        <a href="address.html" id="nav-address">Adres</a>
-        <a href="docks.html" id="nav-docks">Docs</a>
+<div class="page">
+    <div style="margin-top:32px;">
+        <a href="explorer.html" style="color:var(--text-dim); font-size:0.85rem;">← Dziennik łańcucha</a>
     </div>
-    <div class="nav-status">
-        <span class="flame-pill" id="nav-status"><span class="flame-dot"></span><span id="nav-status-text">łączę…</span></span>
-    </div>
-</nav>
+    <h1 style="margin-top:10px;">Blok #<span id="block-height-title">—</span></h1>
+    <div id="error-box"></div>
 
-<div class="page" id="content">
-    <p style="margin-top:32px;"><a href="explorer.html">← wróć do explorera</a></p>
-    <div class="skeleton" style="height:200px; border-radius:12px;"></div>
+    <div class="card">
+        <table><tbody id="meta-tbody">
+            <tr><td colspan="2" class="skeleton">ładowanie ładowanie ładowanie</td></tr>
+        </tbody></table>
+    </div>
+
+    <h2 style="margin-top:24px;">Transakcje (<span id="tx-count">—</span>)</h2>
+    <div class="card" style="padding:0; overflow:hidden;">
+        <table>
+            <thead><tr><th>Typ</th><th>Od</th><th>Do</th><th>Kwota</th></tr></thead>
+            <tbody id="tx-tbody">
+                <tr><td colspan="4" class="skeleton">ładowanie ładowanie</td></tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <footer>BitBudCoin (BbC) · sieć proof-of-work · <a href="docks.html">dokumentacja</a></footer>
 
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
+<script src="assets/native-responsive.js"></script>
 <script>
 setActiveNav("nav-explorer");
 
-function badgeFor(type) {
-    return `<span class="badge ${type}">${type}</span>`;
+function badgeFor(type) { return `<span class="badge ${type}">${type}</span>`; }
+
+function truncAddr(a) {
+    return a && a.length > 18 ? `${a.slice(0, 10)}...${a.slice(-6)}` : (a || "");
+}
+
+function addrLink(a, fallbackHtml) {
+    if (!a) return fallbackHtml || '<span style="color:var(--text-dim)">—</span>';
+    return `<a href="address.html?address=${encodeURIComponent(a)}" class="mono">${truncAddr(a)}</a>`;
 }
 
 async function load() {
-    const params = new URLSearchParams(location.search);
-    const height = params.get("height");
-    const content = document.getElementById("content");
-
+    const height = new URLSearchParams(location.search).get("height");
     if (height === null) {
-        content.innerHTML = '<p style="margin-top:32px;"><a href="explorer.html">← wróć do explorera</a></p><div class="empty-state"><div class="glyph">🔎</div>Brak numeru bloku w adresie. Wróć do explorera i kliknij blok.</div>';
+        document.getElementById("error-box").innerHTML = `<div class="error-banner">Brak wysokości bloku w adresie.</div>`;
+        document.getElementById("meta-tbody").innerHTML = "";
+        document.getElementById("tx-tbody").innerHTML = "";
         return;
     }
+    document.getElementById("block-height-title").textContent = height;
 
     try {
-        const b = await apiGet(`/blocks/${height}`);
-        const prevLink = b.height > 0 ? `<a href="block.html?height=${b.height - 1}">← blok ${b.height - 1}</a>` : "<span style='color:var(--text-dim)'>genesis</span>";
-        content.innerHTML = `
-            <p style="margin-top:32px;"><a href="explorer.html">← wróć do explorera</a></p>
-            <h1>Blok #${b.height}</h1>
-            <div class="grid cols-2">
-                <div class="card">
-                    <div class="card-label">Hash</div>
-                    <div class="mono" style="word-break:break-all; font-size:0.85rem;">${b.hash}</div>
-                </div>
-                <div class="card">
-                    <div class="card-label">Poprzedni hash</div>
-                    <div class="mono" style="word-break:break-all; font-size:0.85rem;">${b.previousHash}</div>
-                </div>
-                <div class="card"><div class="card-label">Czas</div><div class="card-value" style="font-size:1.1rem;">${fmtTime(b.timestamp)}</div></div>
-                <div class="card"><div class="card-label">Trudność / nonce</div><div class="card-value" style="font-size:1.1rem;">${fmtNumber(b.difficulty, 0)} / ${fmtNumber(b.nonce, 0)}</div></div>
-            </div>
+        const block = await apiGet(`/blocks/${encodeURIComponent(height)}`);
+        document.title = `Blok #${block.height} — BitBudCoin`;
+        document.getElementById("block-height-title").textContent = block.height;
 
-            <h2 style="margin-top:28px;">Transakcje (${b.transactions.length})</h2>
-            <div class="card" style="padding:0; overflow:hidden;">
-                <table>
-                    <thead><tr><th>Typ</th><th>Od</th><th>Do</th><th>Kwota</th></tr></thead>
-                    <tbody>
-                        ${b.transactions.map(tx => `
-                            <tr>
-                                <td>${badgeFor(tx.type)}</td>
-                                <td>${tx.from ? `<a href="address.html?address=${encodeURIComponent(tx.from)}" class="truncate">${fmtAddress(tx.from)}</a>` : '<span style="color:var(--text-dim)">— nowa emisja —</span>'}</td>
-                                <td><a href="address.html?address=${encodeURIComponent(tx.to)}" class="truncate">${fmtAddress(tx.to)}</a></td>
-                                <td>${fmtNumber(tx.amount)}${tx.fee ? ` <span style="color:var(--text-dim)">(+${fmtNumber(tx.fee)} opłaty)</span>` : ""}</td>
-                            </tr>`).join("")}
-                    </tbody>
-                </table>
-            </div>
-            <p style="margin-top:16px;">${prevLink} · <a href="block.html?height=${b.height + 1}">blok ${b.height + 1} →</a></p>
-        `;
+        document.getElementById("meta-tbody").innerHTML = `
+            <tr><td style="color:var(--text-dim); width:35%;">Hash</td><td class="mono" style="word-break:break-all;">${escapeHtml(block.hash)}</td></tr>
+            <tr><td style="color:var(--text-dim);">Poprzedni hash</td><td class="mono" style="word-break:break-all;">${block.height === 0 ? '<span style="color:var(--text-dim)">— (genesis)</span>' : escapeHtml(block.previousHash)}</td></tr>
+            <tr><td style="color:var(--text-dim);">Kiedy</td><td>${timeAgo(block.timestamp)}</td></tr>
+            <tr><td style="color:var(--text-dim);">Trudność</td><td>${fmtNumber(block.difficulty, 0)}</td></tr>
+            <tr><td style="color:var(--text-dim);">Nonce</td><td class="mono">${fmtNumber(block.nonce, 0)}</td></tr>`;
+
+        const txs = block.transactions || [];
+        document.getElementById("tx-count").textContent = txs.length;
+        document.getElementById("tx-tbody").innerHTML = txs.length === 0
+            ? '<tr><td colspan="4"><div class="empty-state"><div class="glyph">🍃</div>Brak transakcji w tym bloku</div></td></tr>'
+            : txs.map((tx) => `
+                <tr>
+                    <td>${badgeFor(tx.type)}</td>
+                    <td>${addrLink(tx.from, '<span style="color:var(--text-dim)">— (nowe monety)</span>')}</td>
+                    <td>${addrLink(tx.to)}</td>
+                    <td>${fmtNumber(tx.amount)}${tx.fee ? ` <span style="color:var(--text-dim); font-size:0.8em;">(+${fmtNumber(tx.fee)} opłaty)</span>` : ""}</td>
+                </tr>`).join("");
     } catch (e) {
-        content.innerHTML = `<p style="margin-top:32px;"><a href="explorer.html">← wróć do explorera</a></p><div class="empty-state"><div class="glyph">✕</div>Nie znaleziono bloku #${escapeHtml(height)}</div>`;
+        document.getElementById("error-box").innerHTML = `<div class="error-banner">${escapeHtml(e.message)}</div>`;
+        document.getElementById("meta-tbody").innerHTML = "";
+        document.getElementById("tx-tbody").innerHTML = "";
     }
 }
+
 load();
 </script>
 </body>
