@@ -39,16 +39,16 @@
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="create" data-i18n="wallet_tab_create">Nowy portfel</button>
-    <button class="tab-btn" data-tab="phrase">Fraza (12 słów)</button>
-    <button class="tab-btn" data-tab="manage" data-i18n="wallet_tab_manage">Mój portfel</button>
+    <button class="tab-btn" data-tab="manage" data-i18n="wallet_tab_manage">Mam już portfel</button>
   </div>
 
-  <!-- ========== FRAZA 12 SŁÓW ========== -->
-  <div class="tab-panel" id="tab-phrase">
-    <p style="margin-top:20px;">Zamiast surowego klucza - 12 zwykłych słów. Łatwiej przepisać ręcznie, łatwiej rozpoznać literówkę. Ta sama fraza zawsze odtwarza dokładnie ten sam portfel.</p>
+  <!-- ========== NOWY PORTFEL: fraza jako domyślna droga, surowe klucze schowane pod "zaawansowane" ========== -->
+  <div class="tab-panel active" id="tab-create">
+    <p style="margin-top:20px;" data-i18n="wallet_intro">Klucz prywatny powstaje <strong>tutaj, w tej przeglądarce</strong> i nigdy nigdzie nie jest wysyłany.</p>
 
     <div class="card" id="phraseNewCard">
-      <h3>Nowa fraza</h3>
+      <h3>12 słów zamiast klucza</h3>
+      <p style="font-size:.85rem;color:var(--text-dim);margin:-8px 0 12px;">Łatwiej przepisać ręcznie, łatwiej rozpoznać literówkę. Ta sama fraza zawsze odtwarza dokładnie ten sam portfel.</p>
       <button class="btn flame" id="generatePhraseBtn" style="width:100%;justify-content:center;">Wygeneruj nową frazę</button>
       <div id="phraseResult" style="display:none;margin-top:16px;">
         <div class="warning-banner">⚠️ Zapisz te 12 słów, w tej kolejności, na papierze. Kto je ma, ma dostęp do portfela.</div>
@@ -62,73 +62,72 @@
       </div>
     </div>
 
-    <p style="font-size:.85rem;color:var(--text-dim);">Masz już frazę albo stary klucz? Przejdź do zakładki <strong>Mój portfel</strong> — jedno pole rozpozna, co wkleisz.</p>
+    <p style="text-align:center;margin:22px 0;">
+      <button type="button" id="showRawKeysToggle" class="btn secondary" style="font-size:.82rem;">Zaawansowane: surowe klucze zamiast frazy</button>
+    </p>
+
+    <div id="rawKeysSection" style="display:none;">
+      <div class="warning-banner">
+        ⚠️ <span data-i18n="wallet_warning">Jeśli zgubisz klucz prywatny, tracisz dostęp do adresu na zawsze. Zapisz go, zanim zamkniesz tę kartę.</span>
+      </div>
+
+      <div class="card">
+        <button class="btn" id="generateBtn" style="width:100%;justify-content:center;font-size:1rem;padding:16px;" data-i18n="wallet_generate_btn">
+          Wygeneruj nowy portfel
+        </button>
+      </div>
+
+      <div id="results">
+        <div class="card">
+          <div class="card-label"><span class="step-badge">1</span><span data-i18n="wallet_step1">Twój adres BbC</span></div>
+          <div class="addr-display" id="addressOut"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-label"><span class="step-badge">2</span><span data-i18n="wallet_step2">Klucz publiczny</span></div>
+          <div class="key-box">
+            <textarea readonly id="pubKeyOut"></textarea>
+            <button class="btn secondary copy-btn" data-copy-target="pubKeyOut" data-i18n="wallet_copy_addr">Kopiuj</button>
+          </div>
+        </div>
+
+        <div class="card" style="border-color:var(--danger);">
+          <div class="card-label" style="color:#ffb3a8;"><span class="step-badge" style="background:var(--danger);color:#fff;">3</span><span data-i18n="wallet_step3">Klucz PRYWATNY — nigdy nikomu nie pokazuj</span></div>
+          <div class="key-box">
+            <textarea readonly id="privKeyOut"></textarea>
+            <button class="btn secondary copy-btn" data-copy-target="privKeyOut" data-i18n="wallet_copy_addr">Kopiuj</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-label"><span class="step-badge">4</span><span data-i18n="wallet_step4">Zapisz na dysk</span></div>
+          <div class="btn-row">
+            <button class="btn flame" id="downloadBundleBtn" data-i18n="wallet_download_bundle">Pobierz oba klucze (1 plik)</button>
+          </div>
+          <p class="hint" data-i18n="wallet_bundle_hint">Ten jeden plik wystarczy, żeby później wczytać ten portfel w zakładce "Mam już portfel" i wysyłać/odbierać.</p>
+        </div>
+
+        <div class="confirm-row">
+          <input type="checkbox" id="confirmSaved">
+          <label for="confirmSaved" style="margin:0;" data-i18n="wallet_confirm_saved">Zapisałem klucz prywatny w bezpiecznym miejscu.</label>
+        </div>
+
+        <div class="card" id="rememberFromGenerateCard" style="display:none;border-color:var(--flame);">
+          <h3>💾 Zapamiętać ten portfel na tym urządzeniu?</h3>
+          <p style="font-size:.85rem;">Zaszyfrowany prawdziwym hasłem (AES-256) — następnym razem tylko hasło, bez wklejania kluczy.</p>
+          <div class="field">
+            <label>Ustaw hasło</label>
+            <input id="rememberFromGeneratePassword" type="password" placeholder="Nowe hasło do tego urządzenia">
+          </div>
+          <button class="btn secondary" id="rememberFromGenerateBtn">Zapamiętaj</button>
+          <div id="rememberFromGenerateStatus" style="margin-top:8px;font-family:var(--font-mono);font-size:.85rem;"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- ========== TWORZENIE NOWEGO ========== -->
-  <div class="tab-panel active" id="tab-create">
-    <p style="margin-top:20px;" data-i18n="wallet_intro">Klucz prywatny powstaje <strong>tutaj, w tej przeglądarce</strong> i nigdy nigdzie nie jest wysyłany.</p>
 
-    <div class="warning-banner">
-      ⚠️ <span data-i18n="wallet_warning">Jeśli zgubisz klucz prywatny, tracisz dostęp do adresu na zawsze. Zapisz go, zanim zamkniesz tę kartę.</span>
-    </div>
-
-    <div class="card">
-      <button class="btn" id="generateBtn" style="width:100%;justify-content:center;font-size:1rem;padding:16px;" data-i18n="wallet_generate_btn">
-        Wygeneruj nowy portfel
-      </button>
-    </div>
-
-    <div id="results">
-      <div class="card">
-        <div class="card-label"><span class="step-badge">1</span><span data-i18n="wallet_step1">Twój adres BbC</span></div>
-        <div class="addr-display" id="addressOut"></div>
-      </div>
-
-      <div class="card">
-        <div class="card-label"><span class="step-badge">2</span><span data-i18n="wallet_step2">Klucz publiczny</span></div>
-        <div class="key-box">
-          <textarea readonly id="pubKeyOut"></textarea>
-          <button class="btn secondary copy-btn" data-copy-target="pubKeyOut" data-i18n="wallet_copy_addr">Kopiuj</button>
-        </div>
-      </div>
-
-      <div class="card" style="border-color:var(--danger);">
-        <div class="card-label" style="color:#ffb3a8;"><span class="step-badge" style="background:var(--danger);color:#fff;">3</span><span data-i18n="wallet_step3">Klucz PRYWATNY — nigdy nikomu nie pokazuj</span></div>
-        <div class="key-box">
-          <textarea readonly id="privKeyOut"></textarea>
-          <button class="btn secondary copy-btn" data-copy-target="privKeyOut" data-i18n="wallet_copy_addr">Kopiuj</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-label"><span class="step-badge">4</span><span data-i18n="wallet_step4">Zapisz na dysk</span></div>
-        <div class="btn-row">
-          <button class="btn flame" id="downloadBundleBtn" data-i18n="wallet_download_bundle">Pobierz oba klucze (1 plik)</button>
-        </div>
-        <p class="hint" data-i18n="wallet_bundle_hint">Ten jeden plik wystarczy, żeby później wczytać ten portfel w zakładce "Mój portfel" i wysyłać/odbierać.</p>
-      </div>
-
-      <div class="confirm-row">
-        <input type="checkbox" id="confirmSaved">
-        <label for="confirmSaved" style="margin:0;" data-i18n="wallet_confirm_saved">Zapisałem klucz prywatny w bezpiecznym miejscu.</label>
-      </div>
-
-      <div class="card" id="rememberFromGenerateCard" style="display:none;border-color:var(--flame);">
-        <h3>💾 Zapamiętać ten portfel na tym urządzeniu?</h3>
-        <p style="font-size:.85rem;">Zaszyfrowany prawdziwym hasłem (AES-256) — następnym razem tylko hasło, bez wklejania kluczy.</p>
-        <div class="field">
-          <label>Ustaw hasło</label>
-          <input id="rememberFromGeneratePassword" type="password" placeholder="Nowe hasło do tego urządzenia">
-        </div>
-        <button class="btn secondary" id="rememberFromGenerateBtn">Zapamiętaj</button>
-        <div id="rememberFromGenerateStatus" style="margin-top:8px;font-family:var(--font-mono);font-size:.85rem;"></div>
-      </div>
-    </div>
-  </div>
-
-
-  <!-- ========== MÓJ PORTFEL (wyślij/odbierz) ========== -->
+  <!-- ========== MAM JUŻ PORTFEL (odblokuj / wklej / wyślij / odbierz) ========== -->
   <div class="tab-panel" id="tab-manage">
     <div class="card" id="unlockCard" style="display:none;">
       <h3>🔒 Masz zapisany portfel na tym urządzeniu</h3>
@@ -225,6 +224,17 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
         btn.classList.add("active");
         document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
     });
+});
+
+// --- Przełącznik "surowe klucze" (domyślnie schowany, fraza jest główną drogą) ---
+document.getElementById("showRawKeysToggle").addEventListener("click", () => {
+    const section = document.getElementById("rawKeysSection");
+    const willShow = section.style.display === "none";
+    section.style.display = willShow ? "block" : "none";
+    document.getElementById("showRawKeysToggle").textContent = willShow
+        ? "Ukryj surowe klucze"
+        : "Zaawansowane: surowe klucze zamiast frazy";
+    if (willShow) section.scrollIntoView({ behavior: "smooth", block: "nearest" });
 });
 
 // --- Tworzenie nowego portfela ---
