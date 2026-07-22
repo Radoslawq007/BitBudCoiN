@@ -10,6 +10,10 @@ const translations = {
         nav_address: "Adres", nav_docs: "Docs", nav_wallet: "Portfel",
 
         wallet_h1: "Portfel", wallet_tab_create: "Nowy portfel", wallet_tab_manage: "Mój portfel",
+        wallet_phrase_heading: "12 słów zamiast klucza",
+        wallet_phrase_subtitle: "Łatwiej przepisać ręcznie, łatwiej rozpoznać literówkę. Ta sama fraza zawsze odtwarza dokładnie ten sam portfel.",
+        wallet_show_raw_keys: "Zaawansowane: surowe klucze zamiast frazy",
+        wallet_hide_raw_keys: "Ukryj surowe klucze",
         wallet_intro: "Klucz prywatny powstaje tutaj, w tej przeglądarce, i nigdy nigdzie nie jest wysyłany.",
         wallet_warning: "Jeśli zgubisz klucz prywatny, tracisz dostęp do adresu na zawsze. Zapisz go, zanim zamkniesz tę kartę.",
         wallet_generate_btn: "Wygeneruj nowy portfel",
@@ -60,6 +64,10 @@ const translations = {
         nav_address: "Address", nav_docs: "Docs", nav_wallet: "Wallet",
 
         wallet_h1: "Wallet", wallet_tab_create: "New Wallet", wallet_tab_manage: "My Wallet",
+        wallet_phrase_heading: "12 words instead of a key",
+        wallet_phrase_subtitle: "Easier to copy by hand, easier to spot a typo. The same phrase always recreates exactly the same wallet.",
+        wallet_show_raw_keys: "Advanced: raw keys instead of a phrase",
+        wallet_hide_raw_keys: "Hide raw keys",
         wallet_intro: "Your private key is created right here, in this browser, and is never sent anywhere.",
         wallet_warning: "If you lose your private key, you lose access to this address forever. Save it before closing this tab.",
         wallet_generate_btn: "Generate New Wallet",
