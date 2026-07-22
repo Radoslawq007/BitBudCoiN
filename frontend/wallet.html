@@ -47,8 +47,8 @@
     <p style="margin-top:20px;" data-i18n="wallet_intro">Klucz prywatny powstaje <strong>tutaj, w tej przeglądarce</strong> i nigdy nigdzie nie jest wysyłany.</p>
 
     <div class="card" id="phraseNewCard">
-      <h3>12 słów zamiast klucza</h3>
-      <p style="font-size:.85rem;color:var(--text-dim);margin:-8px 0 12px;">Łatwiej przepisać ręcznie, łatwiej rozpoznać literówkę. Ta sama fraza zawsze odtwarza dokładnie ten sam portfel.</p>
+      <h3 data-i18n="wallet_phrase_heading">12 słów zamiast klucza</h3>
+      <p style="font-size:.85rem;color:var(--text-dim);margin:-8px 0 12px;" data-i18n="wallet_phrase_subtitle">Łatwiej przepisać ręcznie, łatwiej rozpoznać literówkę. Ta sama fraza zawsze odtwarza dokładnie ten sam portfel.</p>
       <button class="btn flame" id="generatePhraseBtn" style="width:100%;justify-content:center;">Wygeneruj nową frazę</button>
       <div id="phraseResult" style="display:none;margin-top:16px;">
         <div class="warning-banner">⚠️ Zapisz te 12 słów, w tej kolejności, na papierze. Kto je ma, ma dostęp do portfela.</div>
@@ -63,7 +63,7 @@
     </div>
 
     <p style="text-align:center;margin:22px 0;">
-      <button type="button" id="showRawKeysToggle" class="btn secondary" style="font-size:.82rem;">Zaawansowane: surowe klucze zamiast frazy</button>
+      <button type="button" id="showRawKeysToggle" class="btn secondary" style="font-size:.82rem;" data-i18n="wallet_show_raw_keys">Zaawansowane: surowe klucze zamiast frazy</button>
     </p>
 
     <div id="rawKeysSection" style="display:none;">
@@ -232,8 +232,8 @@ document.getElementById("showRawKeysToggle").addEventListener("click", () => {
     const willShow = section.style.display === "none";
     section.style.display = willShow ? "block" : "none";
     document.getElementById("showRawKeysToggle").textContent = willShow
-        ? "Ukryj surowe klucze"
-        : "Zaawansowane: surowe klucze zamiast frazy";
+        ? t("wallet_hide_raw_keys")
+        : t("wallet_show_raw_keys");
     if (willShow) section.scrollIntoView({ behavior: "smooth", block: "nearest" });
 });
 
