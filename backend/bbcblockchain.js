@@ -116,6 +116,42 @@ class Blockchain {
         return Array.from(seen.values()).sort((a, b) => b.lastBlockHeight - a.lastBlockHeight);
     }
 
+    // Wszystkie znane adresy w jednym przebiegu: saldo (te same reguły co
+    // getBalance() - tx.to zawsze dolicza, tylko type "transfer" odejmuje od
+    // nadawcy) i wysokość bloku pierwszego pojawienia się. Jeden przebieg
+    // przez łańcuch zamiast wołania getBalance() osobno dla każdego adresu.
+    getAddressStats(whaleLimit = 10, newestLimit = 10) {
+        const balances = new Map();
+        const firstSeen = new Map();
+
+        for (const block of this.chain) {
+            for (const tx of block.transactions) {
+                if (tx.to) {
+                    if (!firstSeen.has(tx.to)) firstSeen.set(tx.to, block.height);
+                    balances.set(tx.to, (balances.get(tx.to) || 0) + tx.amount);
+                }
+                if (tx.type === "transfer" && tx.from) {
+                    if (!firstSeen.has(tx.from)) firstSeen.set(tx.from, block.height);
+                    balances.set(tx.from, (balances.get(tx.from) || 0) - (tx.amount + (tx.fee || 0)));
+                }
+            }
+        }
+
+        const addresses = Array.from(balances.keys());
+
+        const whales = addresses
+            .map((address) => ({ address, balance: balances.get(address) }))
+            .sort((a, b) => b.balance - a.balance)
+            .slice(0, whaleLimit);
+
+        const newest = addresses
+            .map((address) => ({ address, firstSeenHeight: firstSeen.get(address) }))
+            .sort((a, b) => b.firstSeenHeight - a.firstSeenHeight)
+            .slice(0, newestLimit);
+
+        return { totalAddresses: addresses.length, whales, newest };
+    }
+
     getInfo() {
         const latest = this.getLatestBlock();
         const height = latest.height;
