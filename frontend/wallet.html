@@ -49,16 +49,16 @@
     <div class="card" id="phraseNewCard">
       <h3 data-i18n="wallet_phrase_heading">12 słów zamiast klucza</h3>
       <p style="font-size:.85rem;color:var(--text-dim);margin:-8px 0 12px;" data-i18n="wallet_phrase_subtitle">Łatwiej przepisać ręcznie, łatwiej rozpoznać literówkę. Ta sama fraza zawsze odtwarza dokładnie ten sam portfel.</p>
-      <button class="btn flame" id="generatePhraseBtn" style="width:100%;justify-content:center;">Wygeneruj nową frazę</button>
+      <button class="btn flame" id="generatePhraseBtn" style="width:100%;justify-content:center;" data-i18n="wallet_phrase_generate_btn">Wygeneruj nową frazę</button>
       <div id="phraseResult" style="display:none;margin-top:16px;">
         <div class="warning-banner">⚠️ Zapisz te 12 słów, w tej kolejności, na papierze. Kto je ma, ma dostęp do portfela.</div>
         <div id="phraseWordsGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0;font-family:var(--font-mono);"></div>
         <div class="addr-display" id="phraseAddressOut"></div>
         <div class="confirm-row" style="margin-top:12px;">
           <input type="checkbox" id="phraseConfirmSaved">
-          <label for="phraseConfirmSaved" style="margin:0;">Zapisałem te 12 słów w bezpiecznym miejscu.</label>
+          <label for="phraseConfirmSaved" style="margin:0;" data-i18n="wallet_phrase_confirm_saved">Zapisałem te 12 słów w bezpiecznym miejscu.</label>
         </div>
-        <button class="btn" id="usePhraseWalletBtn" style="width:100%;justify-content:center;margin-top:12px;" disabled>Użyj tego portfela</button>
+        <button class="btn" id="usePhraseWalletBtn" style="width:100%;justify-content:center;margin-top:12px;" disabled data-i18n="wallet_phrase_use_btn">Użyj tego portfela</button>
       </div>
     </div>
 
@@ -113,13 +113,13 @@
         </div>
 
         <div class="card" id="rememberFromGenerateCard" style="display:none;border-color:var(--flame);">
-          <h3>💾 Zapamiętać ten portfel na tym urządzeniu?</h3>
-          <p style="font-size:.85rem;">Zaszyfrowany prawdziwym hasłem (AES-256) — następnym razem tylko hasło, bez wklejania kluczy.</p>
+          <h3 data-i18n="wallet_remember_heading">💾 Zapamiętać ten portfel na tym urządzeniu?</h3>
+          <p style="font-size:.85rem;" data-i18n="wallet_remember_desc_short">Zaszyfrowany prawdziwym hasłem (AES-256) — następnym razem tylko hasło, bez wklejania kluczy.</p>
           <div class="field">
-            <label>Ustaw hasło</label>
+            <label data-i18n="wallet_set_password">Ustaw hasło</label>
             <input id="rememberFromGeneratePassword" type="password" placeholder="Nowe hasło do tego urządzenia">
           </div>
-          <button class="btn secondary" id="rememberFromGenerateBtn">Zapamiętaj</button>
+          <button class="btn secondary" id="rememberFromGenerateBtn" data-i18n="wallet_remember_btn">Zapamiętaj</button>
           <div id="rememberFromGenerateStatus" style="margin-top:8px;font-family:var(--font-mono);font-size:.85rem;"></div>
         </div>
       </div>
@@ -130,35 +130,35 @@
   <!-- ========== MAM JUŻ PORTFEL (odblokuj / wklej / wyślij / odbierz) ========== -->
   <div class="tab-panel" id="tab-manage">
     <div class="card" id="unlockCard" style="display:none;">
-      <h3>🔒 Masz zapisany portfel na tym urządzeniu</h3>
+      <h3 data-i18n="wallet_unlock_heading">🔒 Masz zapisany portfel na tym urządzeniu</h3>
       <div class="field">
-        <label>Hasło</label>
+        <label data-i18n="wallet_password_label">Hasło</label>
         <input id="unlockPassword" type="password" placeholder="Twoje hasło">
       </div>
       <div class="btn-row">
-        <button class="btn flame" id="unlockBtn">Odblokuj</button>
-        <button class="btn secondary" id="forgetWalletBtn" style="font-size:.8rem;">Zapomnij ten portfel</button>
+        <button class="btn flame" id="unlockBtn" data-i18n="wallet_unlock_btn">Odblokuj</button>
+        <button class="btn secondary" id="forgetWalletBtn" style="font-size:.8rem;" data-i18n="wallet_forget_btn">Zapomnij ten portfel</button>
       </div>
       <div id="unlockError" class="error-banner" style="display:none;margin-top:10px;"></div>
     </div>
 
     <div class="card" id="importCard">
-      <h3>Zaloguj się</h3>
-      <p>Wklej swoje stare klucze <strong>albo</strong> wpisz 12 słów — rozpoznam samo, co to jest.</p>
+      <h3 data-i18n="wallet_login_heading">Zaloguj się</h3>
+      <p data-i18n="wallet_login_hint">Wklej swoje stare klucze albo wpisz 12 słów — rozpoznam samo, co to jest.</p>
       <textarea id="importBundle" placeholder="Klucze (-----BEGIN PRIVATE KEY-----...) albo 12 słów oddzielonych spacją"></textarea>
-      <button class="btn" id="loadWalletBtn" style="margin-top:10px;">Zaloguj się</button>
+      <button class="btn" id="loadWalletBtn" style="margin-top:10px;" data-i18n="wallet_login_heading">Zaloguj się</button>
       <div id="importError" class="error-banner" style="display:none;margin-top:10px;"></div>
     </div>
 
 
     <div class="card" id="rememberCard" style="display:none;">
-      <h3>💾 Zapamiętać ten portfel tutaj?</h3>
-      <p style="font-size:.85rem;">Zaszyfrowany prawdziwym hasłem (AES-256) — następnym razem tylko hasło, bez wklejania kluczy. Zgubione hasło = trzeba wczytać portfel od nowa wklejeniem (klucze nadal masz w swoim pliku).</p>
+      <h3 data-i18n="wallet_remember_heading2">💾 Zapamiętać ten portfel tutaj?</h3>
+      <p style="font-size:.85rem;" data-i18n="wallet_remember_desc_long">Zaszyfrowany prawdziwym hasłem (AES-256) — następnym razem tylko hasło, bez wklejania kluczy. Zgubione hasło = trzeba wczytać portfel od nowa wklejeniem (klucze nadal masz w swoim pliku).</p>
       <div class="field">
-        <label>Ustaw hasło</label>
+        <label data-i18n="wallet_set_password">Ustaw hasło</label>
         <input id="rememberPassword" type="password" placeholder="Nowe hasło do tego urządzenia">
       </div>
-      <button class="btn secondary" id="rememberBtn">Zapamiętaj</button>
+      <button class="btn secondary" id="rememberBtn" data-i18n="wallet_remember_btn">Zapamiętaj</button>
       <div id="rememberStatus" style="margin-top:8px;font-family:var(--font-mono);font-size:.85rem;"></div>
     </div>
 
