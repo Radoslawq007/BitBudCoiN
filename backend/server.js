@@ -74,6 +74,14 @@ app.get("/network/miners", (req, res) => {
     res.json(all);
 });
 
+// Adresy w sieci: ile ich jest w ogóle, największe salda ("wieloryby") i
+// najświeżej zobaczone (po wysokości bloku pierwszego pojawienia się).
+// Cała logika liczenia siedzi w blockchain.getAddressStats() - jeden przebieg
+// przez łańcuch zamiast wołania getBalance() osobno dla każdego adresu.
+app.get("/network/addresses", (req, res) => {
+    res.json(blockchain.getAddressStats());
+});
+
 app.get("/pool/work", (req, res) => {
     const minerAddress = req.query.minerAddress;
     if (!minerAddress) return res.status(400).json({ error: "Brak adresu" });
