@@ -1,39 +1,32 @@
-const HEARTBEAT_WINDOW_MS = 5 * 60 * 1000; // to samo okno co recentShares w pool.js, dla spójności
+// Śledzi aktywnych solo-górników na podstawie heartbeatów zgłaszanych przez
+// przeglądarkę (POST /solo/heartbeat) - żadnego liczenia po stronie serwera,
+// tylko "kto ostatnio zgłosił się że liczy, i w jakim tempie". Wpis znika z
+// listy aktywnych po ACTIVE_WINDOW_SECONDS bez świeżego heartbeatu.
+const ACTIVE_WINDOW_SECONDS = 300; // 5 minut - ten sam rząd wielkości co pula
 
-// Śledzi górników SOLO "na żywo" na podstawie heartbeatów, które solo-miner.js
-// wysyła okresowo w trakcie liczenia hashy. Solo NIE wysyła "shares" jak pula -
-// odzywa się do serwera tylko gdy znajdzie cały blok (rzadko), więc bez
-// heartbeatu serwer nie ma żadnego sygnału, że ktoś w danej chwili w ogóle kopie.
 class SoloTracker {
     constructor() {
-        this.recentHeartbeats = []; // { minerAddress, hashrate, timestamp }
+        this.miners = new Map(); // minerAddress -> { hashrate, lastSeen }
     }
 
     heartbeat(minerAddress, attempts, intervalSeconds) {
-        const safeInterval = Math.max(1, Number(intervalSeconds) || 15);
-        const hashrate = Math.max(0, Number(attempts) || 0) / safeInterval;
-        this.recentHeartbeats.push({ minerAddress, hashrate, timestamp: Date.now() });
-        this._prune();
+        const validAttempts = Number(attempts) || 0;
+        const validInterval = Number(intervalSeconds) || 1;
+        const hashrate = validAttempts / validInterval;
+        this.miners.set(minerAddress, { hashrate, lastSeen: Date.now() });
     }
 
-    _prune() {
-        const cutoff = Date.now() - HEARTBEAT_WINDOW_MS;
-        while (this.recentHeartbeats.length && this.recentHeartbeats[0].timestamp < cutoff) {
-            this.recentHeartbeats.shift();
-        }
-    }
-
-    // Ostatni heartbeat na adres w oknie - ma odzwierciedlać AKTUALNE tempo,
-    // nie sumę wszystkich zgłoszeń z ostatnich 5 minut.
     getActiveMiners() {
-        this._prune();
-        const latestByMiner = new Map();
-        for (const hb of this.recentHeartbeats) {
-            latestByMiner.set(hb.minerAddress, hb.hashrate);
+        const cutoff = Date.now() - ACTIVE_WINDOW_SECONDS * 1000;
+        const active = [];
+        for (const [minerAddress, data] of this.miners) {
+            if (data.lastSeen >= cutoff) {
+                active.push({ minerAddress, hashrate: data.hashrate });
+            } else {
+                this.miners.delete(minerAddress);
+            }
         }
-        return Array.from(latestByMiner.entries())
-            .map(([minerAddress, hashrate]) => ({ minerAddress, hashrate }))
-            .sort((a, b) => b.hashrate - a.hashrate);
+        return active;
     }
 
     getTotalHashrate() {
