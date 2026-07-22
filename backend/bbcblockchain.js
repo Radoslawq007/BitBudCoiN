@@ -116,10 +116,6 @@ class Blockchain {
         return Array.from(seen.values()).sort((a, b) => b.lastBlockHeight - a.lastBlockHeight);
     }
 
-    // Wszystkie znane adresy w jednym przebiegu: saldo (te same reguły co
-    // getBalance() - tx.to zawsze dolicza, tylko type "transfer" odejmuje od
-    // nadawcy) i wysokość bloku pierwszego pojawienia się. Jeden przebieg
-    // przez łańcuch zamiast wołania getBalance() osobno dla każdego adresu.
     getAddressStats(whaleLimit = 10, newestLimit = 10) {
         const balances = new Map();
         const firstSeen = new Map();
@@ -150,6 +146,22 @@ class Blockchain {
             .slice(0, newestLimit);
 
         return { totalAddresses: addresses.length, whales, newest };
+    }
+
+    saveCredit(credit) {
+        this.storage.saveCredit(credit);
+    }
+
+    getTransactionsForAddress(address) {
+        const results = [];
+        for (const block of this.chain) {
+            for (const tx of block.transactions) {
+                if (tx.to === address || tx.from === address) {
+                    results.push({ ...tx, blockHeight: block.height });
+                }
+            }
+        }
+        return results.reverse();
     }
 
     getInfo() {
