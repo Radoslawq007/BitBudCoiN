@@ -19,8 +19,8 @@
 <body>
 
 <div class="page">
-    <h1 style="margin-top:32px;">Dziennik łańcucha</h1>
-    <p>Każdy wykopany blok to prawdziwa chwila czyjejś pracy. Kliknij wpis, żeby zobaczyć pełne transakcje.</p>
+    <h1 style="margin-top:32px;" data-i18n="explorer_h1">Dziennik łańcucha</h1>
+    <p data-i18n="explorer_intro">Każdy wykopany blok to prawdziwa chwila czyjejś pracy. Kliknij wpis, żeby zobaczyć pełne transakcje.</p>
     <div id="error-box"></div>
 
     <div class="card" style="padding:8px 20px;">
@@ -30,15 +30,16 @@
     </div>
 
     <div style="text-align:center; margin-top:20px;">
-        <button class="btn secondary" id="load-more" style="display:none;">Wczytaj starsze bloki</button>
+        <button class="btn secondary" id="load-more" style="display:none;" data-i18n="explorer_load_more_btn">Wczytaj starsze bloki</button>
     </div>
 </div>
 
-<footer>BitBudCoin (BbC) · sieć proof-of-work · <a href="docks.html">dokumentacja</a></footer>
+<footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span> · <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a></footer>
 
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
+<script src="assets/i18n.js"></script>
 <script>
 setActiveNav("nav-explorer");
 
@@ -51,24 +52,24 @@ function blockStory(block, previousTimestamp) {
     const otherTx = txCount - 1;
 
     if (block.height === 0) {
-        return `Początek. Pierwszy blok tego łańcucha, zapisany na stałe — ${fmtNumber(coinbase ? coinbase.amount : 0)} BbC rozdane na start.`;
+        return t("explorer_story_genesis").replace("{amount}", fmtNumber(coinbase ? coinbase.amount : 0));
     }
 
     let durationText = "";
     if (previousTimestamp) {
         const seconds = Math.max(0, Math.round((block.timestamp - previousTimestamp) / 1000));
-        if (seconds < 3600) durationText = seconds < 60 ? `${seconds}s` : `${Math.round(seconds / 60)} min`;
+        if (seconds < 3600) durationText = seconds < 60 ? `${seconds}${t("explorer_unit_seconds")}` : `${Math.round(seconds / 60)} ${t("explorer_unit_minutes")}`;
         // Powyżej godziny to prawdopodobnie sztuczna przerwa (np. sąsiedztwo
         // genesis, który ma zawsze tę samą, ustaloną datę) - nie prawdziwy
         // czas kopania, więc nie pokazujemy mylącej liczby.
     }
 
     const workPhrase = durationText
-        ? `Ktoś spędził ${durationText}, żeby to udowodnić`
-        : `Ktoś udowodnił prawdziwą pracę`;
+        ? t("explorer_story_worked").replace("{duration}", durationText)
+        : t("explorer_story_proved");
 
     const txPhrase = otherTx > 0
-        ? ` — przy okazji ${otherTx} ${otherTx === 1 ? "transakcja przeszła" : "transakcje przeszły"} do historii.`
+        ? ` — ${t("explorer_story_alongside")} ${otherTx} ${otherTx === 1 ? t("explorer_story_tx_singular") : t("explorer_story_tx_plural")}.`
         : `.`;
 
     return `${workPhrase}${txPhrase}`;
@@ -80,9 +81,9 @@ function renderJournal(blocks, append) {
         const prevTs = blocks[i + 1] ? blocks[i + 1].timestamp : (i === blocks.length - 1 ? lastKnownTimestamp : null);
         const story = blockStory(b, prevTs);
         return `<div class="journal-entry" onclick="location.href='block.html?height=${b.height}'">
-            <div class="je-height">Blok #${b.height} <span style="color:var(--text-dim);font-weight:400;font-size:.8rem;">· ${timeAgo(b.timestamp)}</span></div>
+            <div class="je-height">${t("explorer_block_label")} #${b.height} <span style="color:var(--text-dim);font-weight:400;font-size:.8rem;">· ${timeAgo(b.timestamp)}</span></div>
             <div class="je-story">${story}</div>
-            <div class="je-meta">trudność ${fmtNumber(b.difficulty, 0)} · ${fmtHash(b.hash)}</div>
+            <div class="je-meta">${t("index_stat_difficulty")} ${fmtNumber(b.difficulty, 0)} · ${fmtHash(b.hash)}</div>
         </div>`;
     }).join("");
     container.innerHTML = append ? container.innerHTML + html : html;
@@ -93,14 +94,14 @@ async function loadInitial() {
     try {
         const blocks = await apiGet("/blocks?limit=15");
         if (blocks.length === 0) {
-            document.getElementById("blocks-journal").innerHTML = '<div class="empty-state"><div class="glyph">🌱</div>Tylko genesis na razie — wykop pierwszy blok w <a href="miner.html">Minerze</a></div>';
+            document.getElementById("blocks-journal").innerHTML = `<div class="empty-state"><div class="glyph">🌱</div>${t("explorer_only_genesis")} <a href="miner.html">${t("nav_mining")}</a></div>`;
             return;
         }
         renderJournal(blocks, false);
         oldestLoaded = blocks[blocks.length - 1].height;
         if (oldestLoaded > 0) document.getElementById("load-more").style.display = "inline-flex";
     } catch (e) {
-        document.getElementById("error-box").innerHTML = `<div class="error-banner">Nie można połączyć się z backendem: ${escapeHtml(e.message)}</div>`;
+        document.getElementById("error-box").innerHTML = `<div class="error-banner">${t("common_backend_error")}: ${escapeHtml(e.message)}</div>`;
         document.getElementById("blocks-journal").innerHTML = "";
     }
 }
@@ -116,6 +117,7 @@ document.getElementById("load-more").addEventListener("click", async () => {
 });
 
 loadInitial();
+document.addEventListener("bbc:langchange", loadInitial);
 </script>
 </body>
 </html>
