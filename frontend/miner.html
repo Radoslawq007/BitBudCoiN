@@ -27,7 +27,7 @@
   </div>
 
   <div class="card">
-    <h3>Aktywni górnicy <span style="font-weight:400;color:var(--text-dim);font-size:.75rem;text-transform:none;letter-spacing:0;">(ostatnie kilka minut)</span></h3>
+    <h3><span data-i18n="miner_active_miners_heading">Aktywni górnicy</span> <span style="font-weight:400;color:var(--text-dim);font-size:.75rem;text-transform:none;letter-spacing:0;" data-i18n="miner_active_miners_window">(ostatnie kilka minut)</span></h3>
     <div id="activeMinersList" class="skeleton" style="height:60px;"></div>
   </div>
 
@@ -99,22 +99,22 @@ async function refreshPoolStatus() {
         poolStatusEl.style.height = "";
         poolStatusEl.innerHTML = `
             <div style="font-family:var(--font-mono);font-size:.9rem;line-height:1.8;">
-                Pracuje nad blokiem <strong>#${status.workingOnHeight}</strong><br>
-                Trudność share / bloku: ${fmtNumber(status.shareDifficulty)} / ${fmtNumber(status.blockDifficulty)}<br>
-                Shares w tej rundzie: ${status.totalSharesThisRound}<br>
-                Opłata puli: ${(status.poolFee * 100).toFixed(0)}%<br>
-                Hashrate puli: <strong style="color:var(--leaf);">${formatHashrate(status.estimatedHashrate)}</strong><br>
-                Hashrate solo: <strong style="color:var(--flame);">${formatHashrate(status.soloHashrate)}</strong>
+                ${t("miner_working_on_block")} <strong>#${status.workingOnHeight}</strong><br>
+                ${t("miner_share_block_diff")}: ${fmtNumber(status.shareDifficulty)} / ${fmtNumber(status.blockDifficulty)}<br>
+                ${t("miner_shares_this_round")}: ${status.totalSharesThisRound}<br>
+                ${t("miner_pool_fee_label")}: ${(status.poolFee * 100).toFixed(0)}%<br>
+                ${t("miner_pool_hashrate")}: <strong style="color:var(--leaf);">${formatHashrate(status.estimatedHashrate)}</strong><br>
+                ${t("miner_solo_hashrate")}: <strong style="color:var(--flame);">${formatHashrate(status.soloHashrate)}</strong>
             </div>`;
 
         minersEl.classList.remove("skeleton");
         minersEl.style.height = "";
         const windowMin = Math.max(1, Math.round((status.activeMinersWindowSeconds || 300) / 60));
         if (!status.activeMiners || status.activeMiners.length === 0) {
-            minersEl.innerHTML = `<div style="color:var(--text-dim);font-size:.88rem;">Brak aktywnych górników w ostatnich ${windowMin} min.</div>`;
+            minersEl.innerHTML = `<div style="color:var(--text-dim);font-size:.88rem;">${t("miner_no_active_miners")} ${windowMin} min.</div>`;
         } else {
             const rows = status.activeMiners.map((m) => {
-                const sourceLabel = m.source === "solo" ? "Solo" : "Pula";
+                const sourceLabel = m.source === "solo" ? t("common_solo_label") : t("common_pool_label");
                 const activity = m.source === "solo" ? `~${formatHashrate(m.hashrate)}` : `${m.shares} shares`;
                 return `
                 <tr>
@@ -125,19 +125,20 @@ async function refreshPoolStatus() {
             }).join("");
             minersEl.innerHTML = `
                 <table>
-                    <thead><tr><th>Adres</th><th>Tryb</th><th style="text-align:right;">Aktywność (${windowMin} min)</th></tr></thead>
+                    <thead><tr><th>${t("miner_th_address")}</th><th>${t("miner_th_mode")}</th><th style="text-align:right;">${t("miner_th_activity")} (${windowMin} min)</th></tr></thead>
                     <tbody>${rows}</tbody>
                 </table>`;
         }
     } catch (e) {
         poolStatusEl.classList.remove("skeleton");
-        poolStatusEl.innerHTML = `<div class="error-banner">Pula niedostępna: ${e.message}</div>`;
+        poolStatusEl.innerHTML = `<div class="error-banner">${t("common_pool_unavailable")}: ${e.message}</div>`;
         minersEl.classList.remove("skeleton");
         minersEl.innerHTML = "";
     }
 }
 refreshPoolStatus();
 setInterval(refreshPoolStatus, 8000);
+document.addEventListener("bbc:langchange", refreshPoolStatus);
 
 // --- Benchmark realnej prędkości urządzenia ---
 async function benchmarkDevice(durationMs) {
@@ -189,7 +190,7 @@ document.getElementById("autoMineToggle").addEventListener("click", () => {
         document.getElementById("benchBtn").disabled = false;
     } else {
         const addr = document.getElementById("autoMinerAddress").value.trim();
-        if (!addr) { alert("Podaj adres BbC"); return; }
+        if (!addr) { alert(t("miner_need_address_alert")); return; }
         BrowserMiner.start(addr, API_BASE, {
             onUpdate: (s) => {
                 document.getElementById("autoStatShares").textContent = s.shares;
@@ -220,7 +221,7 @@ document.getElementById("soloAutoToggle").addEventListener("click", () => {
         document.getElementById("benchBtn").disabled = false;
     } else {
         const addr = document.getElementById("soloAutoAddress").value.trim();
-        if (!addr) { alert("Podaj adres BbC"); return; }
+        if (!addr) { alert(t("miner_need_address_alert")); return; }
         SoloMiner.start(addr, API_BASE, {
             onUpdate: (s) => {
                 document.getElementById("soloAutoBlocks").textContent = s.blocksFound;
