@@ -12,44 +12,28 @@
 </head>
 <body>
 
-<nav class="nav">
-    <a href="index.html" class="brand"><img src="assets/logo.svg" alt="BitBudCoin"> BitBudCoin</a>
-    <div class="nav-links">
-        <a href="index.html" id="nav-index">Start</a>
-        <a href="dashboard.html" id="nav-dashboard">Dashboard</a>
-        <a href="explorer.html" id="nav-explorer">Explorer</a>
-        <a href="miner.html" id="nav-miner">Miner</a>
-        <a href="network.html" id="nav-network">Sieć</a>
-        <a href="peers.html" id="nav-peers">Peery</a>
-        <a href="exchange.html" id="nav-exchange">Giełda</a>
-        <a href="address.html" id="nav-address">Adres</a>
-        <a href="docks.html" id="nav-docks">Docs</a>
-    </div>
-    <div class="nav-status">
-        <span class="flame-pill" id="nav-status"><span class="flame-dot"></span><span id="nav-status-text">łączę…</span></span>
-    </div>
-</nav>
-
 <div class="page">
     <div class="empty-state" style="margin-top:40px;">
         <div class="glyph">🔥</div>
-        <h1 style="margin-bottom:8px;">Giełda jeszcze się nie pali</h1>
-        <p style="max-width:480px; margin:0 auto 20px;">
+        <h1 style="margin-bottom:8px;" data-i18n="exchange_h1">Giełda jeszcze się nie pali</h1>
+        <p style="max-width:480px; margin:0 auto 20px;" data-i18n="exchange_p1">
             Handel BbC (order book, pary handlowe, dopasowywanie zleceń) nie jest jeszcze
             częścią sieci — na razie BitBudCoin to warstwa łańcucha i portfeli, bez modułu giełdowego.
         </p>
-        <p style="max-width:480px; margin:0 auto 24px; font-size:0.9rem;">
+        <p style="max-width:480px; margin:0 auto 24px; font-size:0.9rem;" data-i18n="exchange_p2">
             Do tego czasu monety BbC można przesyłać bezpośrednio między adresami
             (podpisane transakcje Ed25519) — to już działa.
         </p>
-        <a class="btn" href="address.html">Sprawdź swój adres</a>
-        <a class="btn secondary" href="docks.html" style="margin-left:10px;">Dokumentacja API</a>
+        <a class="btn" href="address.html" data-i18n="exchange_check_address_btn">Sprawdź swój adres</a>
+        <a class="btn secondary" href="docks.html" style="margin-left:10px;" data-i18n="exchange_docs_btn">Dokumentacja API</a>
     </div>
 </div>
 
-<footer>BitBudCoin (BbC) · sieć proof-of-work · <a href="docks.html">dokumentacja</a></footer>
+<footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span> · <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a></footer>
 
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
+<script src="assets/native-responsive.js"></script>
+<script src="assets/i18n.js"></script>
 </body>
 </html>
