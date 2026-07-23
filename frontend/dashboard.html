@@ -12,42 +12,43 @@
 <body>
 
 <div class="page">
-    <h1 style="margin-top:32px;">Dashboard sieci</h1>
+    <h1 style="margin-top:32px;" data-i18n="dashboard_h1">Dashboard sieci</h1>
     <div id="error-box"></div>
 
     <div class="grid cols-3">
-        <div class="card"><div class="card-label">Wysokość</div><div class="card-value leaf skeleton" id="s-height">— — —</div></div>
-        <div class="card"><div class="card-label">Trudność</div><div class="card-value skeleton" id="s-difficulty">— — —</div></div>
-        <div class="card"><div class="card-label">Podaż / pułap</div><div class="card-value skeleton" id="s-supply">— — —</div></div>
-        <div class="card"><div class="card-label">Nagroda za blok</div><div class="card-value flame skeleton" id="s-reward">— — —</div></div>
-        <div class="card"><div class="card-label">Do następnego halvingu</div><div class="card-value skeleton" id="s-halving">— — —</div></div>
-        <div class="card"><div class="card-label">Do przeliczenia trudności</div><div class="card-value skeleton" id="s-retarget">— — —</div></div>
+        <div class="card"><div class="card-label" data-i18n="dashboard_height">Wysokość</div><div class="card-value leaf skeleton" id="s-height">— — —</div></div>
+        <div class="card"><div class="card-label" data-i18n="index_stat_difficulty">Trudność</div><div class="card-value skeleton" id="s-difficulty">— — —</div></div>
+        <div class="card"><div class="card-label" data-i18n="dashboard_supply_cap">Podaż / pułap</div><div class="card-value skeleton" id="s-supply">— — —</div></div>
+        <div class="card"><div class="card-label" data-i18n="dashboard_block_reward">Nagroda za blok</div><div class="card-value flame skeleton" id="s-reward">— — —</div></div>
+        <div class="card"><div class="card-label" data-i18n="dashboard_next_halving">Do następnego halvingu</div><div class="card-value skeleton" id="s-halving">— — —</div></div>
+        <div class="card"><div class="card-label" data-i18n="dashboard_next_retarget">Do przeliczenia trudności</div><div class="card-value skeleton" id="s-retarget">— — —</div></div>
     </div>
 
     <div class="grid cols-2" style="margin-top:20px;">
         <div class="card">
-            <h3>Ostatnie bloki</h3>
+            <h3 data-i18n="dashboard_recent_blocks">Ostatnie bloki</h3>
             <table id="recent-blocks-table">
-                <thead><tr><th>#</th><th>Kiedy</th><th>Hash</th></tr></thead>
+                <thead><tr><th>#</th><th data-i18n="dashboard_th_when">Kiedy</th><th data-i18n="dashboard_th_hash">Hash</th></tr></thead>
                 <tbody><tr><td colspan="3" class="skeleton">ładowanie ładowanie ładowanie</td></tr></tbody>
             </table>
-            <div style="margin-top:12px;"><a href="explorer.html">Pełny explorer →</a></div>
+            <div style="margin-top:12px;"><a href="explorer.html" data-i18n="dashboard_full_explorer_link">Pełny explorer →</a></div>
         </div>
         <div class="card">
-            <h3>Pula kopania</h3>
+            <h3 data-i18n="dashboard_pool_heading">Pula kopania</h3>
             <div id="pool-summary">
                 <p class="skeleton">ładowanie ładowanie ładowanie ładowanie</p>
             </div>
-            <div style="margin-top:8px;"><a href="miner.html">Dołącz do kopania →</a></div>
+            <div style="margin-top:8px;"><a href="miner.html" data-i18n="dashboard_join_mining_link">Dołącz do kopania →</a></div>
         </div>
     </div>
 </div>
 
-<footer>BitBudCoin (BbC) · sieć proof-of-work · <a href="docks.html">dokumentacja</a></footer>
+<footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span> · <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a></footer>
 
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
+<script src="assets/i18n.js"></script>
 <script>
 setActiveNav("nav-dashboard");
 
@@ -64,21 +65,21 @@ async function load() {
         unskeleton("s-difficulty", fmtNumber(info.difficulty, 0));
         unskeleton("s-supply", fmtNumber(info.circulatingSupply, 0) + " / " + fmtNumber(info.maxSupply, 0));
         unskeleton("s-reward", fmtNumber(info.currentBlockReward) + " " + info.symbol);
-        unskeleton("s-halving", fmtNumber(info.blocksUntilHalving, 0) + " bloków");
-        unskeleton("s-retarget", fmtNumber(info.blocksUntilRetarget, 0) + " bloków");
+        unskeleton("s-halving", fmtNumber(info.blocksUntilHalving, 0) + " " + t("common_blocks_suffix"));
+        unskeleton("s-retarget", fmtNumber(info.blocksUntilRetarget, 0) + " " + t("common_blocks_suffix"));
 
         if (!info.isValid) {
-            document.getElementById("error-box").innerHTML = '<div class="error-banner">⚠ Węzeł zgłasza niepoprawny łańcuch lokalny — sprawdź logi serwera.</div>';
+            document.getElementById("error-box").innerHTML = `<div class="error-banner">⚠ ${t("dashboard_invalid_chain")}</div>`;
         }
     } catch (e) {
-        document.getElementById("error-box").innerHTML = `<div class="error-banner">Nie można połączyć się z backendem: ${escapeHtml(e.message)}</div>`;
+        document.getElementById("error-box").innerHTML = `<div class="error-banner">${t("common_backend_error")}: ${escapeHtml(e.message)}</div>`;
     }
 
     try {
         const blocks = await apiGet("/blocks?limit=5");
         const tbody = document.querySelector("#recent-blocks-table tbody");
         if (blocks.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" style="color:var(--text-dim)">Brak bloków poza genesis</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="3" style="color:var(--text-dim)">${t("dashboard_no_blocks")}</td></tr>`;
         } else {
             tbody.innerHTML = blocks.map(b => `
                 <tr onclick="location.href='block.html?height=${b.height}'" style="cursor:pointer">
@@ -88,58 +89,63 @@ async function load() {
                 </tr>`).join("");
         }
     } catch (e) {
-        document.querySelector("#recent-blocks-table tbody").innerHTML = `<tr><td colspan="3">błąd: ${escapeHtml(e.message)}</td></tr>`;
+        document.querySelector("#recent-blocks-table tbody").innerHTML = `<tr><td colspan="3">${t("common_error_prefix")}: ${escapeHtml(e.message)}</td></tr>`;
     }
 
     try {
         const pool = await apiGet("/pool/status");
         document.getElementById("pool-summary").innerHTML = `
-            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">Trudność share</span><span class="mono">${fmtNumber(pool.shareDifficulty, 0)}</span></div>
-            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">Shares w tej rundzie</span><span class="mono">${fmtNumber(pool.totalSharesThisRound, 0)}</span></div>
-            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">Opłata puli</span><span class="mono">${(pool.poolFee * 100).toFixed(0)}%</span></div>`;
+            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">${t("dashboard_share_diff")}</span><span class="mono">${fmtNumber(pool.shareDifficulty, 0)}</span></div>
+            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">${t("dashboard_shares_round")}</span><span class="mono">${fmtNumber(pool.totalSharesThisRound, 0)}</span></div>
+            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">${t("dashboard_pool_fee")}</span><span class="mono">${(pool.poolFee * 100).toFixed(0)}%</span></div>`;
     } catch (e) {
-        document.getElementById("pool-summary").innerHTML = `<p style="color:var(--danger)">Pula niedostępna</p>`;
+        document.getElementById("pool-summary").innerHTML = `<p style="color:var(--danger)">${t("common_pool_unavailable")}</p>`;
     }
 }
 load();
 setInterval(load, 15000);
+document.addEventListener("bbc:langchange", load);
 </script>
 </body>
 </html>
 <div class="card">
-  <h3>Znani górnicy</h3>
+  <h3 data-i18n="common_known_miners">Znani górnicy</h3>
   <div id="minersListBox"></div>
 </div>
 <script>
-(async () => {
+async function loadKnownMiners() {
   try {
     const miners = await apiGet("/network/miners");
     document.getElementById("minersListBox").innerHTML = miners.length === 0
-      ? '<p style="color:var(--text-dim);">Na razie tylko Ty.</p>'
+      ? `<p style="color:var(--text-dim);">${t("common_only_you")}</p>`
       : miners.map(m => `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:.85rem;">
-          ${m.address.slice(0,14)}...${m.address.slice(-6)} · ${m.source === "pool" ? "pula" : "solo"} · ${fmtNumber(m.totalEarned)} BbC · ostatnio blok #${m.lastBlockHeight}
+          ${m.address.slice(0,14)}...${m.address.slice(-6)} · ${m.source === "pool" ? t("common_pool_label") : t("common_solo_label")} · ${fmtNumber(m.totalEarned)} BbC · ${t("common_last_block")} #${m.lastBlockHeight}
         </div>`).join("");
   } catch (e) {
-    document.getElementById("minersListBox").innerHTML = '<p style="color:var(--text-dim);">Niedostępne.</p>';
+    document.getElementById("minersListBox").innerHTML = `<p style="color:var(--text-dim);">${t("common_unavailable")}</p>`;
   }
-})();
+}
+loadKnownMiners();
+document.addEventListener("bbc:langchange", loadKnownMiners);
 </script><div class="card">
-  <h3>Adresy w sieci</h3>
+  <h3 data-i18n="dashboard_addresses_heading">Adresy w sieci</h3>
   <div id="addrStatsBox"></div>
 </div>
 <script>
-(async () => {
+async function loadAddressStats() {
   try {
     const data = await apiGet("/network/addresses");
     document.getElementById("addrStatsBox").innerHTML = `
-      <p style="font-family:var(--font-mono);margin-bottom:14px;">Łącznie znanych adresów: <strong>${data.totalAddresses}</strong></p>
-      <h4 style="color:var(--flame);margin-bottom:6px;">🐋 Wieloryby (najwięcej BbC)</h4>
+      <p style="font-family:var(--font-mono);margin-bottom:14px;">${t("dashboard_total_addresses")}: <strong>${data.totalAddresses}</strong></p>
+      <h4 style="color:var(--flame);margin-bottom:6px;">🐋 ${t("dashboard_whales_heading")}</h4>
       ${data.whales.map(w => `<div style="padding:6px 0;font-family:var(--font-mono);font-size:.85rem;border-bottom:1px solid var(--border);">${w.address.slice(0,14)}...${w.address.slice(-6)} · ${fmtNumber(w.balance)} BbC</div>`).join("")}
-      <h4 style="color:var(--leaf);margin:14px 0 6px;">🌱 Najnowsze adresy</h4>
-      ${data.newest.map(n => `<div style="padding:6px 0;font-family:var(--font-mono);font-size:.85rem;border-bottom:1px solid var(--border);">${n.address.slice(0,14)}...${n.address.slice(-6)} · od bloku #${n.firstSeenHeight}</div>`).join("")}
+      <h4 style="color:var(--leaf);margin:14px 0 6px;">🌱 ${t("dashboard_newest_heading")}</h4>
+      ${data.newest.map(n => `<div style="padding:6px 0;font-family:var(--font-mono);font-size:.85rem;border-bottom:1px solid var(--border);">${n.address.slice(0,14)}...${n.address.slice(-6)} · ${t("dashboard_since_block")} #${n.firstSeenHeight}</div>`).join("")}
     `;
   } catch (e) {
-    document.getElementById("addrStatsBox").innerHTML = '<p style="color:var(--text-dim);">Niedostępne.</p>';
+    document.getElementById("addrStatsBox").innerHTML = `<p style="color:var(--text-dim);">${t("common_unavailable")}</p>`;
   }
-})();
+}
+loadAddressStats();
+document.addEventListener("bbc:langchange", loadAddressStats);
 </script>
