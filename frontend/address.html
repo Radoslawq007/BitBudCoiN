@@ -12,23 +12,24 @@
 <body>
 
 <div class="page">
-    <h1 style="margin-top:32px;">Sprawdź adres</h1>
+    <h1 style="margin-top:32px;" data-i18n="address_h1">Sprawdź adres</h1>
     <div class="card">
         <div class="field" style="margin-bottom:12px;">
-            <label for="address-input">Adres BbC</label>
+            <label for="address-input" data-i18n="address_label">Adres BbC</label>
             <input id="address-input" placeholder="BbC..." autocomplete="off">
         </div>
-        <button class="btn" id="search-btn">Szukaj</button>
+        <button class="btn" id="search-btn" data-i18n="address_search_btn">Szukaj</button>
     </div>
 
     <div id="result" style="margin-top:20px;"></div>
 </div>
 
-<footer>BitBudCoin (BbC) · sieć proof-of-work · <a href="docks.html">dokumentacja</a></footer>
+<footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span> · <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a></footer>
 
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
+<script src="assets/i18n.js"></script>
 <script>
 setActiveNav("nav-address");
 
@@ -47,21 +48,21 @@ async function search(address) {
 
         result.innerHTML = `
             <div class="grid cols-2">
-                <div class="card"><div class="card-label">Saldo potwierdzone</div><div class="card-value leaf">${fmtNumber(balance.balance)} BbC</div></div>
-                <div class="card"><div class="card-label">Z uwzględnieniem mempoola</div><div class="card-value">${fmtNumber(balance.pendingAwareBalance)} BbC</div></div>
+                <div class="card"><div class="card-label">${t("address_confirmed_balance")}</div><div class="card-value leaf">${fmtNumber(balance.balance)} BbC</div></div>
+                <div class="card"><div class="card-label">${t("address_mempool_aware_balance")}</div><div class="card-value">${fmtNumber(balance.pendingAwareBalance)} BbC</div></div>
             </div>
-            <h2 style="margin-top:24px;">Historia (${txs.length})</h2>
+            <h2 style="margin-top:24px;">${t("address_history_heading")} (${txs.length})</h2>
             <div class="card" style="padding:0; overflow:hidden;">
                 <table>
-                    <thead><tr><th>Typ</th><th>Blok</th><th>Kierunek</th><th>Kwota</th></tr></thead>
+                    <thead><tr><th>${t("address_th_type")}</th><th>${t("dashboard_height")}</th><th>${t("address_th_direction")}</th><th>${t("address_th_amount")}</th></tr></thead>
                     <tbody>
                     ${txs.length === 0
-                        ? '<tr><td colspan="4"><div class="empty-state"><div class="glyph">🍃</div>Brak transakcji dla tego adresu</div></td></tr>'
+                        ? `<tr><td colspan="4"><div class="empty-state"><div class="glyph">🍃</div>${t("address_no_transactions")}</div></td></tr>`
                         : txs.map(tx => `
                         <tr onclick="location.href='block.html?height=${tx.blockHeight}'" style="cursor:pointer">
                             <td>${badgeFor(tx.type)}</td>
                             <td>#${tx.blockHeight}</td>
-                            <td>${tx.to === address ? '<span style="color:var(--leaf)">przychodząca</span>' : '<span style="color:var(--flame)">wychodząca</span>'}</td>
+                            <td>${tx.to === address ? `<span style="color:var(--leaf)">${t("address_incoming")}</span>` : `<span style="color:var(--flame)">${t("address_outgoing")}</span>`}</td>
                             <td>${tx.to === address ? "+" : "−"}${fmtNumber(tx.amount)}</td>
                         </tr>`).join("")}
                     </tbody>
@@ -77,6 +78,11 @@ document.getElementById("address-input").addEventListener("keydown", (e) => { if
 
 const pre = new URLSearchParams(location.search).get("address");
 if (pre) { document.getElementById("address-input").value = pre; search(pre); }
+
+document.addEventListener("bbc:langchange", () => {
+    const current = document.getElementById("address-input").value.trim();
+    if (current) search(current);
+});
 </script>
 </body>
 </html>
