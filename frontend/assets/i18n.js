@@ -214,7 +214,21 @@ const translations = {
         miner_bench_busy: "Zatrzymaj najpierw kopanie, żeby pomiar był miarodajny.",
         miner_bench_estimate: "Przy obecnej trudności sieci: średnio", miner_bench_sec: "s",
         miner_bench_min: "min", miner_bench_hr: "godz.",
-        miner_footer: "BitBudCoin (BbC) · sieć proof-of-work"
+        miner_footer: "BitBudCoin (BbC) · sieć proof-of-work",
+
+        miner_active_miners_heading: "Aktywni górnicy",
+        miner_active_miners_window: "(ostatnie kilka minut)",
+        miner_working_on_block: "Pracuje nad blokiem",
+        miner_share_block_diff: "Trudność share / bloku",
+        miner_shares_this_round: "Shares w tej rundzie",
+        miner_pool_fee_label: "Opłata puli",
+        miner_pool_hashrate: "Hashrate puli",
+        miner_solo_hashrate: "Hashrate solo",
+        miner_no_active_miners: "Brak aktywnych górników w ostatnich",
+        miner_th_address: "Adres",
+        miner_th_mode: "Tryb",
+        miner_th_activity: "Aktywność",
+        miner_need_address_alert: "Podaj adres BbC"
     },
     en: {
         nav_dashboard: "Dashboard", nav_explorer: "Explorer", nav_mining: "Mining",
@@ -426,7 +440,21 @@ const translations = {
         miner_bench_busy: "Stop mining first for an accurate reading.",
         miner_bench_estimate: "At the current network difficulty: on average", miner_bench_sec: "s",
         miner_bench_min: "min", miner_bench_hr: "hr",
-        miner_footer: "BitBudCoin (BbC) · proof-of-work network"
+        miner_footer: "BitBudCoin (BbC) · proof-of-work network",
+
+        miner_active_miners_heading: "Active Miners",
+        miner_active_miners_window: "(last few minutes)",
+        miner_working_on_block: "Working on block",
+        miner_share_block_diff: "Share / block difficulty",
+        miner_shares_this_round: "Shares this round",
+        miner_pool_fee_label: "Pool fee",
+        miner_pool_hashrate: "Pool hashrate",
+        miner_solo_hashrate: "Solo hashrate",
+        miner_no_active_miners: "No active miners in the last",
+        miner_th_address: "Address",
+        miner_th_mode: "Mode",
+        miner_th_activity: "Activity",
+        miner_need_address_alert: "Enter a BbC address"
     }
 };
 
