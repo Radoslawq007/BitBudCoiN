@@ -14,33 +14,33 @@
 <div class="page">
     <section class="hero">
         <img src="assets/coin-hero.jpg" alt="Moneta BitBudCoin" style="width:200px;height:200px;border-radius:50%;box-shadow:0 0 50px rgba(90,126,246,.3);margin-bottom:12px;">
-        <div class="kicker">proof-of-work · sieć BbC</div>
+        <div class="kicker" data-i18n="index_kicker">proof-of-work · sieć BbC</div>
         <div class="big-number" id="hero-height">—</div>
-        <div class="sub">bloków wykopanych od genesis</div>
+        <div class="sub" data-i18n="index_sub">bloków wykopanych od genesis</div>
         <div style="margin-top:28px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-            <a class="btn" href="miner.html">Zacznij kopać</a>
-            <a class="btn secondary" href="explorer.html">Zobacz explorer</a>
+            <a class="btn" href="miner.html" data-i18n="miner_start_btn">Zacznij kopać</a>
+            <a class="btn secondary" href="explorer.html" data-i18n="index_view_explorer_btn">Zobacz explorer</a>
         </div>
     </section>
 
     <div class="grid cols-3" style="margin-top:12px;">
         <div class="card">
-            <div class="card-label">Podaż w obiegu</div>
+            <div class="card-label" data-i18n="index_stat_supply">Podaż w obiegu</div>
             <div class="card-value leaf" id="stat-supply">—</div>
         </div>
         <div class="card">
-            <div class="card-label">Aktualna nagroda</div>
+            <div class="card-label" data-i18n="index_stat_reward">Aktualna nagroda</div>
             <div class="card-value flame" id="stat-reward">—</div>
         </div>
         <div class="card">
-            <div class="card-label">Trudność</div>
+            <div class="card-label" data-i18n="index_stat_difficulty">Trudność</div>
             <div class="card-value" id="stat-difficulty">—</div>
         </div>
     </div>
 
     <div class="card" style="margin-top:32px;">
-        <h2>Czym jest BitBudCoin?</h2>
-        <p>
+        <h2 data-i18n="index_about_heading">Czym jest BitBudCoin?</h2>
+        <p data-i18n="index_about_text">
             BbC to niezależna sieć blockchain z klasycznym proof-of-work (SHA-256), premine'em
             założycielskim, halvingiem nagrody co 210 000 bloków i twardym pułapem podaży.
             Kopać można solo albo w puli — u siebie liczysz hashe, a sieć weryfikuje i zapisuje
@@ -51,28 +51,29 @@
 
     <div class="grid cols-3" style="margin-top:20px;">
         <div class="card">
-            <h3>Kopanie</h3>
-            <p>Solo albo w puli, z realnym udziałem w nagrodzie proporcjonalnym do zgłoszonych shares.</p>
-            <a href="miner.html">Zobacz jak →</a>
+            <h3 data-i18n="nav_mining">Kopanie</h3>
+            <p data-i18n="index_card_mining_desc">Solo albo w puli, z realnym udziałem w nagrodzie proporcjonalnym do zgłoszonych shares.</p>
+            <a href="miner.html" data-i18n="index_card_mining_link">Zobacz jak →</a>
         </div>
         <div class="card">
-            <h3>Explorer</h3>
-            <p>Każdy blok, każda transakcja, jawnie i do sprawdzenia w dowolnej chwili.</p>
-            <a href="explorer.html">Przeglądaj →</a>
+            <h3 data-i18n="nav_explorer">Explorer</h3>
+            <p data-i18n="index_card_explorer_desc">Każdy blok, każda transakcja, jawnie i do sprawdzenia w dowolnej chwili.</p>
+            <a href="explorer.html" data-i18n="index_card_explorer_link">Przeglądaj →</a>
         </div>
         <div class="card">
-            <h3>Portfel</h3>
-            <p>Sprawdź saldo dowolnego adresu i historię jego transakcji.</p>
-            <a href="address.html">Sprawdź adres →</a>
+            <h3 data-i18n="nav_wallet">Portfel</h3>
+            <p data-i18n="index_card_wallet_desc">Sprawdź saldo dowolnego adresu i historię jego transakcji.</p>
+            <a href="address.html" data-i18n="index_card_wallet_link">Sprawdź adres →</a>
         </div>
     </div>
 </div>
 
-<footer>BitBudCoin (BbC) · sieć proof-of-work · <a href="docks.html">dokumentacja</a></footer>
+<footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span> · <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a></footer>
 
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
+<script src="assets/i18n.js"></script>
 <script>
 setActiveNav("nav-index");
 
