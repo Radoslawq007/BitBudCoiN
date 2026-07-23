@@ -61,11 +61,21 @@ class Blockchain {
         const height = this.getLatestBlock().height + 1;
         const reward = this.getRewardForHeight(height);
         const transactions = [{ from: null, to: rewardRecipient, amount: reward, type: "coinbase" }];
+        let totalFees = 0;
         for (const tx of pendingTransactions) {
             transactions.push({
                 from: tx.from, to: tx.to, amount: tx.amount, fee: tx.fee,
                 timestamp: tx.timestamp, publicKey: tx.publicKey, signature: tx.signature, type: "transfer"
             });
+            totalFees += (tx.fee || 0);
+        }
+        // Opłaty transakcyjne trafiają do adresu projektu przy budowaniu TEGO
+        // bloku - dotyczy tylko transakcji, które faktycznie w nim wylądowały.
+        // Wcześniej te środki po prostu znikały (odejmowane nadawcy, nigdzie
+        // nie doliczane). Nie zmienia to znaczenia żadnego starego bloku -
+        // wpływa tylko na bloki wykopane od teraz.
+        if (totalFees > 0 && CONFIG.PROJECT_FEE_ADDRESS) {
+            transactions.push({ from: null, to: CONFIG.PROJECT_FEE_ADDRESS, amount: totalFees, type: "fee" });
         }
         return transactions;
     }
