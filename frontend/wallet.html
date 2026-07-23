@@ -24,6 +24,8 @@
   .tabs { display:flex; gap:8px; margin:24px 0 0; border-bottom:1px solid var(--border); }
   .tab-btn { background:none; border:none; color:var(--text-dim); font-family:var(--font-display); font-weight:600; font-size:.95rem; padding:10px 4px; cursor:pointer; border-bottom:2px solid transparent; }
   .tab-btn.active { color:var(--leaf); border-bottom-color:var(--leaf); }
+  .htlc-tab-btn { background:none; border:none; color:var(--text-dim); font-family:var(--font-display); font-weight:600; font-size:.85rem; padding:8px 4px; cursor:pointer; border-bottom:2px solid transparent; }
+  .htlc-tab-btn.active { color:var(--leaf); border-bottom-color:var(--leaf); }
   .tab-panel { display:none; }
   .tab-panel.active { display:block; }
   .balance-row { display:flex; align-items:baseline; gap:8px; margin-top:14px; font-family:var(--font-mono); }
@@ -197,6 +199,50 @@
       <button class="btn flame" id="sendBtn" style="width:100%;justify-content:center;" data-i18n="wallet_send_btn">Wyślij</button>
       <div id="sendResult" style="margin-top:12px;font-family:var(--font-mono);font-size:.85rem;"></div>
     </div>
+
+    <!-- ========== HTLC: ekran TECHNICZNY, surowe pola - nie ładny swap (to później) ========== -->
+    <div class="card" id="htlcCard" style="display:none;">
+      <h3>🔒 HTLC (techniczne)</h3>
+      <p style="font-size:.85rem;color:var(--text-dim);">Blokady czasowo-hashowe pod wymiany między łańcuchami. Surowe pola, nie ładny ekran wymiany — to osobno, później.</p>
+
+      <div class="tabs" style="margin-top:14px;">
+        <button class="htlc-tab-btn active" data-htlctab="create">Utwórz</button>
+        <button class="htlc-tab-btn" data-htlctab="claim">Odbierz</button>
+        <button class="htlc-tab-btn" data-htlctab="refund">Zwrot</button>
+        <button class="htlc-tab-btn" data-htlctab="check">Sprawdź</button>
+      </div>
+
+      <div class="htlc-tab-panel" id="htlctab-create" style="display:block;">
+        <div class="field"><label>ID (auto, można zmienić)</label><input id="htlcCreateId"></div>
+        <div class="field"><label>Sekret (auto — ZAPISZ, przekażesz go drugiej stronie osobno)</label><input id="htlcCreateSecret"></div>
+        <div class="field"><label>Hash sekretu (hashLock) — auto z sekretu, albo wklej cudzy jeśli odpowiadasz</label><input id="htlcCreateHashLock"></div>
+        <div class="field"><label>Adres odbiorcy (claimant)</label><input id="htlcCreateClaimant" placeholder="BbC..."></div>
+        <div class="field"><label>Kwota (BbC)</label><input id="htlcCreateAmount" type="number" step="any"></div>
+        <div class="field"><label>Opłata</label><input id="htlcCreateFee" type="number" step="any" value="0.01"></div>
+        <div class="field"><label>Wysokość terminu (numer bloku)</label><input id="htlcCreateTimeout" type="number"></div>
+        <button class="btn flame" id="htlcCreateBtn" style="width:100%;justify-content:center;">Utwórz HTLC</button>
+        <div id="htlcCreateResult" style="margin-top:10px;font-family:var(--font-mono);font-size:.82rem;"></div>
+      </div>
+
+      <div class="htlc-tab-panel" id="htlctab-claim" style="display:none;">
+        <div class="field"><label>ID HTLC</label><input id="htlcClaimId"></div>
+        <div class="field"><label>Sekret</label><input id="htlcClaimSecret"></div>
+        <button class="btn flame" id="htlcClaimBtn" style="width:100%;justify-content:center;">Odbierz</button>
+        <div id="htlcClaimResult" style="margin-top:10px;font-family:var(--font-mono);font-size:.82rem;"></div>
+      </div>
+
+      <div class="htlc-tab-panel" id="htlctab-refund" style="display:none;">
+        <div class="field"><label>ID HTLC</label><input id="htlcRefundId"></div>
+        <button class="btn flame" id="htlcRefundBtn" style="width:100%;justify-content:center;">Zwrot</button>
+        <div id="htlcRefundResult" style="margin-top:10px;font-family:var(--font-mono);font-size:.82rem;"></div>
+      </div>
+
+      <div class="htlc-tab-panel" id="htlctab-check" style="display:none;">
+        <div class="field"><label>ID HTLC</label><input id="htlcCheckId"></div>
+        <button class="btn secondary" id="htlcCheckBtn" style="width:100%;justify-content:center;">Sprawdź status</button>
+        <div id="htlcCheckResult" style="margin-top:10px;"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -332,6 +378,8 @@ async function loadWalletFromBundleText(text) {
     document.getElementById("myAddress").textContent = address;
     document.getElementById("receiveCard").style.display = "block";
     document.getElementById("sendCard").style.display = "block";
+    document.getElementById("htlcCard").style.display = "block";
+    await refreshHtlcCreateDefaults();
     await refreshBalance();
     return true;
 }
@@ -602,6 +650,111 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
         btn.classList.remove("secondary");
         await refreshBalance();
         btn.disabled = false;
+    }
+});
+
+// --- HTLC (ekran techniczny) ---
+
+function randomHex(numBytes) {
+    const arr = crypto.getRandomValues(new Uint8Array(numBytes));
+    return Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256HexOfText(text) {
+    const data = new TextEncoder().encode(text);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+document.querySelectorAll(".htlc-tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+        document.querySelectorAll(".htlc-tab-btn").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".htlc-tab-panel").forEach((p) => (p.style.display = "none"));
+        btn.classList.add("active");
+        document.getElementById("htlctab-" + btn.dataset.htlctab).style.display = "block";
+    });
+});
+
+async function refreshHtlcCreateDefaults() {
+    document.getElementById("htlcCreateId").value = randomHex(16);
+    const secret = randomHex(32);
+    document.getElementById("htlcCreateSecret").value = secret;
+    document.getElementById("htlcCreateHashLock").value = await sha256HexOfText(secret);
+}
+
+document.getElementById("htlcCreateBtn").addEventListener("click", async () => {
+    const resultEl = document.getElementById("htlcCreateResult");
+    const htlcId = document.getElementById("htlcCreateId").value.trim();
+    const hashLock = document.getElementById("htlcCreateHashLock").value.trim();
+    const claimant = document.getElementById("htlcCreateClaimant").value.trim();
+    const amount = Number(document.getElementById("htlcCreateAmount").value);
+    const fee = Number(document.getElementById("htlcCreateFee").value);
+    const timeoutHeight = Number(document.getElementById("htlcCreateTimeout").value);
+
+    if (!htlcId || !hashLock || !claimant || !amount || !timeoutHeight) {
+        resultEl.textContent = "Wypełnij wszystkie pola (ID, hash, odbiorca, kwota, wysokość terminu).";
+        return;
+    }
+
+    // Kolejność pól MUSI się zgadzać z htlcCreatePayload() w backend/wallet.js -
+    // podpis liczony jest z JSON.stringify tego dokładnego obiektu.
+    const payload = {
+        htlcId, from: currentWallet.address, amount, fee, hashLock, timeoutHeight,
+        claimant, refundee: currentWallet.address, timestamp: Date.now()
+    };
+    try {
+        const signature = await signPayload(currentWallet.privateKey, payload);
+        const tx = { ...payload, type: "HTLC_CREATE", publicKey: currentWallet.publicKeyPem, signature };
+        const result = await apiPost("/htlc/submit", tx);
+        resultEl.innerHTML = `<span style="color:var(--leaf)">✅ Utworzono, czeka na wykopanie bloku.</span>`;
+        await refreshHtlcCreateDefaults();
+    } catch (err) {
+        resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${escapeHtml(err.message)}</span>`;
+    }
+});
+
+document.getElementById("htlcClaimBtn").addEventListener("click", async () => {
+    const resultEl = document.getElementById("htlcClaimResult");
+    const htlcId = document.getElementById("htlcClaimId").value.trim();
+    const secret = document.getElementById("htlcClaimSecret").value.trim();
+    if (!htlcId || !secret) { resultEl.textContent = "Podaj ID i sekret."; return; }
+
+    const payload = { htlcId, claimant: currentWallet.address, secret, timestamp: Date.now() };
+    try {
+        const signature = await signPayload(currentWallet.privateKey, payload);
+        const tx = { ...payload, type: "HTLC_CLAIM", publicKey: currentWallet.publicKeyPem, signature };
+        await apiPost("/htlc/submit", tx);
+        resultEl.innerHTML = `<span style="color:var(--leaf)">✅ Zgłoszono odbiór, czeka na wykopanie bloku.</span>`;
+    } catch (err) {
+        resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${escapeHtml(err.message)}</span>`;
+    }
+});
+
+document.getElementById("htlcRefundBtn").addEventListener("click", async () => {
+    const resultEl = document.getElementById("htlcRefundResult");
+    const htlcId = document.getElementById("htlcRefundId").value.trim();
+    if (!htlcId) { resultEl.textContent = "Podaj ID."; return; }
+
+    const payload = { htlcId, refundee: currentWallet.address, timestamp: Date.now() };
+    try {
+        const signature = await signPayload(currentWallet.privateKey, payload);
+        const tx = { ...payload, type: "HTLC_REFUND", publicKey: currentWallet.publicKeyPem, signature };
+        await apiPost("/htlc/submit", tx);
+        resultEl.innerHTML = `<span style="color:var(--leaf)">✅ Zgłoszono zwrot, czeka na wykopanie bloku.</span>`;
+    } catch (err) {
+        resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${escapeHtml(err.message)}</span>`;
+    }
+});
+
+document.getElementById("htlcCheckBtn").addEventListener("click", async () => {
+    const resultEl = document.getElementById("htlcCheckResult");
+    const htlcId = document.getElementById("htlcCheckId").value.trim();
+    if (!htlcId) { resultEl.textContent = "Podaj ID."; return; }
+    try {
+        const htlc = await apiGet("/htlc/" + encodeURIComponent(htlcId));
+        resultEl.innerHTML = `<pre style="white-space:pre-wrap;word-break:break-all;font-size:.75rem;background:var(--surface-2);padding:10px;border-radius:8px;">${escapeHtml(JSON.stringify(htlc, null, 2))}</pre>`;
+    } catch (err) {
+        resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${escapeHtml(err.message)}</span>`;
     }
 });
 </script>
