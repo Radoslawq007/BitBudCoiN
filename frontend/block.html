@@ -13,9 +13,9 @@
 
 <div class="page">
     <div style="margin-top:32px;">
-        <a href="explorer.html" style="color:var(--text-dim); font-size:0.85rem;">← Dziennik łańcucha</a>
+        <a href="explorer.html" style="color:var(--text-dim); font-size:0.85rem;" data-i18n="block_back_to_journal">← Dziennik łańcucha</a>
     </div>
-    <h1 style="margin-top:10px;">Blok #<span id="block-height-title">—</span></h1>
+    <h1 style="margin-top:10px;"><span data-i18n="explorer_block_label">Blok</span> #<span id="block-height-title">—</span></h1>
     <div id="error-box"></div>
 
     <div class="card">
@@ -24,10 +24,10 @@
         </tbody></table>
     </div>
 
-    <h2 style="margin-top:24px;">Transakcje (<span id="tx-count">—</span>)</h2>
+    <h2 style="margin-top:24px;"><span data-i18n="block_tx_heading">Transakcje</span> (<span id="tx-count">—</span>)</h2>
     <div class="card" style="padding:0; overflow:hidden;">
         <table>
-            <thead><tr><th>Typ</th><th>Od</th><th>Do</th><th>Kwota</th></tr></thead>
+            <thead><tr><th data-i18n="address_th_type">Typ</th><th data-i18n="block_th_from">Od</th><th data-i18n="block_th_to">Do</th><th data-i18n="address_th_amount">Kwota</th></tr></thead>
             <tbody id="tx-tbody">
                 <tr><td colspan="4" class="skeleton">ładowanie ładowanie</td></tr>
             </tbody>
@@ -35,11 +35,12 @@
     </div>
 </div>
 
-<footer>BitBudCoin (BbC) · sieć proof-of-work · <a href="docks.html">dokumentacja</a></footer>
+<footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span> · <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a></footer>
 
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
+<script src="assets/i18n.js"></script>
 <script>
 setActiveNav("nav-explorer");
 
@@ -57,7 +58,7 @@ function addrLink(a, fallbackHtml) {
 async function load() {
     const height = new URLSearchParams(location.search).get("height");
     if (height === null) {
-        document.getElementById("error-box").innerHTML = `<div class="error-banner">Brak wysokości bloku w adresie.</div>`;
+        document.getElementById("error-box").innerHTML = `<div class="error-banner">${t("block_no_height")}</div>`;
         document.getElementById("meta-tbody").innerHTML = "";
         document.getElementById("tx-tbody").innerHTML = "";
         return;
@@ -66,26 +67,26 @@ async function load() {
 
     try {
         const block = await apiGet(`/blocks/${encodeURIComponent(height)}`);
-        document.title = `Blok #${block.height} — BitBudCoin`;
+        document.title = `${t("explorer_block_label")} #${block.height} — BitBudCoin`;
         document.getElementById("block-height-title").textContent = block.height;
 
         document.getElementById("meta-tbody").innerHTML = `
-            <tr><td style="color:var(--text-dim); width:35%;">Hash</td><td class="mono" style="word-break:break-all;">${escapeHtml(block.hash)}</td></tr>
-            <tr><td style="color:var(--text-dim);">Poprzedni hash</td><td class="mono" style="word-break:break-all;">${block.height === 0 ? '<span style="color:var(--text-dim)">— (genesis)</span>' : escapeHtml(block.previousHash)}</td></tr>
-            <tr><td style="color:var(--text-dim);">Kiedy</td><td>${timeAgo(block.timestamp)}</td></tr>
-            <tr><td style="color:var(--text-dim);">Trudność</td><td>${fmtNumber(block.difficulty, 0)}</td></tr>
-            <tr><td style="color:var(--text-dim);">Nonce</td><td class="mono">${fmtNumber(block.nonce, 0)}</td></tr>`;
+            <tr><td style="color:var(--text-dim); width:35%;">${t("block_hash_label")}</td><td class="mono" style="word-break:break-all;">${escapeHtml(block.hash)}</td></tr>
+            <tr><td style="color:var(--text-dim);">${t("block_prev_hash_label")}</td><td class="mono" style="word-break:break-all;">${block.height === 0 ? `<span style="color:var(--text-dim)">${t("block_genesis_note")}</span>` : escapeHtml(block.previousHash)}</td></tr>
+            <tr><td style="color:var(--text-dim);">${t("block_when_label")}</td><td>${timeAgo(block.timestamp)}</td></tr>
+            <tr><td style="color:var(--text-dim);">${t("index_stat_difficulty")}</td><td>${fmtNumber(block.difficulty, 0)}</td></tr>
+            <tr><td style="color:var(--text-dim);">${t("block_nonce_label")}</td><td class="mono">${fmtNumber(block.nonce, 0)}</td></tr>`;
 
         const txs = block.transactions || [];
         document.getElementById("tx-count").textContent = txs.length;
         document.getElementById("tx-tbody").innerHTML = txs.length === 0
-            ? '<tr><td colspan="4"><div class="empty-state"><div class="glyph">🍃</div>Brak transakcji w tym bloku</div></td></tr>'
+            ? `<tr><td colspan="4"><div class="empty-state"><div class="glyph">🍃</div>${t("block_no_transactions")}</div></td></tr>`
             : txs.map((tx) => `
                 <tr>
                     <td>${badgeFor(tx.type)}</td>
-                    <td>${addrLink(tx.from, '<span style="color:var(--text-dim)">— (nowe monety)</span>')}</td>
+                    <td>${addrLink(tx.from, `<span style="color:var(--text-dim)">${t("block_new_coins")}</span>`)}</td>
                     <td>${addrLink(tx.to)}</td>
-                    <td>${fmtNumber(tx.amount)}${tx.fee ? ` <span style="color:var(--text-dim); font-size:0.8em;">(+${fmtNumber(tx.fee)} opłaty)</span>` : ""}</td>
+                    <td>${fmtNumber(tx.amount)}${tx.fee ? ` <span style="color:var(--text-dim); font-size:0.8em;">(+${fmtNumber(tx.fee)} ${t("block_fee_suffix")})</span>` : ""}</td>
                 </tr>`).join("");
     } catch (e) {
         document.getElementById("error-box").innerHTML = `<div class="error-banner">${escapeHtml(e.message)}</div>`;
@@ -95,6 +96,7 @@ async function load() {
 }
 
 load();
+document.addEventListener("bbc:langchange", load);
 </script>
 </body>
 </html>
