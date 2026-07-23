@@ -20,29 +20,29 @@
 <body>
 
 <div class="page">
-    <h1 style="margin-top:32px;">Dokumentacja</h1>
-    <p>Skrócona referencja API i parametrów sieci BitBudCoin.</p>
+    <h1 style="margin-top:32px;" data-i18n="docks_h1">Dokumentacja</h1>
+    <p data-i18n="docks_intro">Skrócona referencja API i parametrów sieci BitBudCoin.</p>
 
     <div class="grid cols-2" style="align-items:start;">
         <div>
             <div class="card">
-                <h3>Łańcuch</h3>
+                <h3 data-i18n="docks_chain_heading">Łańcuch</h3>
                 <div class="endpoint"><span class="method get">GET</span><span>/info</span></div>
                 <div class="endpoint"><span class="method get">GET</span><span>/blocks?limit&before</span></div>
                 <div class="endpoint"><span class="method get">GET</span><span>/blocks/:height</span></div>
             </div>
 
             <div class="card">
-                <h3>Portfele i transakcje</h3>
+                <h3 data-i18n="docks_wallets_heading">Portfele i transakcje</h3>
                 <div class="endpoint"><span class="method get">GET</span><span>/balance/:address</span></div>
                 <div class="endpoint"><span class="method get">GET</span><span>/transactions/address/:address</span></div>
                 <div class="endpoint"><span class="method get">GET</span><span>/transactions/pending</span></div>
                 <div class="endpoint"><span class="method post">POST</span><span>/transactions/send</span></div>
-                <p style="margin-top:10px; font-size:0.85rem;">Transakcje podpisujesz lokalnie kluczem prywatnym (Ed25519) — <code>wallet.js</code> i <code>send.js</code> w repo backendu.</p>
+                <p style="margin-top:10px; font-size:0.85rem;" data-i18n="docks_wallets_desc">Transakcje podpisujesz lokalnie kluczem prywatnym (Ed25519) — <code>wallet.js</code> i <code>send.js</code> w repo backendu.</p>
             </div>
 
             <div class="card">
-                <h3>Kopanie</h3>
+                <h3 data-i18n="nav_mining">Kopanie</h3>
                 <div class="endpoint"><span class="method post">POST</span><span>/mine/start</span></div>
                 <div class="endpoint"><span class="method get">GET</span><span>/miners/models</span></div>
                 <div class="endpoint"><span class="method get">GET</span><span>/pool/work?minerAddress</span></div>
@@ -60,20 +60,20 @@
 
         <div>
             <div class="card">
-                <h3>Parametry protokołu (na żywo)</h3>
+                <h3 data-i18n="docks_params_heading">Parametry protokołu (na żywo)</h3>
                 <table id="params-table"><tbody><tr><td colspan="2" class="skeleton">ładowanie ładowanie</td></tr></tbody></table>
             </div>
 
             <div class="card">
-                <h3>Jak to działa w skrócie</h3>
-                <p style="font-size:0.9rem;">Proof-of-work SHA-256, trudność jako ciągła liczba (nie skoki x16),
+                <h3 data-i18n="docks_how_heading">Jak to działa w skrócie</h3>
+                <p style="font-size:0.9rem;" data-i18n="docks_how_desc">Proof-of-work SHA-256, trudność jako ciągła liczba (nie skoki x16),
                 retarget co ~2028 bloków, halving nagrody co 210 000 bloków, twardy pułap podaży.
                 Baza SQLite (<code>node:sqlite</code>), P2P po surowym TCP (linie JSON),
                 pula ze share-based proof of work, transakcje podpisane Ed25519.</p>
             </div>
 
             <div class="card">
-                <h3>Uruchomienie własnego węzła</h3>
+                <h3 data-i18n="docks_node_heading">Uruchomienie własnego węzła</h3>
                 <pre style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px; overflow-x:auto; font-family:var(--font-mono); font-size:0.82rem; white-space:pre-wrap;">npm install
 npm start
 node wallet.js          # nowy portfel
@@ -84,11 +84,12 @@ node backup.js           # backup bazy</pre>
     </div>
 </div>
 
-<footer>BitBudCoin (BbC) · sieć proof-of-work · <a href="index.html">strona główna</a></footer>
+<footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span> · <a href="index.html" data-i18n="docks_footer_home_link">strona główna</a></footer>
 
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
+<script src="assets/i18n.js"></script>
 <script>
 setActiveNav("nav-docks");
 
@@ -98,11 +99,11 @@ async function load() {
         document.querySelector("#params-table tbody").innerHTML = `
             <tr><td style="color:var(--text-dim)">Symbol</td><td>${info.symbol}</td></tr>
             <tr><td style="color:var(--text-dim)">Chain ID</td><td>${info.chainId}</td></tr>
-            <tr><td style="color:var(--text-dim)">Pułap podaży</td><td>${fmtNumber(info.maxSupply)}</td></tr>
-            <tr><td style="color:var(--text-dim)">Nagroda bazowa</td><td>50 BbC (halving /210000 bloków)</td></tr>
-            <tr><td style="color:var(--text-dim)">Wersja</td><td>${info.version}</td></tr>`;
+            <tr><td style="color:var(--text-dim)">${t("network_row_supply_cap")}</td><td>${fmtNumber(info.maxSupply)}</td></tr>
+            <tr><td style="color:var(--text-dim)">${t("docks_base_reward")}</td><td>50 BbC (halving /210000 ${t("common_blocks_suffix")})</td></tr>
+            <tr><td style="color:var(--text-dim)">${t("network_row_version")}</td><td>${info.version}</td></tr>`;
     } catch (e) {
-        document.querySelector("#params-table tbody").innerHTML = `<tr><td colspan="2">węzeł offline</td></tr>`;
+        document.querySelector("#params-table tbody").innerHTML = `<tr><td colspan="2">${t("docks_node_offline")}</td></tr>`;
     }
 }
 load();
