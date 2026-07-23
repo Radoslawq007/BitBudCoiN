@@ -12,8 +12,8 @@
 <body>
 
 <div class="page">
-    <h1 style="margin-top:32px;">Parametry sieci</h1>
-    <p>Zdrowie łańcucha i stałe protokołu — to, na czym zgadzają się wszystkie węzły.</p>
+    <h1 style="margin-top:32px;" data-i18n="network_h1">Parametry sieci</h1>
+    <p data-i18n="network_intro">Zdrowie łańcucha i stałe protokołu — to, na czym zgadzają się wszystkie węzły.</p>
 
     <div class="card">
         <div id="validity-row" style="display:flex; align-items:center; gap:10px; padding-bottom:16px; margin-bottom:16px; border-bottom:1px solid var(--border);">
@@ -27,11 +27,12 @@
     </div>
 </div>
 
-<footer>BitBudCoin (BbC) · sieć proof-of-work · <a href="docks.html">dokumentacja</a></footer>
+<footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span> · <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a></footer>
 
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
+<script src="assets/i18n.js"></script>
 <script>
 setActiveNav("nav-network");
 
@@ -43,45 +44,48 @@ async function load() {
     try {
         const info = await apiGet("/info");
         document.getElementById("validity-row").innerHTML = info.isValid
-            ? `<span class="flame-pill lit"><span class="flame-dot"></span></span> <strong style="color:var(--leaf)">Łańcuch poprawny</strong>`
-            : `<span style="color:var(--danger)">⚠ Łańcuch NIEPOPRAWNY</span>`;
+            ? `<span class="flame-pill lit"><span class="flame-dot"></span></span> <strong style="color:var(--leaf)">${t("network_chain_valid")}</strong>`
+            : `<span style="color:var(--danger)">⚠ ${t("network_chain_invalid")}</span>`;
 
         document.getElementById("params-tbody").innerHTML = [
-            row("Sieć", `${info.network} (${info.symbol})`),
+            row(t("network_row_network"), `${info.network} (${info.symbol})`),
             row("Chain ID", info.chainId),
-            row("Wersja protokołu", info.version),
-            row("Wysokość", "#" + fmtNumber(info.height, 0)),
-            row("Trudność bieżąca", fmtNumber(info.difficulty, 0)),
-            row("Bloków do przeliczenia trudności", fmtNumber(info.blocksUntilRetarget, 0)),
-            row("Bloków do halvingu", fmtNumber(info.blocksUntilHalving, 0)),
-            row("Podaż w obiegu", fmtNumber(info.circulatingSupply) + " BbC"),
-            row("Pułap podaży", fmtNumber(info.maxSupply) + " BbC"),
-            row("Premine", fmtNumber(info.premine) + " BbC"),
+            row(t("network_row_version"), info.version),
+            row(t("dashboard_height"), "#" + fmtNumber(info.height, 0)),
+            row(t("network_row_current_difficulty"), fmtNumber(info.difficulty, 0)),
+            row(t("network_row_blocks_to_retarget"), fmtNumber(info.blocksUntilRetarget, 0)),
+            row(t("network_row_blocks_to_halving"), fmtNumber(info.blocksUntilHalving, 0)),
+            row(t("index_stat_supply"), fmtNumber(info.circulatingSupply) + " BbC"),
+            row(t("network_row_supply_cap"), fmtNumber(info.maxSupply) + " BbC"),
+            row(t("network_row_premine"), fmtNumber(info.premine) + " BbC"),
         ].join("");
     } catch (e) {
-        document.getElementById("validity-row").innerHTML = `<div class="error-banner">Brak połączenia z węzłem: ${escapeHtml(e.message)}</div>`;
+        document.getElementById("validity-row").innerHTML = `<div class="error-banner">${t("network_no_node_connection")}: ${escapeHtml(e.message)}</div>`;
         document.getElementById("params-tbody").innerHTML = "";
     }
 }
 load();
+document.addEventListener("bbc:langchange", load);
 </script>
 </body>
 </html>
 <div class="card">
-  <h3>Znani górnicy</h3>
+  <h3 data-i18n="common_known_miners">Znani górnicy</h3>
   <div id="minersListBox"></div>
 </div>
 <script>
-(async () => {
+async function loadKnownMiners() {
   try {
     const miners = await apiGet("/network/miners");
     document.getElementById("minersListBox").innerHTML = miners.length === 0
-      ? '<p style="color:var(--text-dim);">Na razie tylko Ty.</p>'
+      ? `<p style="color:var(--text-dim);">${t("common_only_you")}</p>`
       : miners.map(m => `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:.85rem;">
-          ${m.address.slice(0,14)}...${m.address.slice(-6)} · ${m.source === "pool" ? "pula" : "solo"} · ${fmtNumber(m.totalEarned)} BbC · ostatnio blok #${m.lastBlockHeight}
+          ${m.address.slice(0,14)}...${m.address.slice(-6)} · ${m.source === "pool" ? t("common_pool_label") : t("common_solo_label")} · ${fmtNumber(m.totalEarned)} BbC · ${t("common_last_block")} #${m.lastBlockHeight}
         </div>`).join("");
   } catch (e) {
-    document.getElementById("minersListBox").innerHTML = '<p style="color:var(--text-dim);">Niedostępne.</p>';
+    document.getElementById("minersListBox").innerHTML = `<p style="color:var(--text-dim);">${t("common_unavailable")}</p>`;
   }
-})();
+}
+loadKnownMiners();
+document.addEventListener("bbc:langchange", loadKnownMiners);
 </script>
