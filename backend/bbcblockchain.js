@@ -31,6 +31,16 @@ class Block {
     }
 }
 
+// Czy w danym bloku obowiązuje już 2% opłaty protokołu potrącanej z kwoty
+// odbiorcy. Aktywacja od konkretnej wysokości - dokładnie ta sama zasada co
+// zaplanowana dla HTLC. Bloki sprzed aktywacji zostają nietknięte na zawsze,
+// nawet gdy odtwarzamy historię na nowym kodzie.
+function isProjectFeeActive(height) {
+    return !!(CONFIG.PROJECT_FEE_ADDRESS && CONFIG.PROJECT_FEE_PERCENT &&
+        CONFIG.PROJECT_FEE_ACTIVATION_HEIGHT !== undefined &&
+        height >= CONFIG.PROJECT_FEE_ACTIVATION_HEIGHT);
+}
+
 class Blockchain {
     constructor() {
         this.storage = new Storage(CONFIG.DATABASE);
@@ -61,21 +71,29 @@ class Blockchain {
         const height = this.getLatestBlock().height + 1;
         const reward = this.getRewardForHeight(height);
         const transactions = [{ from: null, to: rewardRecipient, amount: reward, type: "coinbase" }];
-        let totalFees = 0;
+        const feeActive = isProjectFeeActive(height);
+
+        let totalMinerFees = 0;
+        let totalProtocolCut = 0;
         for (const tx of pendingTransactions) {
             transactions.push({
                 from: tx.from, to: tx.to, amount: tx.amount, fee: tx.fee,
                 timestamp: tx.timestamp, publicKey: tx.publicKey, signature: tx.signature, type: "transfer"
             });
-            totalFees += (tx.fee || 0);
+            totalMinerFees += (tx.fee || 0);
+            if (feeActive) totalProtocolCut += tx.amount * CONFIG.PROJECT_FEE_PERCENT;
         }
-        // Opłaty transakcyjne trafiają do adresu projektu przy budowaniu TEGO
-        // bloku - dotyczy tylko transakcji, które faktycznie w nim wylądowały.
-        // Wcześniej te środki po prostu znikały (odejmowane nadawcy, nigdzie
-        // nie doliczane). Nie zmienia to znaczenia żadnego starego bloku -
-        // wpływa tylko na bloki wykopane od teraz.
-        if (totalFees > 0 && CONFIG.PROJECT_FEE_ADDRESS) {
-            transactions.push({ from: null, to: CONFIG.PROJECT_FEE_ADDRESS, amount: totalFees, type: "fee" });
+
+        // Opłaty transakcyjne (wybrane przez nadawcę w portfelu) trafiają do
+        // adresu projektu zamiast się spalać - dotyczy tylko transakcji W TYM
+        // bloku, nie zmienia znaczenia starych bloków.
+        if (totalMinerFees > 0 && CONFIG.PROJECT_FEE_ADDRESS) {
+            transactions.push({ from: null, to: CONFIG.PROJECT_FEE_ADDRESS, amount: totalMinerFees, type: "fee" });
+        }
+        // 2% protokołu, potrącane z kwoty odbiorcy (nadawca płaci jak zawsze),
+        // tylko od bloku aktywacji wzwyż.
+        if (totalProtocolCut > 0) {
+            transactions.push({ from: null, to: CONFIG.PROJECT_FEE_ADDRESS, amount: totalProtocolCut, type: "protocol_fee" });
         }
         return transactions;
     }
@@ -102,8 +120,13 @@ class Blockchain {
     getBalance(address) {
         let balance = 0;
         for (const block of this.chain) {
+            const feeActive = isProjectFeeActive(block.height);
             for (const tx of block.transactions) {
-                if (tx.to === address) balance += tx.amount;
+                if (tx.type === "transfer" && tx.to === address) {
+                    balance += feeActive ? tx.amount * (1 - CONFIG.PROJECT_FEE_PERCENT) : tx.amount;
+                } else if (tx.to === address) {
+                    balance += tx.amount;
+                }
                 if (tx.type === "transfer" && tx.from === address) balance -= (tx.amount + (tx.fee || 0));
             }
         }
@@ -131,10 +154,12 @@ class Blockchain {
         const firstSeen = new Map();
 
         for (const block of this.chain) {
+            const feeActive = isProjectFeeActive(block.height);
             for (const tx of block.transactions) {
                 if (tx.to) {
                     if (!firstSeen.has(tx.to)) firstSeen.set(tx.to, block.height);
-                    balances.set(tx.to, (balances.get(tx.to) || 0) + tx.amount);
+                    const credited = (tx.type === "transfer" && feeActive) ? tx.amount * (1 - CONFIG.PROJECT_FEE_PERCENT) : tx.amount;
+                    balances.set(tx.to, (balances.get(tx.to) || 0) + credited);
                 }
                 if (tx.type === "transfer" && tx.from) {
                     if (!firstSeen.has(tx.from)) firstSeen.set(tx.from, block.height);
