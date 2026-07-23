@@ -5,6 +5,10 @@ const Storage = require("./storage");
 const MAX_TARGET = (1n << 256n) - 1n;
 const GENESIS_TIMESTAMP = Date.UTC(2026, 0, 1);
 
+// Opłata protokołu - usztywniona w kodzie, nie w configu (patrz poprzednia
+// zmiana). Bez ruszania tego dzisiaj.
+const PROJECT_FEE_PERCENT = 0.005;
+
 function difficultyToTargetHex(difficulty) {
     const safe = BigInt(Math.max(1, Math.round(difficulty)));
     return (MAX_TARGET / safe).toString(16).padStart(64, "0");
@@ -14,6 +18,10 @@ function computeBlockHash({ height, previousHash, timestamp, transactions, diffi
     return crypto.createHash("sha256")
         .update(height + previousHash + timestamp + JSON.stringify(transactions) + difficulty + nonce)
         .digest("hex");
+}
+
+function sha256Hex(input) {
+    return crypto.createHash("sha256").update(input).digest("hex");
 }
 
 class Block {
@@ -31,12 +39,8 @@ class Block {
     }
 }
 
-// Czy w danym bloku obowiązuje już 2% opłaty protokołu potrącanej z kwoty
-// odbiorcy. Aktywacja od konkretnej wysokości - dokładnie ta sama zasada co
-// zaplanowana dla HTLC. Bloki sprzed aktywacji zostają nietknięte na zawsze,
-// nawet gdy odtwarzamy historię na nowym kodzie.
 function isProjectFeeActive(height) {
-    return !!(CONFIG.PROJECT_FEE_ADDRESS && CONFIG.PROJECT_FEE_PERCENT &&
+    return !!(CONFIG.PROJECT_FEE_ADDRESS &&
         CONFIG.PROJECT_FEE_ACTIVATION_HEIGHT !== undefined &&
         height >= CONFIG.PROJECT_FEE_ACTIVATION_HEIGHT);
 }
@@ -81,17 +85,12 @@ class Blockchain {
                 timestamp: tx.timestamp, publicKey: tx.publicKey, signature: tx.signature, type: "transfer"
             });
             totalMinerFees += (tx.fee || 0);
-            if (feeActive) totalProtocolCut += tx.amount * CONFIG.PROJECT_FEE_PERCENT;
+            if (feeActive) totalProtocolCut += tx.amount * PROJECT_FEE_PERCENT;
         }
 
-        // Opłaty transakcyjne (wybrane przez nadawcę w portfelu) trafiają do
-        // adresu projektu zamiast się spalać - dotyczy tylko transakcji W TYM
-        // bloku, nie zmienia znaczenia starych bloków.
         if (totalMinerFees > 0 && CONFIG.PROJECT_FEE_ADDRESS) {
             transactions.push({ from: null, to: CONFIG.PROJECT_FEE_ADDRESS, amount: totalMinerFees, type: "fee" });
         }
-        // 2% protokołu, potrącane z kwoty odbiorcy (nadawca płaci jak zawsze),
-        // tylko od bloku aktywacji wzwyż.
         if (totalProtocolCut > 0) {
             transactions.push({ from: null, to: CONFIG.PROJECT_FEE_ADDRESS, amount: totalProtocolCut, type: "protocol_fee" });
         }
@@ -117,17 +116,72 @@ class Blockchain {
         return blocks.slice(0, limit);
     }
 
+    // ============ HTLC (Hash Time-Locked Contracts) ============
+    // Trzy nowe typy transakcji, DODATKOWE - nic z istniejących "transfer",
+    // "coinbase" itd. się nie zmienia. Blokowanie/odbieranie/zwrot działają
+    // na tych samych zasadach co przetestowana wcześniej symulacja
+    // (mock-htlc-chain.js) - te same reguły, teraz w prawdziwym kodzie.
+
+    // Znajduje HTLC po id, przeszukując cały łańcuch. Zwraca null jeśli nie
+    // istnieje, albo {..., status: "locked"|"claimed"|"refunded"}.
+    findHTLC(htlcId) {
+        let created = null;
+        let resolvedStatus = null;
+        for (const block of this.chain) {
+            for (const tx of block.transactions) {
+                if (tx.type === "HTLC_CREATE" && tx.htlcId === htlcId) {
+                    created = { ...tx, createdAtHeight: block.height };
+                }
+                if (tx.type === "HTLC_CLAIM" && tx.htlcId === htlcId) resolvedStatus = "claimed";
+                if (tx.type === "HTLC_REFUND" && tx.htlcId === htlcId) resolvedStatus = "refunded";
+            }
+        }
+        if (!created) return null;
+        return { ...created, status: resolvedStatus || "locked" };
+    }
+
+    // Sprawdza czy zgłoszenie CLAIM jest poprawne, PRZED włożeniem do bloku.
+    // Nie modyfikuje stanu - tylko odpowiada tak/nie i dlaczego.
+    validateHTLCClaim({ htlcId, secret, claimant }) {
+        const htlc = this.findHTLC(htlcId);
+        if (!htlc) return { valid: false, reason: "HTLC nie istnieje" };
+        if (htlc.status !== "locked") return { valid: false, reason: `HTLC ma status "${htlc.status}", nie można odebrać` };
+        if (claimant !== htlc.claimant) return { valid: false, reason: "tylko wyznaczony odbiorca może odebrać" };
+        const nextHeight = this.getLatestBlock().height + 1;
+        if (nextHeight >= htlc.timeoutHeight) return { valid: false, reason: "termin już minął, odbiór niemożliwy - tylko zwrot" };
+        if (sha256Hex(secret) !== htlc.hashLock) return { valid: false, reason: "zły sekret - hash się nie zgadza" };
+        return { valid: true, amount: htlc.amount, to: htlc.claimant };
+    }
+
+    // Sprawdza czy zgłoszenie REFUND jest poprawne, PRZED włożeniem do bloku.
+    validateHTLCRefund({ htlcId, refundee }) {
+        const htlc = this.findHTLC(htlcId);
+        if (!htlc) return { valid: false, reason: "HTLC nie istnieje" };
+        if (htlc.status !== "locked") return { valid: false, reason: `HTLC ma status "${htlc.status}", nie można zwrócić` };
+        if (refundee !== htlc.refundee) return { valid: false, reason: "tylko oryginalny nadawca może dostać zwrot" };
+        const nextHeight = this.getLatestBlock().height + 1;
+        if (nextHeight < htlc.timeoutHeight) return { valid: false, reason: `termin jeszcze nie minął (blok ${nextHeight} < ${htlc.timeoutHeight})` };
+        return { valid: true, amount: htlc.amount, to: htlc.refundee };
+    }
+
     getBalance(address) {
         let balance = 0;
         for (const block of this.chain) {
             const feeActive = isProjectFeeActive(block.height);
             for (const tx of block.transactions) {
                 if (tx.type === "transfer" && tx.to === address) {
-                    balance += feeActive ? tx.amount * (1 - CONFIG.PROJECT_FEE_PERCENT) : tx.amount;
+                    balance += feeActive ? tx.amount * (1 - PROJECT_FEE_PERCENT) : tx.amount;
+                } else if (tx.type === "transfer" && tx.from === address) {
+                    balance -= (tx.amount + (tx.fee || 0));
+                } else if (tx.type === "HTLC_CREATE" && tx.from === address) {
+                    balance -= (tx.amount + (tx.fee || 0)); // środki blokowane, opuszczają saldo do wydania
+                } else if (tx.type === "HTLC_CLAIM" && tx.to === address) {
+                    balance += tx.amount; // odbiorca dostaje odblokowane środki
+                } else if (tx.type === "HTLC_REFUND" && tx.to === address) {
+                    balance += tx.amount; // oryginalny nadawca dostaje zwrot
                 } else if (tx.to === address) {
                     balance += tx.amount;
                 }
-                if (tx.type === "transfer" && tx.from === address) balance -= (tx.amount + (tx.fee || 0));
             }
         }
         return balance;
@@ -156,12 +210,25 @@ class Blockchain {
         for (const block of this.chain) {
             const feeActive = isProjectFeeActive(block.height);
             for (const tx of block.transactions) {
-                if (tx.to) {
+                if (tx.type === "transfer" && tx.to) {
                     if (!firstSeen.has(tx.to)) firstSeen.set(tx.to, block.height);
-                    const credited = (tx.type === "transfer" && feeActive) ? tx.amount * (1 - CONFIG.PROJECT_FEE_PERCENT) : tx.amount;
+                    const credited = feeActive ? tx.amount * (1 - PROJECT_FEE_PERCENT) : tx.amount;
                     balances.set(tx.to, (balances.get(tx.to) || 0) + credited);
+                } else if (tx.type === "HTLC_CLAIM" && tx.to) {
+                    if (!firstSeen.has(tx.to)) firstSeen.set(tx.to, block.height);
+                    balances.set(tx.to, (balances.get(tx.to) || 0) + tx.amount);
+                } else if (tx.type === "HTLC_REFUND" && tx.to) {
+                    if (!firstSeen.has(tx.to)) firstSeen.set(tx.to, block.height);
+                    balances.set(tx.to, (balances.get(tx.to) || 0) + tx.amount);
+                } else if (tx.to) {
+                    if (!firstSeen.has(tx.to)) firstSeen.set(tx.to, block.height);
+                    balances.set(tx.to, (balances.get(tx.to) || 0) + tx.amount);
                 }
+
                 if (tx.type === "transfer" && tx.from) {
+                    if (!firstSeen.has(tx.from)) firstSeen.set(tx.from, block.height);
+                    balances.set(tx.from, (balances.get(tx.from) || 0) - (tx.amount + (tx.fee || 0)));
+                } else if (tx.type === "HTLC_CREATE" && tx.from) {
                     if (!firstSeen.has(tx.from)) firstSeen.set(tx.from, block.height);
                     balances.set(tx.from, (balances.get(tx.from) || 0) - (tx.amount + (tx.fee || 0)));
                 }
@@ -169,12 +236,10 @@ class Blockchain {
         }
 
         const addresses = Array.from(balances.keys());
-
         const whales = addresses
             .map((address) => ({ address, balance: balances.get(address) }))
             .sort((a, b) => b.balance - a.balance)
             .slice(0, whaleLimit);
-
         const newest = addresses
             .map((address) => ({ address, firstSeenHeight: firstSeen.get(address) }))
             .sort((a, b) => b.firstSeenHeight - a.firstSeenHeight)
@@ -227,3 +292,4 @@ class Blockchain {
 module.exports = Blockchain;
 module.exports.difficultyToTargetHex = difficultyToTargetHex;
 module.exports.computeBlockHash = computeBlockHash;
+module.exports.sha256Hex = sha256Hex;
