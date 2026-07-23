@@ -22,7 +22,8 @@ async function apiPost(path, body) {
 
 function fmtNumber(n, maxDecimals = 4) {
     if (n === null || n === undefined || Number.isNaN(n)) return "—";
-    return Number(n).toLocaleString("pl-PL", { maximumFractionDigits: maxDecimals });
+    const locale = (typeof currentLang !== "undefined" && currentLang === "en") ? "en-US" : "pl-PL";
+    return Number(n).toLocaleString(locale, { maximumFractionDigits: maxDecimals });
 }
 
 function fmtHash(h, len = 10) {
@@ -37,16 +38,18 @@ function fmtAddress(a, len = 8) {
 
 function fmtTime(ts) {
     if (!ts) return "—";
-    return new Date(ts).toLocaleString("pl-PL");
+    const locale = (typeof currentLang !== "undefined" && currentLang === "en") ? "en-US" : "pl-PL";
+    return new Date(ts).toLocaleString(locale);
 }
 
 function timeAgo(ts) {
     const s = Math.floor((Date.now() - ts) / 1000);
-    if (s < 5) return "teraz";
-    if (s < 60) return `${s}s temu`;
-    if (s < 3600) return `${Math.floor(s / 60)}m temu`;
-    if (s < 86400) return `${Math.floor(s / 3600)}h temu`;
-    return `${Math.floor(s / 86400)}d temu`;
+    const tr = typeof t === "function" ? t : (k) => k;
+    if (s < 5) return tr("time_now");
+    if (s < 60) return `${s}${tr("time_s_ago")}`;
+    if (s < 3600) return `${Math.floor(s / 60)}${tr("time_m_ago")}`;
+    if (s < 86400) return `${Math.floor(s / 3600)}${tr("time_h_ago")}`;
+    return `${Math.floor(s / 86400)}${tr("time_d_ago")}`;
 }
 
 function escapeHtml(s) {
