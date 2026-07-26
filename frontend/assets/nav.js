@@ -9,6 +9,7 @@ const NAV_PAGES = [
     { href: "network.html",   label: "Sieć",      i18n: "nav_network" },
     { href: "peers.html",     label: "Peery",     i18n: "nav_peers" },
     { href: "exchange.html",  label: "Giełda" },
+    { href: "swap.html",      label: "Kup BbC",   i18n: "nav_swap" },
     { href: "address.html",   label: "Adres" },
     { href: "wallet.html",    label: "Portfel",   i18n: "nav_wallet" },
     { href: "docks.html",     label: "Docs",      i18n: "nav_docs" }
