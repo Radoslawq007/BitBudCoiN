@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kup BbC — BitBudCoin</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  /* Wyłącznie istniejące zmienne z theme.css - żadnych nowych kolorów. */
+
+  .preview-banner {
+    background: var(--surface-2);
+    border-left: 3px solid var(--leaf);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: var(--font-mono);
+    font-size: .8rem;
+    color: var(--text-dim);
+    margin: 16px 0 24px;
+  }
+
+  .swap-steps {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    counter-reset: step;
+  }
+  .swap-step {
+    flex: 1;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    color: var(--text-dim);
+    position: relative;
+    padding-top: 34px;
+  }
+  .swap-step::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 1px solid var(--leaf-dim);
+    color: var(--text-dim);
+    font-family: var(--font-display);
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .85rem;
+  }
+  .swap-step.active { color: var(--leaf); }
+  .swap-step.active::before { background: var(--leaf); border-color: var(--leaf); color: #0b0f0d; }
+  .swap-step.done::before { background: var(--leaf-dim); border-color: var(--leaf-dim); color: #0b0f0d; content: "✓"; }
+
+  .swap-panel { padding: 24px 20px; min-height: 220px; }
+  .swap-panel h2 { font-family: var(--font-display); font-size: 1.1rem; margin: 0 0 14px; }
+  .swap-field { margin-bottom: 14px; }
+  .swap-field label { display: block; font-family: var(--font-mono); font-size: .72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+  .swap-field input {
+    width: 100%; box-sizing: border-box;
+    background: var(--surface-2); border: 1px solid var(--leaf-dim); border-radius: 6px;
+    padding: 9px 12px; color: var(--text); font-family: var(--font-mono); font-size: .95rem;
+  }
+  .swap-address-box {
+    background: var(--surface-2); border: 1px dashed var(--leaf-dim); border-radius: 6px;
+    padding: 12px; font-family: var(--font-mono); font-size: .82rem; word-break: break-all; color: var(--leaf);
+    margin-bottom: 10px;
+  }
+  .swap-waiting { display: flex; align-items: center; gap: 10px; color: var(--text-dim); font-size: .88rem; }
+  .swap-spinner {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid var(--leaf-dim); border-top-color: var(--leaf);
+    animation: swap-spin 0.8s linear infinite;
+  }
+  @keyframes swap-spin { to { transform: rotate(360deg); } }
+
+  .swap-note { font-size: .8rem; color: var(--text-dim); margin-top: 10px; }
+  .swap-tx-link { display: block; font-family: var(--font-mono); font-size: .8rem; color: var(--leaf); margin-top: 6px; }
+
+  .swap-nav { display: flex; justify-content: space-between; margin-top: 18px; }
+</style>
+</head>
+<body>
+
+<div class="page">
+    <h1 style="margin-top:32px;" data-i18n="swap_h1">Kup BbC za BTC</h1>
+    <p data-i18n="swap_intro">Bezpośrednia wymiana z drugą osobą — nikt nie wysyła niczego na zaufanie.</p>
+
+    <div class="preview-banner" data-i18n="swap_preview_banner">
+        Podgląd tego, jak to będzie działać — jeszcze niepodłączone do prawdziwych sieci.
+    </div>
+
+    <div class="swap-steps">
+        <div class="swap-step" data-step="1"><span data-i18n="swap_step1_label">Kwota</span></div>
+        <div class="swap-step" data-step="2"><span data-i18n="swap_step2_label">Wysyłasz BTC</span></div>
+        <div class="swap-step" data-step="3"><span data-i18n="swap_step3_label">Druga strona</span></div>
+        <div class="swap-step" data-step="4"><span data-i18n="swap_step4_label">Odbierz BbC</span></div>
+        <div class="swap-step" data-step="5"><span data-i18n="swap_step5_label">Gotowe</span></div>
+    </div>
+
+    <div class="card swap-panel">
+        <div id="panel-1" class="swap-panel-content">
+            <h2 data-i18n="swap_step1_heading">Ile i za ile</h2>
+            <div class="swap-field">
+                <label data-i18n="swap_step1_btc_label">Wysyłasz (BTC)</label>
+                <input type="text" id="demo-btc-amount" value="0.0004">
+            </div>
+            <div class="swap-field">
+                <label data-i18n="swap_step1_bbc_label">Otrzymujesz (BbC)</label>
+                <input type="text" id="demo-bbc-amount" value="4 000">
+            </div>
+            <p class="swap-note" data-i18n="swap_step1_note">Kwoty ustalone wcześniej między Wami — strona ich nie wymyśla.</p>
+        </div>
+
+        <div id="panel-2" class="swap-panel-content" style="display:none;">
+            <h2 data-i18n="swap_step2_heading">Wyślij BTC na ten adres</h2>
+            <div class="swap-address-box" id="demo-address">bc1q — (adres pojawi się tu, gdy będzie podłączony)</div>
+            <div class="swap-waiting"><span class="swap-spinner"></span><span data-i18n="swap_step2_waiting">Czekam na wpłatę…</span></div>
+            <p class="swap-note" data-i18n="swap_step2_note">Sprawdzane wprost w sieci BTC, nie na zaufanie.</p>
+        </div>
+
+        <div id="panel-3" class="swap-panel-content" style="display:none;">
+            <h2 data-i18n="swap_step3_heading">Wpłata przyjęta</h2>
+            <div class="swap-waiting"><span class="swap-spinner"></span><span data-i18n="swap_step3_waiting">Czekam, aż druga strona zablokuje BbC…</span></div>
+        </div>
+
+        <div id="panel-4" class="swap-panel-content" style="display:none;">
+            <h2 data-i18n="swap_step4_heading">Twoje BbC czeka</h2>
+            <p class="swap-note" data-i18n="swap_step4_note">Obie strony zablokowane tym samym sekretem — teraz można odebrać.</p>
+            <button class="btn" id="claim-btn" style="margin-top:12px;" data-i18n="swap_step4_btn">Odbierz BbC</button>
+        </div>
+
+        <div id="panel-5" class="swap-panel-content" style="display:none;">
+            <h2 data-i18n="swap_step5_heading">Gotowe</h2>
+            <a class="swap-tx-link" href="#" data-i18n="swap_step5_btc_tx">Transakcja BTC</a> →
+            <a class="swap-tx-link" href="#" data-i18n="swap_step5_bbc_tx">Transakcja BbC</a> →
+            <p class="swap-note" data-i18n="swap_step5_note">Obie transakcje możesz sprawdzić sam, w prawdziwych sieciach.</p>
+        </div>
+    </div>
+
+    <div class="swap-nav">
+        <button class="btn secondary" id="demo-prev" data-i18n="swap_demo_prev">← Wstecz</button>
+        <button class="btn secondary" id="demo-restart" data-i18n="swap_demo_restart">Od nowa</button>
+        <button class="btn secondary" id="demo-next" data-i18n="swap_demo_next">Dalej →</button>
+    </div>
+</div>
+
+<footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span> · <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a></footer>
+
+<script src="assets/api.js"></script>
+<script src="assets/nav.js"></script>
+<script src="assets/native-responsive.js"></script>
+<script src="assets/i18n.js"></script>
+<script>
+// UWAGA: to jest PODGLĄD wizualny kroków, nie prawdziwy mechanizm. Przyciski
+// "Dalej"/"Wstecz" tylko przełączają widok - nie ma tu jeszcze prawdziwego
+// generowania adresu, prawdziwego wykrywania wpłaty ani prawdziwego nadawania
+// transakcji. To ma pokazać DOKŁADNIE co zobaczy kupujący, zanim ta logika
+// zostanie podłączona naprawdę.
+
+let currentStep = 1;
+const TOTAL_STEPS = 5;
+
+function renderStep() {
+    for (let i = 1; i <= TOTAL_STEPS; i++) {
+        document.getElementById(`panel-${i}`).style.display = i === currentStep ? "block" : "none";
+        const stepEl = document.querySelector(`.swap-step[data-step="${i}"]`);
+        stepEl.classList.toggle("active", i === currentStep);
+        stepEl.classList.toggle("done", i < currentStep);
+    }
+    document.getElementById("demo-prev").style.visibility = currentStep === 1 ? "hidden" : "visible";
+    document.getElementById("demo-next").style.visibility = currentStep === TOTAL_STEPS ? "hidden" : "visible";
+}
+
+document.getElementById("demo-next").addEventListener("click", () => {
+    if (currentStep < TOTAL_STEPS) { currentStep++; renderStep(); }
+});
+document.getElementById("demo-prev").addEventListener("click", () => {
+    if (currentStep > 1) { currentStep--; renderStep(); }
+});
+document.getElementById("demo-restart").addEventListener("click", () => {
+    currentStep = 1; renderStep();
+});
+document.getElementById("claim-btn").addEventListener("click", () => {
+    currentStep = 5; renderStep();
+});
+
+renderStep();
+</script>
+</body>
+</html>
