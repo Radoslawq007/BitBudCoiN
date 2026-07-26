@@ -86,6 +86,17 @@
   .col-hash, .col-difficulty { font-family: var(--font-mono); color: var(--text-dim); }
   .col-txs { text-align: center; }
 
+  /* Pierwszy prawdziwy zakup BbC za BTC - wyróżniony na niebiesko, żeby było
+     widać bez wątpliwości, nie ukryty w zwykłym wierszu. */
+  .blocks-table tbody tr.milestone-row { background: rgba(59, 130, 246, 0.14); border-left: 3px solid #3b82f6; }
+  .blocks-table tbody tr.milestone-row:hover { background: rgba(59, 130, 246, 0.22); }
+  .milestone-badge {
+    display: inline-block; margin-left: 8px; padding: 2px 8px;
+    background: #3b82f6; color: #fff; border-radius: 10px;
+    font-family: var(--font-mono); font-size: .68rem; font-weight: 600;
+    vertical-align: middle;
+  }
+
   @media (max-width: 640px) {
     .col-difficulty { display: none; }
     .blocks-table th, .blocks-table td { padding: 10px 10px; }
@@ -152,12 +163,18 @@ setActiveNav("nav-explorer");
 
 let oldestLoaded = null;
 
+// Blok zawierający pierwszy prawdziwy zakup BbC za BTC - hash podany wprost
+// przez użytkownika (z historii adresu kupującego), nie zgadywany.
+const MILESTONE_BLOCK_HASH = "00000008743b240731670f8a510c416c444b4d02837d618ec0eb2b41700fc121";
+
 function renderBlocksTable(blocks, append) {
     const tbody = document.getElementById("blocks-table-body");
     const rowsHtml = blocks.map((b) => {
         const txCount = b.transactions.length;
-        return `<tr onclick="location.href='block.html?height=${b.height}'">
-            <td class="col-height">#${b.height}</td>
+        const isMilestone = b.hash === MILESTONE_BLOCK_HASH;
+        const badge = isMilestone ? '<span class="milestone-badge">pierwszy zakup BTC→BbC</span>' : "";
+        return `<tr class="${isMilestone ? "milestone-row" : ""}" onclick="location.href='block.html?height=${b.height}'">
+            <td class="col-height">#${b.height}${badge}</td>
             <td>${timeAgo(b.timestamp)}</td>
             <td class="col-txs">${txCount}</td>
             <td class="col-difficulty">${fmtNumber(b.difficulty, 0)}</td>
