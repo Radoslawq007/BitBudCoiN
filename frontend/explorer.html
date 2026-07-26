@@ -9,24 +9,131 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/theme.css">
 <style>
-  .journal-entry { border-left: 3px solid var(--leaf-dim); padding: 14px 0 14px 18px; margin-bottom: 4px; cursor: pointer; transition: border-color .15s; }
-  .journal-entry:hover { border-left-color: var(--leaf); background: var(--surface-2); }
-  .journal-entry .je-height { font-family: var(--font-display); font-weight: 600; color: var(--leaf); font-size: 1.05rem; }
-  .journal-entry .je-story { color: var(--text); font-size: .92rem; margin: 4px 0; line-height: 1.5; }
-  .journal-entry .je-meta { font-family: var(--font-mono); font-size: .74rem; color: var(--text-dim); }
+  /* Wszystko poniżej używa WYŁĄCZNIE istniejących zmiennych z theme.css -
+     żadnych nowych kolorów/fontów, tylko nowy układ. */
+
+  .explorer-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 20px 0;
+  }
+  .stat-pill {
+    flex: 1 1 140px;
+    background: var(--surface-2);
+    border-left: 3px solid var(--leaf);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .stat-pill .stat-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .stat-pill .stat-value {
+    display: block;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.15rem;
+    color: var(--leaf);
+    margin-top: 2px;
+  }
+
+  .explorer-search {
+    display: flex;
+    gap: 8px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+  .explorer-search input {
+    flex: 1;
+    background: var(--surface-2);
+    border: 1px solid var(--leaf-dim);
+    border-radius: 6px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: .9rem;
+  }
+  .explorer-search input:focus {
+    outline: 2px solid var(--leaf);
+    outline-offset: 1px;
+  }
+
+  .blocks-table { width: 100%; border-collapse: collapse; }
+  .blocks-table th {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--text-dim);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--leaf-dim);
+  }
+  .blocks-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--surface-2);
+    font-size: .88rem;
+  }
+  .blocks-table tbody tr { cursor: pointer; transition: background .12s; }
+  .blocks-table tbody tr:hover { background: var(--surface-2); }
+  .blocks-table tbody tr:last-child td { border-bottom: none; }
+  .col-height { font-family: var(--font-display); font-weight: 600; color: var(--leaf); }
+  .col-hash, .col-difficulty { font-family: var(--font-mono); color: var(--text-dim); }
+  .col-txs { text-align: center; }
+
+  @media (max-width: 640px) {
+    .col-difficulty { display: none; }
+    .blocks-table th, .blocks-table td { padding: 10px 10px; }
+  }
 </style>
 </head>
 <body>
 
 <div class="page">
-    <h1 style="margin-top:32px;" data-i18n="explorer_h1">Dziennik łańcucha</h1>
-    <p data-i18n="explorer_intro">Każdy wykopany blok to prawdziwa chwila czyjejś pracy. Kliknij wpis, żeby zobaczyć pełne transakcje.</p>
+    <h1 style="margin-top:32px;" data-i18n="explorer_h1">Explorer</h1>
+    <p data-i18n="explorer_intro">Stan sieci BitBudCoin na żywo — bloki, trudność, transakcje.</p>
     <div id="error-box"></div>
 
-    <div class="card" style="padding:8px 20px;">
-        <div id="blocks-journal">
-            <div class="skeleton" style="height:80px;margin-bottom:8px;"></div>
+    <div class="explorer-stats">
+        <div class="stat-pill">
+            <span class="stat-label" data-i18n="explorer_stat_height">Najnowszy blok</span>
+            <span class="stat-value" id="stat-height">—</span>
         </div>
+        <div class="stat-pill">
+            <span class="stat-label" data-i18n="explorer_stat_difficulty">Trudność</span>
+            <span class="stat-value" id="stat-difficulty">—</span>
+        </div>
+        <div class="stat-pill">
+            <span class="stat-label" data-i18n="explorer_stat_blocktime">Śr. czas bloku</span>
+            <span class="stat-value" id="stat-blocktime">—</span>
+        </div>
+    </div>
+
+    <div class="card explorer-search">
+        <input type="text" id="search-input" data-i18n-placeholder="explorer_search_placeholder" placeholder="Szukaj bloku po wysokości (np. 4821)…" inputmode="numeric">
+        <button class="btn secondary" id="search-btn" data-i18n="explorer_search_btn">Szukaj</button>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
+        <table class="blocks-table">
+            <thead>
+                <tr>
+                    <th data-i18n="explorer_col_height">Blok</th>
+                    <th data-i18n="explorer_col_time">Czas</th>
+                    <th data-i18n="explorer_col_txs">Tx</th>
+                    <th data-i18n="explorer_col_difficulty">Trudność</th>
+                    <th data-i18n="explorer_col_hash">Hash</th>
+                </tr>
+            </thead>
+            <tbody id="blocks-table-body">
+                <tr><td colspan="5"><div class="skeleton" style="height:60px;"></div></td></tr>
+            </tbody>
+        </table>
     </div>
 
     <div style="text-align:center; margin-top:20px;">
@@ -44,76 +151,80 @@
 setActiveNav("nav-explorer");
 
 let oldestLoaded = null;
-let lastKnownTimestamp = null; // do liczenia "ile to trwało" dla kolejnych doładowań
 
-function blockStory(block, previousTimestamp) {
-    const coinbase = block.transactions.find(t => t.type === "coinbase" || t.type === "genesis");
-    const txCount = block.transactions.length;
-    const otherTx = txCount - 1;
-
-    if (block.height === 0) {
-        return t("explorer_story_genesis").replace("{amount}", fmtNumber(coinbase ? coinbase.amount : 0));
-    }
-
-    let durationText = "";
-    if (previousTimestamp) {
-        const seconds = Math.max(0, Math.round((block.timestamp - previousTimestamp) / 1000));
-        if (seconds < 3600) durationText = seconds < 60 ? `${seconds}${t("explorer_unit_seconds")}` : `${Math.round(seconds / 60)} ${t("explorer_unit_minutes")}`;
-        // Powyżej godziny to prawdopodobnie sztuczna przerwa (np. sąsiedztwo
-        // genesis, który ma zawsze tę samą, ustaloną datę) - nie prawdziwy
-        // czas kopania, więc nie pokazujemy mylącej liczby.
-    }
-
-    const workPhrase = durationText
-        ? t("explorer_story_worked").replace("{duration}", durationText)
-        : t("explorer_story_proved");
-
-    const txPhrase = otherTx > 0
-        ? ` — ${t("explorer_story_alongside")} ${otherTx} ${otherTx === 1 ? t("explorer_story_tx_singular") : t("explorer_story_tx_plural")}.`
-        : `.`;
-
-    return `${workPhrase}${txPhrase}`;
+function renderBlocksTable(blocks, append) {
+    const tbody = document.getElementById("blocks-table-body");
+    const rowsHtml = blocks.map((b) => {
+        const txCount = b.transactions.length;
+        return `<tr onclick="location.href='block.html?height=${b.height}'">
+            <td class="col-height">#${b.height}</td>
+            <td>${timeAgo(b.timestamp)}</td>
+            <td class="col-txs">${txCount}</td>
+            <td class="col-difficulty">${fmtNumber(b.difficulty, 0)}</td>
+            <td class="col-hash">${fmtHash(b.hash)}</td>
+        </tr>`;
+    }).join("");
+    tbody.innerHTML = append ? tbody.innerHTML + rowsHtml : rowsHtml;
 }
 
-function renderJournal(blocks, append) {
-    const container = document.getElementById("blocks-journal");
-    const html = blocks.map((b, i) => {
-        const prevTs = blocks[i + 1] ? blocks[i + 1].timestamp : (i === blocks.length - 1 ? lastKnownTimestamp : null);
-        const story = blockStory(b, prevTs);
-        return `<div class="journal-entry" onclick="location.href='block.html?height=${b.height}'">
-            <div class="je-height">${t("explorer_block_label")} #${b.height} <span style="color:var(--text-dim);font-weight:400;font-size:.8rem;">· ${timeAgo(b.timestamp)}</span></div>
-            <div class="je-story">${story}</div>
-            <div class="je-meta">${t("index_stat_difficulty")} ${fmtNumber(b.difficulty, 0)} · ${fmtHash(b.hash)}</div>
-        </div>`;
-    }).join("");
-    container.innerHTML = append ? container.innerHTML + html : html;
-    if (blocks.length > 0) lastKnownTimestamp = blocks[blocks.length - 1].timestamp;
+function updateStatsBar(blocks) {
+    if (blocks.length === 0) return;
+    document.getElementById("stat-height").textContent = "#" + fmtNumber(blocks[0].height, 0);
+    document.getElementById("stat-difficulty").textContent = fmtNumber(blocks[0].difficulty, 0);
+
+    // Śr. czas bloku z aktualnie załadowanych bloków - pomijamy anomalie
+    // (np. sąsiedztwo genesis, które ma sztucznie odległy timestamp).
+    let totalDiff = 0, count = 0;
+    for (let i = 0; i < blocks.length - 1; i++) {
+        const diffSeconds = (blocks[i].timestamp - blocks[i + 1].timestamp) / 1000;
+        if (diffSeconds > 0 && diffSeconds < 3600) { totalDiff += diffSeconds; count++; }
+    }
+    if (count > 0) {
+        const avg = Math.round(totalDiff / count);
+        document.getElementById("stat-blocktime").textContent = avg < 60 ? `${avg}s` : `${Math.round(avg / 60)}m`;
+    }
 }
 
 async function loadInitial() {
     try {
         const blocks = await apiGet("/blocks?limit=15");
         if (blocks.length === 0) {
-            document.getElementById("blocks-journal").innerHTML = `<div class="empty-state"><div class="glyph">🌱</div>${t("explorer_only_genesis")} <a href="miner.html">${t("nav_mining")}</a></div>`;
+            document.getElementById("blocks-table-body").innerHTML =
+                `<tr><td colspan="5"><div class="empty-state"><div class="glyph">🌱</div>${t("explorer_only_genesis")} <a href="miner.html">${t("nav_mining")}</a></div></td></tr>`;
             return;
         }
-        renderJournal(blocks, false);
+        renderBlocksTable(blocks, false);
+        updateStatsBar(blocks);
         oldestLoaded = blocks[blocks.length - 1].height;
         if (oldestLoaded > 0) document.getElementById("load-more").style.display = "inline-flex";
     } catch (e) {
         document.getElementById("error-box").innerHTML = `<div class="error-banner">${t("common_backend_error")}: ${escapeHtml(e.message)}</div>`;
-        document.getElementById("blocks-journal").innerHTML = "";
+        document.getElementById("blocks-table-body").innerHTML = "";
     }
 }
 
 document.getElementById("load-more").addEventListener("click", async () => {
     const blocks = await apiGet(`/blocks?limit=15&before=${oldestLoaded}`);
-    renderJournal(blocks, true);
+    renderBlocksTable(blocks, true);
     if (blocks.length === 0 || blocks[blocks.length - 1].height === 0) {
         document.getElementById("load-more").style.display = "none";
     } else {
         oldestLoaded = blocks[blocks.length - 1].height;
     }
+});
+
+document.getElementById("search-btn").addEventListener("click", () => {
+    const val = document.getElementById("search-input").value.trim();
+    document.getElementById("error-box").innerHTML = "";
+    if (/^\d+$/.test(val)) {
+        location.href = `block.html?height=${val}`;
+    } else if (val.length > 0) {
+        document.getElementById("error-box").innerHTML =
+            `<div class="error-banner" data-i18n="explorer_search_height_only">Na razie szukam tylko po wysokości bloku (liczba).</div>`;
+    }
+});
+document.getElementById("search-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("search-btn").click();
 });
 
 loadInitial();
