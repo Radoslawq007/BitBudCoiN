@@ -242,6 +242,7 @@ const translations = {
         explorer_col_hash: "Hash",
         explorer_search_height_only: "Na razie szukam tylko po wysokości bloku (liczba).",
 
+        nav_swap: "Kup BbC",
         swap_h1: "Kup BbC za BTC",
         swap_intro: "Bezpośrednia wymiana z drugą osobą — nikt nie wysyła niczego na zaufanie.",
         swap_preview_banner: "Podgląd tego, jak to będzie działać — jeszcze niepodłączone do prawdziwych sieci.",
@@ -505,6 +506,7 @@ const translations = {
         explorer_col_hash: "Hash",
         explorer_search_height_only: "Right now search only works by block height (a number).",
 
+        nav_swap: "Buy BbC",
         swap_h1: "Buy BbC with BTC",
         swap_intro: "A direct trade with another person — nobody sends anything on trust.",
         swap_preview_banner: "A preview of how this will work — not yet connected to real networks.",
