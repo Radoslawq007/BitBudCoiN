@@ -162,18 +162,26 @@
 setActiveNav("nav-explorer");
 
 let oldestLoaded = null;
+let bridgeTags = []; // wczytane raz na starcie z /bridge/annotations
 
-// Blok zawierający pierwszy prawdziwy zakup BbC za BTC - hash podany wprost
-// przez użytkownika (z historii adresu kupującego), nie zgadywany.
-const MILESTONE_BLOCK_HASH = "00000008743b240731670f8a510c416c444b4d02837d618ec0eb2b41700fc121";
+// Ta sama logika dopasowania co bridge-tags.js po stronie serwera - signature
+// jeśli jest dokładna, albo (blockHash+to+amount) jako fallback.
+function matchBridgeTag(tx, block) {
+    for (const tag of bridgeTags) {
+        if (tag.signature && tx.signature === tag.signature) return tag;
+        if (tag.blockHash && tag.to && tag.amount !== undefined &&
+            block.hash === tag.blockHash && tx.to === tag.to && tx.amount === tag.amount) return tag;
+    }
+    return null;
+}
 
 function renderBlocksTable(blocks, append) {
     const tbody = document.getElementById("blocks-table-body");
     const rowsHtml = blocks.map((b) => {
         const txCount = b.transactions.length;
-        const isMilestone = b.hash === MILESTONE_BLOCK_HASH;
-        const badge = isMilestone ? '<span class="milestone-badge">pierwszy zakup BTC→BbC</span>' : "";
-        return `<tr class="${isMilestone ? "milestone-row" : ""}" onclick="location.href='block.html?height=${b.height}'">
+        const matchedTag = b.transactions.map((tx) => matchBridgeTag(tx, b)).find((t) => t);
+        const badge = matchedTag ? `<span class="milestone-badge">most ${escapeHtml(matchedTag.chain || "")}</span>` : "";
+        return `<tr class="${matchedTag ? "milestone-row" : ""}" onclick="location.href='block.html?height=${b.height}'">
             <td class="col-height">#${b.height}${badge}</td>
             <td>${timeAgo(b.timestamp)}</td>
             <td class="col-txs">${txCount}</td>
@@ -204,7 +212,11 @@ function updateStatsBar(blocks) {
 
 async function loadInitial() {
     try {
-        const blocks = await apiGet("/blocks?limit=15");
+        const [blocks, tags] = await Promise.all([
+            apiGet("/blocks?limit=15"),
+            apiGet("/bridge/annotations").catch(() => [])
+        ]);
+        bridgeTags = tags;
         if (blocks.length === 0) {
             document.getElementById("blocks-table-body").innerHTML =
                 `<tr><td colspan="5"><div class="empty-state"><div class="glyph">🌱</div>${t("explorer_only_genesis")} <a href="miner.html">${t("nav_mining")}</a></div></td></tr>`;
