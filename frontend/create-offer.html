@@ -3,18 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Stwórz ofertę swapu — BitBudCoin</title>
+<title>Zaproponuj zakup — BitBudCoin</title>
 <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/theme.css">
 <style>
-  .key-warning { background: rgba(255,80,80,.1); border: 1px solid #ff5050; border-radius: 8px; padding: 12px 14px; font-size: .85rem; margin-bottom: 14px; }
-  .addr-display { font-family: var(--font-mono); font-size: .95rem; color: var(--leaf); word-break: break-all; background: var(--surface-2); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--leaf-dim); margin-bottom: 8px; }
-  .priv-display { font-family: var(--font-mono); font-size: .8rem; color: #ffb3a8; word-break: break-all; background: var(--surface-2); padding: 12px 14px; border-radius: 8px; border: 1px solid #ff5050; }
   .field { margin-bottom: 14px; }
   .field label { display: block; font-family: var(--font-mono); font-size: .72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
-  .field input, .field textarea { width: 100%; box-sizing: border-box; background: var(--surface-2); border: 1px solid var(--leaf-dim); border-radius: 6px; padding: 9px 12px; color: var(--text); font-family: var(--font-mono); font-size: .95rem; }
+  .field input { width: 100%; box-sizing: border-box; background: var(--surface-2); border: 1px solid var(--leaf-dim); border-radius: 6px; padding: 9px 12px; color: var(--text); font-family: var(--font-mono); font-size: .95rem; }
   .link-box { background: var(--surface-2); border: 2px solid var(--leaf); border-radius: 8px; padding: 14px; margin-top: 14px; }
   .link-box a { color: var(--leaf); font-family: var(--font-mono); font-size: .85rem; word-break: break-all; }
 </style>
@@ -22,95 +19,56 @@
 <body>
 
 <div class="page">
-    <h1 style="margin-top:32px;">Stwórz ofertę swapu (BbC → BTC)</h1>
-    <p>Wszystko co kupujący potrzebuje trafia w jeden link — nic nie przepisuje ręcznie.</p>
+    <h1 style="margin-top:32px;" data-i18n="reqoffer_h1">Zaproponuj zakup BbC</h1>
+    <p data-i18n="reqoffer_intro">Napisz ile chcesz wysłać i ile BbC oczekujesz w zamian. Sprzedający to zobaczy i zdecyduje — nic nie jest jeszcze wiążące.</p>
 
-    <div class="card" id="keyCard">
-        <h3>Krok 1 — klucz BTC dla tej oferty</h3>
-        <div class="key-warning">⚠️ Nowy klucz, tylko dla TEJ oferty. Zapisz klucz prywatny teraz — potrzebny będzie żeby odebrać BTC po zakończonym swapie. Nigdzie poza tą stroną się nie zapisuje.</div>
-        <label style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);text-transform:uppercase;">Adres BTC</label>
-        <div class="addr-display" id="btcAddress">generuję…</div>
-        <label style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);text-transform:uppercase;">Klucz prywatny (ZAPISZ)</label>
-        <div class="priv-display" id="btcPrivKey">generuję…</div>
-    </div>
-
-    <div class="card" id="formCard" style="display:none;">
-        <h3>Krok 2 — warunki oferty</h3>
-        <div class="field"><label>Ile BbC oferujesz</label><input id="bbcAmount" type="number" step="any" placeholder="10"></div>
-        <div class="field"><label>Ile BTC oczekujesz</label><input id="expectedAmount" type="number" step="any" placeholder="0.00011"></div>
-        <div class="field"><label>Twój adres BbC (dokąd wraca BbC jeśli coś pójdzie nie tak)</label><input id="sellerBbcAddress" placeholder="BbC..."></div>
-        <div class="field"><label>Termin (godziny)</label><input id="timeoutHours" type="number" value="48"></div>
-        <div class="field"><label>Notatka (opcjonalnie)</label><input id="note" placeholder="np. dla znajomego z Discorda"></div>
-        <div class="field"><label>Sekret administratora (wpisz ręcznie, nie zapisany nigdzie)</label><input id="adminSecret" type="password"></div>
-        <button class="btn flame" id="createBtn" style="width:100%;justify-content:center;">Stwórz ofertę</button>
+    <div class="card" id="formCard">
+        <div class="field"><label data-i18n="reqoffer_bbc_label">Ile BbC chcesz otrzymać</label><input id="bbcAmount" type="number" step="any" placeholder="10"></div>
+        <div class="field"><label data-i18n="reqoffer_btc_label">Ile BTC oferujesz</label><input id="expectedAmount" type="number" step="any" placeholder="0.00011"></div>
+        <div class="field"><label data-i18n="reqoffer_timeout_label">Ile godzin na dokończenie transakcji (po akceptacji)</label><input id="timeoutHours" type="number" value="48"></div>
+        <div class="field"><label data-i18n="reqoffer_note_label">Wiadomość do sprzedającego (opcjonalnie)</label><input id="note" placeholder=""></div>
+        <button class="btn flame" id="createBtn" style="width:100%;justify-content:center;" data-i18n="reqoffer_submit_btn">Wyślij propozycję</button>
         <div id="createResult" style="margin-top:12px;font-family:var(--font-mono);font-size:.85rem;"></div>
     </div>
 
     <div class="card link-box" id="resultCard" style="display:none;">
-        <h3 style="margin-top:0;">Gotowe — wyślij ten link kupującemu</h3>
+        <h3 style="margin-top:0;" data-i18n="reqoffer_done_heading">Wysłane — zapisz ten link</h3>
+        <p style="font-size:.85rem;color:var(--text-dim);" data-i18n="reqoffer_done_desc">Pod tym linkiem zobaczysz, czy sprzedający zaakceptował. Jeśli tak — tu dokończysz zakup.</p>
         <a id="offerLink" href="#" target="_blank"></a>
     </div>
 </div>
 
-<footer><span>BitBudCoin (BbC) · sieć proof-of-work</span></footer>
+<footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span></footer>
 
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
-<script src="assets/btc-bridge.js"></script>
+<script src="assets/i18n.js"></script>
 <script>
-let generatedPriv = null;
-let generatedPubKeyHash = null;
-
-function randomPrivKeyBigInt() {
-    let k;
-    do {
-        const bytes = crypto.getRandomValues(new Uint8Array(32));
-        k = modN(BigInt("0x" + Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("")));
-    } while (k === 0n);
-    return k;
-}
-
-async function generateKey() {
-    generatedPriv = randomPrivKeyBigInt();
-    const pubPoint = scalarMult(generatedPriv, G);
-    const { address, hash160: hash } = await addressFromPubPoint(pubPoint, "bc");
-    generatedPubKeyHash = bytesToHex(hash);
-
-    document.getElementById("btcAddress").textContent = address;
-    document.getElementById("btcPrivKey").textContent = generatedPriv.toString(16).padStart(64, "0");
-    document.getElementById("formCard").style.display = "block";
-}
-
 document.getElementById("createBtn").addEventListener("click", async () => {
     const resultEl = document.getElementById("createResult");
     const bbcAmount = Number(document.getElementById("bbcAmount").value);
     const expectedAmount = Number(document.getElementById("expectedAmount").value);
-    const sellerBbcAddress = document.getElementById("sellerBbcAddress").value.trim();
     const timeoutHours = Number(document.getElementById("timeoutHours").value);
     const note = document.getElementById("note").value.trim();
-    const secret = document.getElementById("adminSecret").value;
 
-    if (!bbcAmount || !expectedAmount || !sellerBbcAddress || !timeoutHours || !secret) {
-        resultEl.textContent = "Wypełnij wszystkie wymagane pola.";
+    if (!bbcAmount || !expectedAmount || !timeoutHours) {
+        resultEl.textContent = t("reqoffer_fill_all");
         return;
     }
 
     const btn = document.getElementById("createBtn");
     btn.disabled = true;
-    resultEl.textContent = "Tworzę…";
+    resultEl.textContent = t("reqoffer_sending");
 
     try {
         const res = await fetch(API_BASE + "/swap/offers", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                secret, chain: "BTC", bbcAmount, expectedAmount,
-                sellerPubKeyHash: generatedPubKeyHash, sellerBbcAddress, timeoutHours, note
-            })
+            body: JSON.stringify({ chain: "BTC", bbcAmount, expectedAmount, timeoutHours, note })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || `Błąd serwera (${res.status})`);
+        if (!res.ok) throw new Error(data.error || `${t("common_backend_error")} (${res.status})`);
 
         const link = `${location.origin}${location.pathname.replace("create-offer.html", "")}swap.html?offer=${data.offer.offerId}`;
         const linkEl = document.getElementById("offerLink");
@@ -125,8 +83,6 @@ document.getElementById("createBtn").addEventListener("click", async () => {
         btn.disabled = false;
     }
 });
-
-generateKey();
 </script>
 </body>
 </html>
