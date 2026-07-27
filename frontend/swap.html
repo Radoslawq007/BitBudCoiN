@@ -9,188 +9,245 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/theme.css">
 <style>
-  /* Wyłącznie istniejące zmienne z theme.css - żadnych nowych kolorów. */
-
-  .preview-banner {
-    background: var(--surface-2);
-    border-left: 3px solid var(--leaf);
-    border-radius: 8px;
-    padding: 12px 16px;
-    font-family: var(--font-mono);
-    font-size: .8rem;
-    color: var(--text-dim);
-    margin: 16px 0 24px;
-  }
-
-  .swap-steps {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 24px;
-    counter-reset: step;
-  }
-  .swap-step {
-    flex: 1;
-    text-align: center;
-    font-family: var(--font-mono);
-    font-size: .72rem;
-    color: var(--text-dim);
-    position: relative;
-    padding-top: 34px;
-  }
-  .swap-step::before {
-    counter-increment: step;
-    content: counter(step);
-    position: absolute;
-    top: 0; left: 50%;
-    transform: translateX(-50%);
-    width: 26px; height: 26px;
-    border-radius: 50%;
-    background: var(--surface-2);
-    border: 1px solid var(--leaf-dim);
-    color: var(--text-dim);
-    font-family: var(--font-display);
-    font-weight: 600;
-    display: flex; align-items: center; justify-content: center;
-    font-size: .85rem;
-  }
+  .swap-steps { display: flex; justify-content: space-between; margin-bottom: 24px; counter-reset: step; }
+  .swap-step { flex: 1; text-align: center; font-family: var(--font-mono); font-size: .68rem; color: var(--text-dim); position: relative; padding-top: 34px; }
+  .swap-step::before { counter-increment: step; content: counter(step); position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 26px; height: 26px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--leaf-dim); color: var(--text-dim); font-family: var(--font-display); font-weight: 600; display: flex; align-items: center; justify-content: center; font-size: .85rem; }
   .swap-step.active { color: var(--leaf); }
   .swap-step.active::before { background: var(--leaf); border-color: var(--leaf); color: #0b0f0d; }
   .swap-step.done::before { background: var(--leaf-dim); border-color: var(--leaf-dim); color: #0b0f0d; content: "✓"; }
-
-  .swap-panel { padding: 24px 20px; min-height: 220px; }
-  .swap-panel h2 { font-family: var(--font-display); font-size: 1.1rem; margin: 0 0 14px; }
-  .swap-field { margin-bottom: 14px; }
-  .swap-field label { display: block; font-family: var(--font-mono); font-size: .72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
-  .swap-field input {
-    width: 100%; box-sizing: border-box;
-    background: var(--surface-2); border: 1px solid var(--leaf-dim); border-radius: 6px;
-    padding: 9px 12px; color: var(--text); font-family: var(--font-mono); font-size: .95rem;
-  }
-  .swap-address-box {
-    background: var(--surface-2); border: 1px dashed var(--leaf-dim); border-radius: 6px;
-    padding: 12px; font-family: var(--font-mono); font-size: .82rem; word-break: break-all; color: var(--leaf);
-    margin-bottom: 10px;
-  }
-  .swap-waiting { display: flex; align-items: center; gap: 10px; color: var(--text-dim); font-size: .88rem; }
-  .swap-spinner {
-    width: 16px; height: 16px; border-radius: 50%;
-    border: 2px solid var(--leaf-dim); border-top-color: var(--leaf);
-    animation: swap-spin 0.8s linear infinite;
-  }
-  @keyframes swap-spin { to { transform: rotate(360deg); } }
-
-  .swap-note { font-size: .8rem; color: var(--text-dim); margin-top: 10px; }
-  .swap-tx-link { display: block; font-family: var(--font-mono); font-size: .8rem; color: var(--leaf); margin-top: 6px; }
-
-  .swap-nav { display: flex; justify-content: space-between; margin-top: 18px; }
+  .swap-panel { padding: 22px 18px; }
+  .addr-display { font-family: var(--font-mono); font-size: .9rem; color: var(--leaf); word-break: break-all; background: var(--surface-2); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--leaf-dim); margin: 8px 0; }
+  .priv-display { font-family: var(--font-mono); font-size: .78rem; color: #ffb3a8; word-break: break-all; background: var(--surface-2); padding: 12px 14px; border-radius: 8px; border: 1px solid #ff5050; margin: 8px 0; }
+  .key-warning { background: rgba(255,80,80,.1); border: 1px solid #ff5050; border-radius: 8px; padding: 10px 12px; font-size: .82rem; margin-bottom: 10px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-family: var(--font-mono); font-size: .72rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
+  .field input { width: 100%; box-sizing: border-box; background: var(--surface-2); border: 1px solid var(--leaf-dim); border-radius: 6px; padding: 9px 12px; color: var(--text); font-family: var(--font-mono); font-size: .95rem; }
+  .waiting { display: flex; align-items: center; gap: 10px; color: var(--text-dim); font-size: .88rem; margin: 10px 0; }
+  .spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--leaf-dim); border-top-color: var(--leaf); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .copy-block { background: var(--surface-2); border: 1px dashed var(--leaf-dim); border-radius: 8px; padding: 12px; font-family: var(--font-mono); font-size: .8rem; margin: 10px 0; }
+  .copy-block div { margin-bottom: 4px; word-break: break-all; }
 </style>
 </head>
 <body>
 
 <div class="page">
-    <h1 style="margin-top:32px;" data-i18n="swap_h1">Kup BbC za BTC</h1>
-    <p data-i18n="swap_intro">Bezpośrednia wymiana z drugą osobą — nikt nie wysyła niczego na zaufanie.</p>
+    <h1 style="margin-top:32px;">Kup BbC</h1>
+    <div id="errorBox"></div>
 
-    <div class="preview-banner" data-i18n="swap_preview_banner">
-        Podgląd tego, jak to będzie działać — jeszcze niepodłączone do prawdziwych sieci.
+    <div class="swap-steps" id="stepsBar">
+        <div class="swap-step" data-step="1">Warunki</div>
+        <div class="swap-step" data-step="2">Wyślij BTC</div>
+        <div class="swap-step" data-step="3">Sprzedający</div>
+        <div class="swap-step" data-step="4">Odbierz BbC</div>
+        <div class="swap-step" data-step="5">Gotowe</div>
     </div>
 
-    <div class="swap-steps">
-        <div class="swap-step" data-step="1"><span data-i18n="swap_step1_label">Kwota</span></div>
-        <div class="swap-step" data-step="2"><span data-i18n="swap_step2_label">Wysyłasz BTC</span></div>
-        <div class="swap-step" data-step="3"><span data-i18n="swap_step3_label">Druga strona</span></div>
-        <div class="swap-step" data-step="4"><span data-i18n="swap_step4_label">Odbierz BbC</span></div>
-        <div class="swap-step" data-step="5"><span data-i18n="swap_step5_label">Gotowe</span></div>
+    <div class="card swap-panel" id="panel1" style="display:none;">
+        <h2>Warunki tej oferty</h2>
+        <div class="addr-display" id="offerSummary"></div>
+        <div class="field"><label>Twój adres BbC (dokąd trafi BbC)</label><input id="buyerBbcAddress" placeholder="BbC..."></div>
+        <button class="btn flame" id="step1NextBtn" style="width:100%;justify-content:center;">Dalej</button>
     </div>
 
-    <div class="card swap-panel">
-        <div id="panel-1" class="swap-panel-content">
-            <h2 data-i18n="swap_step1_heading">Ile i za ile</h2>
-            <div class="swap-field">
-                <label data-i18n="swap_step1_btc_label">Wysyłasz (BTC)</label>
-                <input type="text" id="demo-btc-amount" value="0.0004">
-            </div>
-            <div class="swap-field">
-                <label data-i18n="swap_step1_bbc_label">Otrzymujesz (BbC)</label>
-                <input type="text" id="demo-bbc-amount" value="4 000">
-            </div>
-            <p class="swap-note" data-i18n="swap_step1_note">Kwoty ustalone wcześniej między Wami — strona ich nie wymyśla.</p>
-        </div>
-
-        <div id="panel-2" class="swap-panel-content" style="display:none;">
-            <h2 data-i18n="swap_step2_heading">Wyślij BTC na ten adres</h2>
-            <div class="swap-address-box" id="demo-address">bc1q — (adres pojawi się tu, gdy będzie podłączony)</div>
-            <div class="swap-waiting"><span class="swap-spinner"></span><span data-i18n="swap_step2_waiting">Czekam na wpłatę…</span></div>
-            <p class="swap-note" data-i18n="swap_step2_note">Sprawdzane wprost w sieci BTC, nie na zaufanie.</p>
-        </div>
-
-        <div id="panel-3" class="swap-panel-content" style="display:none;">
-            <h2 data-i18n="swap_step3_heading">Wpłata przyjęta</h2>
-            <div class="swap-waiting"><span class="swap-spinner"></span><span data-i18n="swap_step3_waiting">Czekam, aż druga strona zablokuje BbC…</span></div>
-        </div>
-
-        <div id="panel-4" class="swap-panel-content" style="display:none;">
-            <h2 data-i18n="swap_step4_heading">Twoje BbC czeka</h2>
-            <p class="swap-note" data-i18n="swap_step4_note">Obie strony zablokowane tym samym sekretem — teraz można odebrać.</p>
-            <button class="btn" id="claim-btn" style="margin-top:12px;" data-i18n="swap_step4_btn">Odbierz BbC</button>
-        </div>
-
-        <div id="panel-5" class="swap-panel-content" style="display:none;">
-            <h2 data-i18n="swap_step5_heading">Gotowe</h2>
-            <a class="swap-tx-link" href="#" data-i18n="swap_step5_btc_tx">Transakcja BTC</a> →
-            <a class="swap-tx-link" href="#" data-i18n="swap_step5_bbc_tx">Transakcja BbC</a> →
-            <p class="swap-note" data-i18n="swap_step5_note">Obie transakcje możesz sprawdzić sam, w prawdziwych sieciach.</p>
-        </div>
+    <div class="card swap-panel" id="panel2" style="display:none;">
+        <h2>Wyślij BTC na ten adres</h2>
+        <div class="key-warning">⚠️ Nowy klucz tylko dla tej transakcji. Zapisz — potrzebny do zwrotu, gdyby coś poszło nie tak.</div>
+        <label style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);">Twój klucz prywatny (ZAPISZ)</label>
+        <div class="priv-display" id="btcPrivKeyOut"></div>
+        <label style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);">Adres zamka (wyślij BTC tutaj)</label>
+        <div class="addr-display" id="htlcAddressOut"></div>
+        <div class="waiting"><span class="spinner"></span><span id="fundingStatus">Czekam na wpłatę…</span></div>
     </div>
 
-    <div class="swap-nav">
-        <button class="btn secondary" id="demo-prev" data-i18n="swap_demo_prev">← Wstecz</button>
-        <button class="btn secondary" id="demo-restart" data-i18n="swap_demo_restart">Od nowa</button>
-        <button class="btn secondary" id="demo-next" data-i18n="swap_demo_next">Dalej →</button>
+    <div class="card swap-panel" id="panel3" style="display:none;">
+        <h2>Wpłata przyjęta — poinformuj sprzedającego</h2>
+        <p style="font-size:.85rem;color:var(--text-dim);">Wyślij mu dokładnie to (NIE swój sekret — ten zostaje tylko u Ciebie):</p>
+        <div class="copy-block" id="sellerInfoBlock"></div>
+        <div class="waiting"><span class="spinner"></span><span>Czekam, aż sprzedający zablokuje BbC…</span></div>
+    </div>
+
+    <div class="card swap-panel" id="panel4" style="display:none;">
+        <h2>BbC czeka — odbierz w portfelu</h2>
+        <p style="font-size:.85rem;color:var(--text-dim);">Ostatni krok robisz w Portfelu (tam, nie tutaj — Twój klucz BbC nigdy nie dotyka tej strony). Zakładka "Mam już portfel" → HTLC → "Odbierz", wklej:</p>
+        <div class="copy-block" id="claimInfoBlock"></div>
+        <a class="btn flame" id="goToWalletBtn" style="width:100%;justify-content:center;text-align:center;text-decoration:none;">Otwórz portfel →</a>
+        <div class="waiting" style="margin-top:14px;"><span class="spinner"></span><span>Sprawdzam czy już odebrane…</span></div>
+    </div>
+
+    <div class="card swap-panel" id="panel5" style="display:none;">
+        <h2>Gotowe</h2>
+        <p>BbC odebrane. Sprzedający teraz widzi Twój ujawniony sekret i może odebrać BTC.</p>
+        <a class="addr-display" id="btcTxLink" href="#" target="_blank" style="display:block;">Zobacz transakcję BTC →</a>
     </div>
 </div>
 
-<footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span> · <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a></footer>
+<footer><span>BitBudCoin (BbC) · sieć proof-of-work</span></footer>
 
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
-<script src="assets/i18n.js"></script>
+<script src="assets/btc-bridge.js"></script>
 <script>
-// UWAGA: to jest PODGLĄD wizualny kroków, nie prawdziwy mechanizm. Przyciski
-// "Dalej"/"Wstecz" tylko przełączają widok - nie ma tu jeszcze prawdziwego
-// generowania adresu, prawdziwego wykrywania wpłaty ani prawdziwego nadawania
-// transakcji. To ma pokazać DOKŁADNIE co zobaczy kupujący, zanim ta logika
-// zostanie podłączona naprawdę.
+const MEMPOOL_API = "https://mempool.space/api";
+let offer = null;
+let buyerPriv = null, buyerPubKeyHash = null;
+let secretHex = null, hashLockValue = null;
+let compiledScript = null, htlcAddress = null;
+let pollTimer = null;
 
-let currentStep = 1;
-const TOTAL_STEPS = 5;
-
-function renderStep() {
-    for (let i = 1; i <= TOTAL_STEPS; i++) {
-        document.getElementById(`panel-${i}`).style.display = i === currentStep ? "block" : "none";
+function showError(msg) {
+    document.getElementById("errorBox").innerHTML = `<div class="error-banner">${msg}</div>`;
+}
+function goToStep(n) {
+    for (let i = 1; i <= 5; i++) {
+        document.getElementById("panel" + i).style.display = i === n ? "block" : "none";
         const stepEl = document.querySelector(`.swap-step[data-step="${i}"]`);
-        stepEl.classList.toggle("active", i === currentStep);
-        stepEl.classList.toggle("done", i < currentStep);
+        stepEl.classList.toggle("active", i === n);
+        stepEl.classList.toggle("done", i < n);
     }
-    document.getElementById("demo-prev").style.visibility = currentStep === 1 ? "hidden" : "visible";
-    document.getElementById("demo-next").style.visibility = currentStep === TOTAL_STEPS ? "hidden" : "visible";
+}
+function randomPrivKeyBigInt() {
+    let k;
+    do {
+        const bytes = crypto.getRandomValues(new Uint8Array(32));
+        k = modN(BigInt("0x" + Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("")));
+    } while (k === 0n);
+    return k;
+}
+function randomHex(numBytes) {
+    return Array.from(crypto.getRandomValues(new Uint8Array(numBytes))).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-document.getElementById("demo-next").addEventListener("click", () => {
-    if (currentStep < TOTAL_STEPS) { currentStep++; renderStep(); }
-});
-document.getElementById("demo-prev").addEventListener("click", () => {
-    if (currentStep > 1) { currentStep--; renderStep(); }
-});
-document.getElementById("demo-restart").addEventListener("click", () => {
-    currentStep = 1; renderStep();
-});
-document.getElementById("claim-btn").addEventListener("click", () => {
-    currentStep = 5; renderStep();
+async function loadOffer() {
+    const params = new URLSearchParams(location.search);
+    const offerId = params.get("offer");
+    if (!offerId) { showError("Brak oferty w linku. Poproś sprzedającego o prawidłowy link."); return; }
+
+    try {
+        const res = await fetch(API_BASE + "/swap/offers/" + offerId);
+        if (!res.ok) throw new Error("Oferta nie znaleziona albo już nieaktualna.");
+        offer = await res.json();
+        offer.offerId = offerId;
+    } catch (err) {
+        showError("Nie udało się wczytać oferty: " + err.message);
+        return;
+    }
+
+    document.getElementById("offerSummary").innerHTML =
+        `Wysyłasz: <strong>${offer.expectedAmount} BTC</strong><br>Otrzymujesz: <strong>${offer.bbcAmount} BbC</strong>`;
+    document.getElementById("panel1").style.display = "block";
+    goToStep(1);
+}
+
+document.getElementById("step1NextBtn").addEventListener("click", async () => {
+    const buyerBbcAddress = document.getElementById("buyerBbcAddress").value.trim();
+    if (!buyerBbcAddress) { showError("Podaj swój adres BbC."); return; }
+    offer.buyerBbcAddress = buyerBbcAddress;
+
+    goToStep(2);
+    document.getElementById("panel2").style.display = "block";
+    await setupBtcLock();
 });
 
-renderStep();
+async function setupBtcLock() {
+    buyerPriv = randomPrivKeyBigInt();
+    const pubPoint = scalarMult(buyerPriv, G);
+    buyerPubKeyHash = bytesToHex(await hash160(compressPubKey(pubPoint)));
+    document.getElementById("btcPrivKeyOut").textContent = buyerPriv.toString(16).padStart(64, "0");
+
+    secretHex = randomHex(32);
+    hashLockValue = bytesToHex(await sha256(utf8ToBytes(secretHex)));
+
+    let tipHeight;
+    try {
+        const res = await fetch(MEMPOOL_API + "/blocks/tip/height");
+        tipHeight = Number((await res.text()).trim());
+    } catch (err) {
+        showError("Nie mogę sprawdzić aktualnej wysokości BTC — spróbuj odświeżyć stronę.");
+        return;
+    }
+    const timeoutHeight = tipHeight + Math.ceil(offer.timeoutHours * 6);
+
+    compiledScript = compileHtlcScript({
+        hashLock: hashLockValue, timeoutHeight,
+        claimantPubKeyHash: offer.sellerPubKeyHash, refundeePubKeyHash: buyerPubKeyHash
+    });
+    const { address } = await deriveP2WSHAddress(compiledScript, "bc");
+    htlcAddress = address;
+    offer.timeoutHeight = timeoutHeight;
+
+    document.getElementById("htlcAddressOut").textContent = htlcAddress;
+    pollForFunding();
+}
+
+async function pollForFunding() {
+    try {
+        const res = await fetch(MEMPOOL_API + `/address/${htlcAddress}/utxo`);
+        const utxos = await res.json();
+        const confirmed = utxos.find((u) => u.status && u.status.confirmed);
+        if (confirmed) {
+            document.getElementById("fundingStatus").textContent = "✅ Wpłata potwierdzona!";
+            setTimeout(() => { goToStep(3); showSellerInfo(); }, 800);
+            return;
+        }
+    } catch (err) { }
+    pollTimer = setTimeout(pollForFunding, 15000);
+}
+
+function showSellerInfo() {
+    document.getElementById("panel3").style.display = "block";
+    document.getElementById("sellerInfoBlock").innerHTML = `
+        <div>ID: <strong>${offer.offerId}</strong></div>
+        <div>Mój adres BbC: <strong>${offer.buyerBbcAddress}</strong></div>
+        <div>Hash sekretu: <strong>${hashLockValue}</strong></div>
+        <div>Wysokość terminu: <strong>${offer.timeoutHeight}</strong></div>
+    `;
+    pollForSellerLock();
+}
+
+async function pollForSellerLock() {
+    try {
+        const res = await fetch(API_BASE + "/htlc/" + offer.offerId);
+        if (res.ok) {
+            const htlc = await res.json();
+            if (htlc && htlc.status === "locked") {
+                goToStep(4);
+                showClaimInfo();
+                return;
+            }
+        }
+    } catch (err) { }
+    pollTimer = setTimeout(pollForSellerLock, 15000);
+}
+
+function showClaimInfo() {
+    document.getElementById("panel4").style.display = "block";
+    document.getElementById("claimInfoBlock").innerHTML = `
+        <div>ID HTLC: <strong>${offer.offerId}</strong></div>
+        <div>Sekret: <strong>${secretHex}</strong></div>
+    `;
+    document.getElementById("goToWalletBtn").href = "wallet.html";
+    pollForClaim();
+}
+
+async function pollForClaim() {
+    try {
+        const res = await fetch(API_BASE + "/htlc/" + offer.offerId);
+        if (res.ok) {
+            const htlc = await res.json();
+            if (htlc && htlc.status === "claimed") {
+                goToStep(5);
+                document.getElementById("panel5").style.display = "block";
+                document.getElementById("btcTxLink").href = `https://mempool.space/address/${htlcAddress}`;
+                return;
+            }
+        }
+    } catch (err) { }
+    pollTimer = setTimeout(pollForClaim, 15000);
+}
+
+loadOffer();
 </script>
 </body>
 </html>
