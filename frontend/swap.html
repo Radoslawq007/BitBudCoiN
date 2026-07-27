@@ -57,6 +57,7 @@
         <div class="priv-display" id="btcPrivKeyOut"></div>
         <label style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);" data-i18n="swap_lock_address_label">Adres zamka (wyślij BTC tutaj)</label>
         <div class="addr-display" id="htlcAddressOut"></div>
+        <a id="checkOnMempoolLink" href="#" target="_blank" style="font-family:var(--font-mono);font-size:.8rem;color:var(--leaf);display:block;margin-bottom:10px;" data-i18n="swap_check_mempool_link">Sprawdź na mempool.space →</a>
         <div class="waiting"><span class="spinner"></span><span id="fundingStatus" data-i18n="swap_waiting_funding">Czekam na wpłatę…</span></div>
     </div>
 
@@ -179,6 +180,7 @@ async function setupBtcLock() {
     offer.timeoutHeight = timeoutHeight;
 
     document.getElementById("htlcAddressOut").textContent = htlcAddress;
+    document.getElementById("checkOnMempoolLink").href = `https://mempool.space/address/${htlcAddress}`;
     pollForFunding();
 }
 
