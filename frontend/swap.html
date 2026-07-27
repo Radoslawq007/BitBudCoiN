@@ -32,62 +32,63 @@
 <body>
 
 <div class="page">
-    <h1 style="margin-top:32px;">Kup BbC</h1>
+    <h1 style="margin-top:32px;" data-i18n="swap_h1">Kup BbC</h1>
     <div id="errorBox"></div>
 
     <div class="swap-steps" id="stepsBar">
-        <div class="swap-step" data-step="1">Warunki</div>
-        <div class="swap-step" data-step="2">Wyślij BTC</div>
-        <div class="swap-step" data-step="3">Sprzedający</div>
-        <div class="swap-step" data-step="4">Odbierz BbC</div>
-        <div class="swap-step" data-step="5">Gotowe</div>
+        <div class="swap-step" data-step="1" data-i18n="swap_stepbar_1">Warunki</div>
+        <div class="swap-step" data-step="2" data-i18n="swap_stepbar_2">Wyślij BTC</div>
+        <div class="swap-step" data-step="3" data-i18n="swap_stepbar_3">Sprzedający</div>
+        <div class="swap-step" data-step="4" data-i18n="swap_stepbar_4">Odbierz BbC</div>
+        <div class="swap-step" data-step="5" data-i18n="swap_stepbar_5">Gotowe</div>
     </div>
 
     <div class="card swap-panel" id="panel1" style="display:none;">
-        <h2>Warunki tej oferty</h2>
+        <h2 data-i18n="swap_panel1_heading">Warunki tej oferty</h2>
         <div class="addr-display" id="offerSummary"></div>
-        <div class="field"><label>Twój adres BbC (dokąd trafi BbC)</label><input id="buyerBbcAddress" placeholder="BbC..."></div>
-        <button class="btn flame" id="step1NextBtn" style="width:100%;justify-content:center;">Dalej</button>
+        <div class="field"><label data-i18n="swap_buyer_bbc_label">Twój adres BbC (dokąd trafi BbC)</label><input id="buyerBbcAddress" placeholder="BbC..."></div>
+        <button class="btn flame" id="step1NextBtn" style="width:100%;justify-content:center;" data-i18n="swap_next_btn">Dalej</button>
     </div>
 
     <div class="card swap-panel" id="panel2" style="display:none;">
-        <h2>Wyślij BTC na ten adres</h2>
-        <div class="key-warning">⚠️ Nowy klucz tylko dla tej transakcji. Zapisz — potrzebny do zwrotu, gdyby coś poszło nie tak.</div>
-        <label style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);">Twój klucz prywatny (ZAPISZ)</label>
+        <h2 data-i18n="swap_panel2_heading">Wyślij BTC na ten adres</h2>
+        <div class="key-warning" data-i18n="swap_key_warning">⚠️ Nowy klucz tylko dla tej transakcji. Zapisz — potrzebny do zwrotu, gdyby coś poszło nie tak.</div>
+        <label style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);" data-i18n="swap_privkey_label">Twój klucz prywatny (ZAPISZ)</label>
         <div class="priv-display" id="btcPrivKeyOut"></div>
-        <label style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);">Adres zamka (wyślij BTC tutaj)</label>
+        <label style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);" data-i18n="swap_lock_address_label">Adres zamka (wyślij BTC tutaj)</label>
         <div class="addr-display" id="htlcAddressOut"></div>
-        <div class="waiting"><span class="spinner"></span><span id="fundingStatus">Czekam na wpłatę…</span></div>
+        <div class="waiting"><span class="spinner"></span><span id="fundingStatus" data-i18n="swap_waiting_funding">Czekam na wpłatę…</span></div>
     </div>
 
     <div class="card swap-panel" id="panel3" style="display:none;">
-        <h2>Wpłata przyjęta — poinformuj sprzedającego</h2>
-        <p style="font-size:.85rem;color:var(--text-dim);">Wyślij mu dokładnie to (NIE swój sekret — ten zostaje tylko u Ciebie):</p>
+        <h2 data-i18n="swap_panel3_heading">Wpłata przyjęta — poinformuj sprzedającego</h2>
+        <p style="font-size:.85rem;color:var(--text-dim);" data-i18n="swap_panel3_desc">Wyślij mu dokładnie to (NIE swój sekret — ten zostaje tylko u Ciebie):</p>
         <div class="copy-block" id="sellerInfoBlock"></div>
-        <div class="waiting"><span class="spinner"></span><span>Czekam, aż sprzedający zablokuje BbC…</span></div>
+        <div class="waiting"><span class="spinner"></span><span data-i18n="swap_waiting_seller">Czekam, aż sprzedający zablokuje BbC…</span></div>
     </div>
 
     <div class="card swap-panel" id="panel4" style="display:none;">
-        <h2>BbC czeka — odbierz w portfelu</h2>
-        <p style="font-size:.85rem;color:var(--text-dim);">Ostatni krok robisz w Portfelu (tam, nie tutaj — Twój klucz BbC nigdy nie dotyka tej strony). Zakładka "Mam już portfel" → HTLC → "Odbierz", wklej:</p>
+        <h2 data-i18n="swap_panel4_heading">BbC czeka — odbierz w portfelu</h2>
+        <p style="font-size:.85rem;color:var(--text-dim);" data-i18n="swap_panel4_desc">Ostatni krok robisz w Portfelu (tam, nie tutaj — Twój klucz BbC nigdy nie dotyka tej strony). Zakładka "Mam już portfel" → HTLC → "Odbierz", wklej:</p>
         <div class="copy-block" id="claimInfoBlock"></div>
-        <a class="btn flame" id="goToWalletBtn" style="width:100%;justify-content:center;text-align:center;text-decoration:none;">Otwórz portfel →</a>
-        <div class="waiting" style="margin-top:14px;"><span class="spinner"></span><span>Sprawdzam czy już odebrane…</span></div>
+        <a class="btn flame" id="goToWalletBtn" style="width:100%;justify-content:center;text-align:center;text-decoration:none;" data-i18n="swap_open_wallet_btn">Otwórz portfel →</a>
+        <div class="waiting" style="margin-top:14px;"><span class="spinner"></span><span data-i18n="swap_waiting_claim">Sprawdzam czy już odebrane…</span></div>
     </div>
 
     <div class="card swap-panel" id="panel5" style="display:none;">
-        <h2>Gotowe</h2>
-        <p>BbC odebrane. Sprzedający teraz widzi Twój ujawniony sekret i może odebrać BTC.</p>
-        <a class="addr-display" id="btcTxLink" href="#" target="_blank" style="display:block;">Zobacz transakcję BTC →</a>
+        <h2 data-i18n="swap_panel5_heading">Gotowe</h2>
+        <p data-i18n="swap_panel5_desc">BbC odebrane. Sprzedający teraz widzi Twój ujawniony sekret i może odebrać BTC.</p>
+        <a class="addr-display" id="btcTxLink" href="#" target="_blank" style="display:block;" data-i18n="swap_view_tx_link">Zobacz transakcję BTC →</a>
     </div>
 </div>
 
-<footer><span>BitBudCoin (BbC) · sieć proof-of-work</span></footer>
+<footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span></footer>
 
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
 <script src="assets/btc-bridge.js"></script>
+<script src="assets/i18n.js"></script>
 <script>
 const MEMPOOL_API = "https://mempool.space/api";
 let offer = null;
@@ -122,27 +123,27 @@ function randomHex(numBytes) {
 async function loadOffer() {
     const params = new URLSearchParams(location.search);
     const offerId = params.get("offer");
-    if (!offerId) { showError("Brak oferty w linku. Poproś sprzedającego o prawidłowy link."); return; }
+    if (!offerId) { showError(t("swap_err_no_offer")); return; }
 
     try {
         const res = await fetch(API_BASE + "/swap/offers/" + offerId);
-        if (!res.ok) throw new Error("Oferta nie znaleziona albo już nieaktualna.");
+        if (!res.ok) throw new Error(t("swap_err_offer_not_found"));
         offer = await res.json();
         offer.offerId = offerId;
     } catch (err) {
-        showError("Nie udało się wczytać oferty: " + err.message);
+        showError(t("swap_err_load_failed") + ": " + err.message);
         return;
     }
 
     document.getElementById("offerSummary").innerHTML =
-        `Wysyłasz: <strong>${offer.expectedAmount} BTC</strong><br>Otrzymujesz: <strong>${offer.bbcAmount} BbC</strong>`;
+        `${t("swap_sending_label")}: <strong>${offer.expectedAmount} BTC</strong><br>${t("swap_receiving_label")}: <strong>${offer.bbcAmount} BbC</strong>`;
     document.getElementById("panel1").style.display = "block";
     goToStep(1);
 }
 
 document.getElementById("step1NextBtn").addEventListener("click", async () => {
     const buyerBbcAddress = document.getElementById("buyerBbcAddress").value.trim();
-    if (!buyerBbcAddress) { showError("Podaj swój adres BbC."); return; }
+    if (!buyerBbcAddress) { showError(t("swap_err_need_bbc_addr")); return; }
     offer.buyerBbcAddress = buyerBbcAddress;
 
     goToStep(2);
@@ -164,7 +165,7 @@ async function setupBtcLock() {
         const res = await fetch(MEMPOOL_API + "/blocks/tip/height");
         tipHeight = Number((await res.text()).trim());
     } catch (err) {
-        showError("Nie mogę sprawdzić aktualnej wysokości BTC — spróbuj odświeżyć stronę.");
+        showError(t("swap_err_tip_height"));
         return;
     }
     const timeoutHeight = tipHeight + Math.ceil(offer.timeoutHours * 6);
@@ -187,7 +188,7 @@ async function pollForFunding() {
         const utxos = await res.json();
         const confirmed = utxos.find((u) => u.status && u.status.confirmed);
         if (confirmed) {
-            document.getElementById("fundingStatus").textContent = "✅ Wpłata potwierdzona!";
+            document.getElementById("fundingStatus").textContent = t("swap_funding_confirmed");
             setTimeout(() => { goToStep(3); showSellerInfo(); }, 800);
             return;
         }
@@ -198,10 +199,10 @@ async function pollForFunding() {
 function showSellerInfo() {
     document.getElementById("panel3").style.display = "block";
     document.getElementById("sellerInfoBlock").innerHTML = `
-        <div>ID: <strong>${offer.offerId}</strong></div>
-        <div>Mój adres BbC: <strong>${offer.buyerBbcAddress}</strong></div>
-        <div>Hash sekretu: <strong>${hashLockValue}</strong></div>
-        <div>Wysokość terminu: <strong>${offer.timeoutHeight}</strong></div>
+        <div>${t("swap_info_id")}: <strong>${offer.offerId}</strong></div>
+        <div>${t("swap_info_myaddr")}: <strong>${offer.buyerBbcAddress}</strong></div>
+        <div>${t("swap_info_hash")}: <strong>${hashLockValue}</strong></div>
+        <div>${t("swap_info_timeout")}: <strong>${offer.timeoutHeight}</strong></div>
     `;
     pollForSellerLock();
 }
@@ -224,8 +225,8 @@ async function pollForSellerLock() {
 function showClaimInfo() {
     document.getElementById("panel4").style.display = "block";
     document.getElementById("claimInfoBlock").innerHTML = `
-        <div>ID HTLC: <strong>${offer.offerId}</strong></div>
-        <div>Sekret: <strong>${secretHex}</strong></div>
+        <div>${t("swap_info_htlcid")}: <strong>${offer.offerId}</strong></div>
+        <div>${t("swap_info_secret")}: <strong>${secretHex}</strong></div>
     `;
     document.getElementById("goToWalletBtn").href = "wallet.html";
     pollForClaim();
