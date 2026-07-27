@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test połączenia — mempool.space</title>
+<style>
+  body { font-family: -apple-system, sans-serif; background: #0b0f0d; color: #e8ece9; padding: 20px; max-width: 600px; margin: 0 auto; }
+  h1 { font-size: 1.3rem; }
+  .card { background: #151b18; border: 1px solid #2a332e; border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+  .status { font-family: monospace; font-size: .85rem; white-space: pre-wrap; word-break: break-all; margin-top: 10px; padding: 10px; border-radius: 6px; }
+  .status.pending { background: #2a2618; color: #e0c96a; }
+  .status.ok { background: #16281c; color: #7dd88f; }
+  .status.fail { background: #2b1616; color: #ff9d8f; }
+  button { background: #7dd88f; color: #0b0f0d; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; font-size: 1rem; width: 100%; cursor: pointer; }
+  button:disabled { opacity: .6; }
+</style>
+</head>
+<body>
+
+<h1>Test realnego połączenia z mempool.space</h1>
+<p style="color:#9aa39d;font-size:.9rem;">To sprawdza, czy Twoja przeglądarka faktycznie może się połączyć — bez zgadywania. Dwa testy, oba bezpieczne (nic nowego nie zostanie wysłane).</p>
+
+<div class="card">
+    <h3 style="margin-top:0;">Test 1: Odczyt (GET)</h3>
+    <p style="font-size:.85rem;color:#9aa39d;">Pyta o UTXO Twojego adresu testnetowego z dzisiaj — sam odczyt, zero ryzyka.</p>
+    <button id="testReadBtn">Uruchom test odczytu</button>
+    <div id="readStatus" class="status pending" style="display:none;"></div>
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">Test 2: Nadanie (POST /api/tx)</h3>
+    <p style="font-size:.85rem;color:#9aa39d;">Próbuje ponownie nadać transakcję, która JUŻ jest potwierdzona z dzisiejszego signetu. Bezpieczne — sieć odpowie "już znana/potwierdzona", ale to i tak dowód że POST fizycznie dochodzi do serwera (to jest ten sam mechanizm co prawdziwe nadanie, tylko na już znanych danych).</p>
+    <button id="testBroadcastBtn">Uruchom test nadania</button>
+    <div id="broadcastStatus" class="status pending" style="display:none;"></div>
+</div>
+
+<script>
+const SIGNET_API = "https://mempool.space/signet/api";
+const KNOWN_ADDRESS = "tb1qaw64hdlyrgqmqyqnx32wwdt3kefccugsjmzvxl"; // adres z dzisiejszego testu
+const KNOWN_SIGNED_TX = "02000000000101fb18f1415f673f6f8202e47ec090727e98a4eaeb7e700f613e48025eaeee08ed0000000000ffffffff0148b6010000000000160014774449975f3e73bbf2e1bb9ccc9ad8028ffcabd102473044022011e4c4d02199144f3a7f7180c926fa286ec1b531b5309465b170b0af7fc9128802201f5e2587bd7aae84f6d6acc70a42c7ce0e54b1851d5a8331b4d2239ad6969b26012103e2490172ac3c116c4399c4c03a14c62e2acdd402f2c31dc862f34c800c02523b00000000";
+
+function show(id, cls, text) {
+    const el = document.getElementById(id);
+    el.style.display = "block";
+    el.className = "status " + cls;
+    el.textContent = text;
+}
+
+document.getElementById("testReadBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("testReadBtn");
+    btn.disabled = true;
+    show("readStatus", "pending", "Łączę się...");
+    try {
+        const res = await fetch(`${SIGNET_API}/address/${KNOWN_ADDRESS}/utxo`);
+        const text = await res.text();
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
+        show("readStatus", "ok", "✅ POŁĄCZENIE DZIAŁA.\n\nOdpowiedź serwera:\n" + text);
+    } catch (err) {
+        show("readStatus", "fail", "❌ NIE DZIAŁA.\n\nBłąd: " + err.message + "\n\n(Jeśli to \"Failed to fetch\" — najczęściej CORS albo brak internetu, nie błąd w naszym kodzie.)");
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+document.getElementById("testBroadcastBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("testBroadcastBtn");
+    btn.disabled = true;
+    show("broadcastStatus", "pending", "Wysyłam...");
+    try {
+        const res = await fetch(`${SIGNET_API}/tx`, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" },
+            body: KNOWN_SIGNED_TX
+        });
+        const text = await res.text();
+        if (res.ok) {
+            show("broadcastStatus", "ok", "✅ POŁĄCZENIE DZIAŁA — serwer przyjął żądanie POST i odpowiedział.\n\nOdpowiedź:\n" + text);
+        } else {
+            // Odrzucenie z powodu "już znana" to WCIĄŻ dowód że POST dotarł -
+            // serwer musiał ją rozpoznać, żeby to odrzucić.
+            const looksLikeAlreadyKnown = /already|known|confirmed|exists/i.test(text);
+            if (looksLikeAlreadyKnown) {
+                show("broadcastStatus", "ok", "✅ POŁĄCZENIE DZIAŁA — serwer rozpoznał transakcję jako już istniejącą, co dowodzi że POST fizycznie dotarł i został przetworzony.\n\nOdpowiedź serwera:\n" + text);
+            } else {
+                show("broadcastStatus", "fail", `❌ Serwer odpowiedział, ale nieoczekiwanie (HTTP ${res.status}):\n` + text);
+            }
+        }
+    } catch (err) {
+        show("broadcastStatus", "fail", "❌ NIE DZIAŁA.\n\nBłąd: " + err.message + "\n\n(Jeśli to \"Failed to fetch\" — najczęściej CORS blokuje POST z przeglądarki, nawet jeśli GET działał wyżej. To realna różnica do sprawdzenia.)");
+    } finally {
+        btn.disabled = false;
+    }
+});
+</script>
+</body>
+</html>
