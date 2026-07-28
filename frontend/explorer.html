@@ -101,12 +101,34 @@
     .col-difficulty { display: none; }
     .blocks-table th, .blocks-table td { padding: 10px 10px; }
   }
+
+  /* Nowy blok - krótkie podświetlenie, żeby było widać że coś się właśnie
+     wydarzyło, nie tylko cicho pojawiło. Zanika samo po chwili. */
+  @keyframes new-block-flash {
+    0% { background: rgba(74, 222, 128, 0.28); }
+    100% { background: transparent; }
+  }
+  .blocks-table tbody tr.new-block { animation: new-block-flash 2.5s ease-out; }
+
+  .live-indicator {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: .72rem; color: var(--text-dim);
+    margin-left: 10px; vertical-align: middle;
+  }
+  .live-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--leaf);
+    animation: live-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes live-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .4; transform: scale(.8); }
+  }
 </style>
 </head>
 <body>
 
 <div class="page">
-    <h1 style="margin-top:32px;" data-i18n="explorer_h1">Explorer</h1>
+    <h1 style="margin-top:32px;" data-i18n="explorer_h1">Explorer<span class="live-indicator" id="live-indicator"><span class="live-dot"></span><span data-i18n="explorer_live_label">na żywo</span></span></h1>
     <p data-i18n="explorer_intro">Stan sieci BitBudCoin na żywo — bloki, trudność, transakcje.</p>
     <div id="error-box"></div>
 
@@ -162,6 +184,7 @@
 setActiveNav("nav-explorer");
 
 let oldestLoaded = null;
+let latestKnownHeight = null;
 let bridgeTags = []; // wczytane raz na starcie z /bridge/annotations
 
 // Ta sama logika dopasowania co bridge-tags.js po stronie serwera - signature
@@ -169,27 +192,39 @@ let bridgeTags = []; // wczytane raz na starcie z /bridge/annotations
 function matchBridgeTag(tx, block) {
     for (const tag of bridgeTags) {
         if (tag.signature && tx.signature === tag.signature) return tag;
+        if (tag.htlcId && tx.htlcId === tag.htlcId) return tag;
         if (tag.blockHash && tag.to && tag.amount !== undefined &&
             block.hash === tag.blockHash && tx.to === tag.to && tx.amount === tag.amount) return tag;
     }
     return null;
 }
 
+function buildBlockRowHtml(b, isNew) {
+    const txCount = b.transactions.length;
+    const matchedTag = b.transactions.map((tx) => matchBridgeTag(tx, b)).find((t) => t);
+    const badge = matchedTag ? `<span class="milestone-badge">most ${escapeHtml(matchedTag.chain || "")}</span>` : "";
+    const rowClasses = [matchedTag ? "milestone-row" : "", isNew ? "new-block" : ""].filter(Boolean).join(" ");
+    return `<tr class="${rowClasses}" onclick="location.href='block.html?height=${b.height}'">
+        <td class="col-height">#${b.height}${badge}</td>
+        <td>${timeAgo(b.timestamp)}</td>
+        <td class="col-txs">${txCount}</td>
+        <td class="col-difficulty">${fmtNumber(b.difficulty, 0)}</td>
+        <td class="col-hash">${fmtHash(b.hash)}</td>
+    </tr>`;
+}
+
 function renderBlocksTable(blocks, append) {
     const tbody = document.getElementById("blocks-table-body");
-    const rowsHtml = blocks.map((b) => {
-        const txCount = b.transactions.length;
-        const matchedTag = b.transactions.map((tx) => matchBridgeTag(tx, b)).find((t) => t);
-        const badge = matchedTag ? `<span class="milestone-badge">most ${escapeHtml(matchedTag.chain || "")}</span>` : "";
-        return `<tr class="${matchedTag ? "milestone-row" : ""}" onclick="location.href='block.html?height=${b.height}'">
-            <td class="col-height">#${b.height}${badge}</td>
-            <td>${timeAgo(b.timestamp)}</td>
-            <td class="col-txs">${txCount}</td>
-            <td class="col-difficulty">${fmtNumber(b.difficulty, 0)}</td>
-            <td class="col-hash">${fmtHash(b.hash)}</td>
-        </tr>`;
-    }).join("");
+    const rowsHtml = blocks.map((b) => buildBlockRowHtml(b, false)).join("");
     tbody.innerHTML = append ? tbody.innerHTML + rowsHtml : rowsHtml;
+}
+
+// Dodaje NOWE bloki na górę tabeli (nie zastępuje całości - użytkownik mógł
+// już doczytać starsze bloki niżej, to by je zgubiło).
+function prependNewBlocks(blocks) {
+    const tbody = document.getElementById("blocks-table-body");
+    const rowsHtml = blocks.map((b) => buildBlockRowHtml(b, true)).join("");
+    tbody.insertAdjacentHTML("afterbegin", rowsHtml);
 }
 
 function updateStatsBar(blocks) {
@@ -225,11 +260,31 @@ async function loadInitial() {
         renderBlocksTable(blocks, false);
         updateStatsBar(blocks);
         oldestLoaded = blocks[blocks.length - 1].height;
+        latestKnownHeight = blocks[0].height;
         if (oldestLoaded > 0) document.getElementById("load-more").style.display = "inline-flex";
     } catch (e) {
         document.getElementById("error-box").innerHTML = `<div class="error-banner">${t("common_backend_error")}: ${escapeHtml(e.message)}</div>`;
         document.getElementById("blocks-table-body").innerHTML = "";
     }
+}
+
+// Sprawdza co jakiś czas czy doszły nowe bloki - jeśli tak, dokłada je na
+// górę (bez zastępowania całej tabeli, żeby nie zgubić już doczytanych
+// starszych bloków) i aktualizuje pasek statystyk. Cicho ponawia przy
+// błędzie sieci, nie przerywa strony.
+async function pollForNewBlocks() {
+    try {
+        const recentBlocks = await apiGet("/blocks?limit=15");
+        if (recentBlocks.length > 0 && latestKnownHeight !== null) {
+            const freshBlocks = recentBlocks.filter((b) => b.height > latestKnownHeight);
+            if (freshBlocks.length > 0) {
+                prependNewBlocks(freshBlocks);
+                latestKnownHeight = recentBlocks[0].height;
+                updateStatsBar(recentBlocks);
+            }
+        }
+    } catch (e) { /* ponawiamy przy następnym tyknięciu */ }
+    setTimeout(pollForNewBlocks, 12000);
 }
 
 document.getElementById("load-more").addEventListener("click", async () => {
@@ -258,6 +313,7 @@ document.getElementById("search-input").addEventListener("keydown", (e) => {
 
 loadInitial();
 document.addEventListener("bbc:langchange", loadInitial);
+setTimeout(pollForNewBlocks, 12000);
 </script>
 </body>
 </html>
