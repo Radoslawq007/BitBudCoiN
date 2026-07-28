@@ -8,6 +8,19 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/theme.css">
+<style>
+  .status-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+  .status-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border-radius: 8px;
+    background: var(--surface-2); border-left: 3px solid transparent;
+    font-family: var(--font-mono); font-size: .92rem;
+  }
+  .status-item.done { border-left-color: var(--leaf); }
+  .status-item.testing { border-left-color: var(--flame); }
+  .status-item.upcoming { border-left-color: var(--text-dim); color: var(--text-dim); }
+  .status-icon { font-size: 1.05rem; flex-shrink: 0; }
+</style>
 </head>
 <body>
 
@@ -23,7 +36,37 @@
         </div>
     </section>
 
-    <div class="grid cols-3" style="margin-top:12px;">
+    <div class="card" style="margin-top:20px;">
+        <h2 data-i18n="index_status_heading">Status projektu</h2>
+        <div class="status-list">
+            <div class="status-item done">
+                <span class="status-icon">✅</span>
+                <span data-i18n="index_status_mainnet">Mainnet</span>
+            </div>
+            <div class="status-item done">
+                <span class="status-icon">✅</span>
+                <span data-i18n="index_status_wallet">Portfel</span>
+            </div>
+            <div class="status-item done">
+                <span class="status-icon">✅</span>
+                <span data-i18n="index_status_explorer">Explorer</span>
+            </div>
+            <div class="status-item done">
+                <span class="status-icon">✅</span>
+                <span data-i18n="index_status_mining">Kopanie</span>
+            </div>
+            <div class="status-item testing">
+                <span class="status-icon">🧪</span>
+                <span data-i18n="index_status_swaps">Atomic swaps (wdrażanie / testy)</span>
+            </div>
+            <div class="status-item upcoming">
+                <span class="status-icon">🚧</span>
+                <span data-i18n="index_status_next">Kolejne etapy</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid cols-3" style="margin-top:20px;">
         <div class="card">
             <div class="card-label" data-i18n="index_stat_supply">Podaż w obiegu</div>
             <div class="card-value leaf" id="stat-supply">—</div>
