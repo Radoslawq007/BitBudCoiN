@@ -69,10 +69,10 @@ async function loadOffers() {
     try {
         const res = await fetch(API_BASE + "/swap/offers");
         const all = await res.json();
-        // Backend (swapOffers.createOffer) ustawia status na "open", nie "pending" -
-        // potwierdzone bezpośrednio na żywym /swap/offers 29.07. Zmienna nazywa się
-        // "pending" (czyli "oczekujące na decyzję admina"), ale to tylko nazwa lokalna.
-        const pending = Object.values(all).filter((o) => o.status === "open");
+        // "pending" = nowe zgłoszenie, czeka na Akceptuj/Odrzuć - to ma pokazywać ten
+        // panel. "open" = już zaakceptowane (acceptOffer w swap-offers.js), backend
+        // odrzuci ponowne accept. (Wcześniej był tu błędnie "open" - cofnięte.)
+        const pending = Object.values(all).filter((o) => o.status === "pending");
 
         if (pending.length === 0) {
             listEl.innerHTML = `<div class="empty-state">${t("revoffer_none_pending")}</div>`;
