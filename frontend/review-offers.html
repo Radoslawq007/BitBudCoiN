@@ -19,12 +19,24 @@
   .accept-sub { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--leaf-dim); }
   .priv-display { font-family: var(--font-mono); font-size: .75rem; color: #ffb3a8; word-break: break-all; background: var(--surface-2); padding: 10px 12px; border-radius: 8px; border: 1px solid #ff5050; margin: 8px 0; }
   .key-warning { background: rgba(255,80,80,.1); border: 1px solid #ff5050; border-radius: 8px; padding: 10px 12px; font-size: .8rem; margin-bottom: 8px; }
+  .download-key-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: var(--surface-2); border: 2px solid var(--leaf); color: var(--leaf); border-radius: 8px; padding: 10px; font-family: var(--font-mono); font-size: .88rem; font-weight: 600; margin: 8px 0; cursor: pointer; }
+  .download-key-btn.downloaded { border-color: var(--leaf-dim); color: var(--text-dim); }
+  .confirm-saved-row { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0; font-size: .85rem; }
+  .confirm-saved-row input { margin-top: 3px; flex-shrink: 0; width: 18px; height: 18px; }
+  .btn.flame:disabled { opacity: .4; cursor: not-allowed; }
+  .recovered-box { background: rgba(255,80,80,.08); border: 2px solid #ff5050; border-radius: 10px; padding: 14px; margin-bottom: 16px; }
+  .recovered-box h3 { margin-top: 0; font-size: .95rem; }
+  .recovered-item { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+  .recovered-item .priv-display { margin: 6px 0; }
+  .recovered-item-meta { font-family: var(--font-mono); font-size: .75rem; color: var(--text-dim); }
 </style>
 </head>
 <body>
 
 <div class="page">
     <h1 style="margin-top:32px;" data-i18n="revoffer_h1">Zgłoszenia zakupu</h1>
+
+    <div id="recoveredKeysBox"></div>
 
     <div class="card">
         <div class="field"><label data-i18n="revoffer_secret_label">Sekret administratora</label><input id="adminSecret" type="password"></div>
@@ -75,8 +87,10 @@ async function loadOffers() {
                 <div class="accept-sub" id="accept-sub-${o.offerId}">
                     <div class="key-warning" data-i18n="revoffer_key_warning">⚠️ Nowy klucz BTC tylko dla tej transakcji. Zapisz — potrzebny do odebrania BTC później.</div>
                     <div class="priv-display" id="priv-${o.offerId}"></div>
+                    <button class="download-key-btn" data-action="download-key" data-id="${o.offerId}">📥 <span data-i18n="revoffer_download_key">Pobierz plik z kluczem</span></button>
                     <div class="field"><label data-i18n="revoffer_bbc_address_label">Twój adres BbC (istniejący z portfela)</label><input id="bbcaddr-${o.offerId}" placeholder="BbC..."></div>
-                    <button class="btn flame" data-action="confirm-accept" data-id="${o.offerId}" style="width:100%;justify-content:center;" data-i18n="revoffer_confirm_btn">Potwierdź akceptację</button>
+                    <label class="confirm-saved-row"><input type="checkbox" id="confirmSaved-${o.offerId}"><span data-i18n="revoffer_confirm_saved">Zapisałem/pobrałem klucz prywatny — bez niego nie odbiorę BTC.</span></label>
+                    <button class="btn flame" data-action="confirm-accept" data-id="${o.offerId}" style="width:100%;justify-content:center;" disabled data-i18n="revoffer_confirm_btn">Potwierdź akceptację</button>
                     <div id="accept-result-${o.offerId}" style="margin-top:8px;font-family:var(--font-mono);font-size:.82rem;"></div>
                 </div>
             </div>
@@ -84,6 +98,9 @@ async function loadOffers() {
 
         document.querySelectorAll('[data-action="accept"]').forEach((btn) => {
             btn.addEventListener("click", () => showAcceptForm(btn.dataset.id));
+        });
+        document.querySelectorAll('[data-action="download-key"]').forEach((btn) => {
+            btn.addEventListener("click", () => downloadKeyFile(btn.dataset.id));
         });
         document.querySelectorAll('[data-action="reject"]').forEach((btn) => {
             btn.addEventListener("click", () => rejectOffer(btn.dataset.id));
@@ -94,6 +111,101 @@ async function loadOffers() {
 }
 
 let generatedKeys = {};
+let unsavedKeys = new Set(); // offerId-y, ktore maja wygenerowany klucz jeszcze nie potwierdzony jako zapisany
+
+// Dokładnie to, czego zabrakło dziś w nocy: sprawdza czy w tym urządzeniu
+// leży zapomniany klucz z poprzedniej, przerwanej sesji (zamknięta karta,
+// crash przeglądarki, cokolwiek) - i pokazuje go na samej górze strony,
+// zanim zdąży się o nim zapomnieć na dobre.
+function scanForRecoveredKeys() {
+    const found = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("btc_key_backup_")) {
+            try {
+                const data = JSON.parse(localStorage.getItem(key));
+                found.push(data);
+            } catch (err) { /* pomiń uszkodzony wpis */ }
+        }
+    }
+    const box = document.getElementById("recoveredKeysBox");
+    if (found.length === 0) { box.innerHTML = ""; return; }
+
+    box.innerHTML = `
+        <div class="recovered-box">
+            <h3 data-i18n="revoffer_recovered_heading">⚠️ Znaleziono zapisane klucze z poprzednich sesji</h3>
+            <p style="font-size:.82rem;color:var(--text-dim);" data-i18n="revoffer_recovered_desc">Jeśli już odebrałeś BTC dla którejś z tych ofert, możesz bezpiecznie usunąć wpis.</p>
+            ${found.map((k) => `
+                <div class="recovered-item">
+                    <div class="recovered-item-meta">${t("revoffer_id_label")}: ${k.offerId} · ${new Date(k.savedAt).toLocaleString()}</div>
+                    <div class="priv-display">${k.privateKeyHex}</div>
+                    <div class="btn-row">
+                        <button class="btn flame" data-recover-download="${k.offerId}" style="flex:1;justify-content:center;" data-i18n="revoffer_download_key">📥 Pobierz plik z kluczem</button>
+                        <button class="btn secondary" data-recover-delete="${k.offerId}" style="flex:1;justify-content:center;" data-i18n="revoffer_recovered_delete">Usuń</button>
+                    </div>
+                </div>
+            `).join("")}
+        </div>
+    `;
+
+    box.querySelectorAll("[data-recover-download]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const data = found.find((k) => k.offerId === btn.dataset.recoverDownload);
+            downloadKeyFileFromData(data);
+        });
+    });
+    box.querySelectorAll("[data-recover-delete]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            if (!confirm(t("revoffer_recovered_confirm_delete"))) return;
+            localStorage.removeItem("btc_key_backup_" + btn.dataset.recoverDelete);
+            scanForRecoveredKeys();
+        });
+    });
+}
+
+function saveKeyToLocalStorage(offerId, priv, pubKeyHash) {
+    try {
+        localStorage.setItem("btc_key_backup_" + offerId, JSON.stringify({
+            offerId, privateKeyHex: priv.toString(16).padStart(64, "0"), pubKeyHash, savedAt: Date.now()
+        }));
+    } catch (err) { /* localStorage niedostępny (np. tryb prywatny) - reszta zabezpieczeń nadal działa */ }
+}
+
+function downloadKeyFileFromData(data) {
+    const content =
+`BitBudCoin - klucz prywatny BTC dla oferty ${data.offerId}
+Wygenerowano: ${new Date(data.savedAt).toISOString()}
+
+KLUCZ PRYWATNY (potrzebny do odebrania BTC):
+${data.privateKeyHex}
+
+Hash klucza publicznego (już wysłany do oferty):
+${data.pubKeyHash}
+
+Nikomu nie udostępniaj tego pliku. Bez tego klucza nie da się odebrać wpłaconego BTC.
+`;
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bbc-btc-key-${data.offerId}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function downloadKeyFile(offerId) {
+    const keys = generatedKeys[offerId];
+    if (!keys) return;
+    downloadKeyFileFromData({
+        offerId, privateKeyHex: keys.priv.toString(16).padStart(64, "0"),
+        pubKeyHash: keys.pubKeyHash, savedAt: Date.now()
+    });
+
+    const btn = document.querySelector(`[data-action="download-key"][data-id="${offerId}"]`);
+    if (btn) { btn.classList.add("downloaded"); btn.innerHTML = "✅ <span>" + t("revoffer_downloaded") + "</span>"; }
+}
 
 async function showAcceptForm(offerId) {
     const sub = document.getElementById("accept-sub-" + offerId);
@@ -105,10 +217,26 @@ async function showAcceptForm(offerId) {
         const pubKeyHash = bytesToHex(await hash160(compressPubKey(pubPoint)));
         generatedKeys[offerId] = { priv, pubKeyHash };
         document.getElementById("priv-" + offerId).textContent = priv.toString(16).padStart(64, "0");
+        saveKeyToLocalStorage(offerId, priv, pubKeyHash);
+        unsavedKeys.add(offerId);
     }
 
-    document.querySelector(`[data-action="confirm-accept"][data-id="${offerId}"]`).addEventListener("click", () => confirmAccept(offerId), { once: true });
+    const checkbox = document.getElementById("confirmSaved-" + offerId);
+    const confirmBtn = document.querySelector(`[data-action="confirm-accept"][data-id="${offerId}"]`);
+    checkbox.addEventListener("change", () => {
+        confirmBtn.disabled = !checkbox.checked;
+        if (checkbox.checked) unsavedKeys.delete(offerId); else unsavedKeys.add(offerId);
+    });
+
+    confirmBtn.addEventListener("click", () => confirmAccept(offerId), { once: true });
 }
+
+window.addEventListener("beforeunload", (e) => {
+    if (unsavedKeys.size > 0) {
+        e.preventDefault();
+        e.returnValue = "";
+    }
+});
 
 async function confirmAccept(offerId) {
     const secret = document.getElementById("adminSecret").value;
@@ -124,6 +252,18 @@ async function confirmAccept(offerId) {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || `${t("common_backend_error")} (${res.status})`);
+
+        // Od razu oznacza tę transakcję jako "z mostu" (ten sam sekret już
+        // wpisany - zero dodatkowego kroku później, explorer/portfel to
+        // rozpoznają przez htlcId, jak tylko transakcja się wydarzy).
+        try {
+            await fetch(API_BASE + "/bridge/annotations", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ secret, htlcId: offerId, chain: "BTC", note: "swap" })
+            });
+        } catch (tagErr) { /* nieudane oznaczenie nie blokuje samej akceptacji */ }
+
         resultEl.innerHTML = `<span style="color:var(--leaf)">✅ ${t("revoffer_accepted")}</span>`;
         setTimeout(() => document.getElementById("offer-" + offerId).remove(), 1500);
     } catch (err) {
@@ -148,6 +288,7 @@ async function rejectOffer(offerId) {
 }
 
 document.getElementById("loadBtn").addEventListener("click", loadOffers);
+scanForRecoveredKeys();
 </script>
 </body>
 </html>
