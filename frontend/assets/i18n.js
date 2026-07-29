@@ -340,7 +340,26 @@ const translations = {
         swap_err_offer_not_found: "Oferta nie znaleziona albo już nieaktualna.",
         swap_err_load_failed: "Nie udało się wczytać oferty",
         swap_err_need_bbc_addr: "Podaj swój adres BbC.",
-        swap_err_tip_height: "Nie mogę sprawdzić aktualnej wysokości BTC — spróbuj odświeżyć stronę."
+        swap_err_tip_height: "Nie mogę sprawdzić aktualnej wysokości BTC — spróbuj odświeżyć stronę.",
+
+        nav_join: "Dołącz",
+        join_h1: "Dołącz do BitBudCoin",
+        join_subtitle: "Prawdziwy blockchain, budowany od zera, bez wielkich obietnic.",
+        join_intro: "BitBudCoin (BbC) to niezależna sieć proof-of-work, którą kilka osób realnie kopie i używa już teraz. Żadnych fałszywych statystyk, żadnego marketingu — to, co widzisz niżej, dzieje się naprawdę, na żywo, na tym samym łańcuchu, który możesz sam sprawdzić w explorerze.",
+        join_live_heading: "To dzieje się właśnie teraz",
+        join_loading: "Wczytuję dane z sieci…",
+        join_load_error: "Nie udało się wczytać danych sieci. Spróbuj odświeżyć.",
+        join_no_miners: "Nikt aktualnie nie kopie — bądź pierwszy.",
+        join_cta_heading: "Jak zacząć",
+        join_cta_wallet_title: "1. Załóż portfel",
+        join_cta_wallet_desc: "Klucz prywatny powstaje w Twojej przeglądarce i nigdy nigdzie nie jest wysyłany. Zajmuje dosłownie minutę.",
+        join_cta_wallet_btn: "Otwórz portfel →",
+        join_cta_mine_title: "2. Kop BbC",
+        join_cta_mine_desc: "Liczysz hashe w przeglądarce, solo albo w puli z innymi. Realny udział w nagrodzie, nie punkty.",
+        join_cta_mine_btn: "Zacznij kopać →",
+        join_cta_buy_title: "3. Albo kup za BTC",
+        join_cta_buy_desc: "Bezpośrednia wymiana z drugą osobą przez HTLC — nikt nie wysyła niczego na zaufanie.",
+        join_cta_buy_btn: "Zaproponuj wymianę →"
     },
     en: {
         nav_dashboard: "Dashboard", nav_explorer: "Explorer", nav_mining: "Mining",
@@ -678,7 +697,26 @@ const translations = {
         swap_err_offer_not_found: "Offer not found or no longer valid.",
         swap_err_load_failed: "Failed to load the offer",
         swap_err_need_bbc_addr: "Enter your BbC address.",
-        swap_err_tip_height: "Can't check the current BTC height — try refreshing the page."
+        swap_err_tip_height: "Can't check the current BTC height — try refreshing the page.",
+
+        nav_join: "Join",
+        join_h1: "Join BitBudCoin",
+        join_subtitle: "A real blockchain, built from scratch, without the big promises.",
+        join_intro: "BitBudCoin (BbC) is an independent proof-of-work network that a handful of people are actually mining and using right now. No fake stats, no marketing — what you see below is happening live, on the same chain you can check yourself in the explorer.",
+        join_live_heading: "This is happening right now",
+        join_loading: "Loading network data…",
+        join_load_error: "Couldn't load network data. Try refreshing.",
+        join_no_miners: "Nobody's mining right now — be the first.",
+        join_cta_heading: "How to start",
+        join_cta_wallet_title: "1. Create a wallet",
+        join_cta_wallet_desc: "Your private key is created in your browser and never sent anywhere. Takes about a minute.",
+        join_cta_wallet_btn: "Open wallet →",
+        join_cta_mine_title: "2. Mine BbC",
+        join_cta_mine_desc: "Compute hashes in your browser, solo or with others in the pool. A real share of the reward, not points.",
+        join_cta_mine_btn: "Start mining →",
+        join_cta_buy_title: "3. Or buy with BTC",
+        join_cta_buy_desc: "A direct trade with another person via HTLC — nobody sends anything on trust.",
+        join_cta_buy_btn: "Propose a trade →"
     }
 };
 
