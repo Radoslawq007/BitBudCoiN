@@ -69,7 +69,10 @@ async function loadOffers() {
     try {
         const res = await fetch(API_BASE + "/swap/offers");
         const all = await res.json();
-        const pending = Object.values(all).filter((o) => o.status === "pending");
+        // Backend (swapOffers.createOffer) ustawia status na "open", nie "pending" -
+        // potwierdzone bezpośrednio na żywym /swap/offers 29.07. Zmienna nazywa się
+        // "pending" (czyli "oczekujące na decyzję admina"), ale to tylko nazwa lokalna.
+        const pending = Object.values(all).filter((o) => o.status === "open");
 
         if (pending.length === 0) {
             listEl.innerHTML = `<div class="empty-state">${t("revoffer_none_pending")}</div>`;
