@@ -19,6 +19,10 @@
   .addr-display { font-family: var(--font-mono); font-size: .9rem; color: var(--leaf); word-break: break-all; background: var(--surface-2); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--leaf-dim); margin: 8px 0; }
   .priv-display { font-family: var(--font-mono); font-size: .78rem; color: #ffb3a8; word-break: break-all; background: var(--surface-2); padding: 12px 14px; border-radius: 8px; border: 1px solid #ff5050; margin: 8px 0; }
   .key-warning { background: rgba(255,80,80,.1); border: 1px solid #ff5050; border-radius: 8px; padding: 10px 12px; font-size: .82rem; margin-bottom: 10px; }
+  .download-key-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: var(--surface-2); border: 2px solid var(--leaf); color: var(--leaf); border-radius: 8px; padding: 10px; font-family: var(--font-mono); font-size: .88rem; font-weight: 600; margin: 8px 0; cursor: pointer; }
+  .download-key-btn.downloaded { border-color: var(--leaf-dim); color: var(--text-dim); }
+  .confirm-saved-row { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0; font-size: .85rem; }
+  .confirm-saved-row input { margin-top: 3px; flex-shrink: 0; width: 18px; height: 18px; }
   .field { margin-bottom: 14px; }
   .field label { display: block; font-family: var(--font-mono); font-size: .72rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
   .field input { width: 100%; box-sizing: border-box; background: var(--surface-2); border: 1px solid var(--leaf-dim); border-radius: 6px; padding: 9px 12px; color: var(--text); font-family: var(--font-mono); font-size: .95rem; }
@@ -53,8 +57,11 @@
     <div class="card swap-panel" id="panel2" style="display:none;">
         <h2 data-i18n="swap_panel2_heading">Wyślij BTC na ten adres</h2>
         <div class="key-warning" data-i18n="swap_key_warning">⚠️ Nowy klucz tylko dla tej transakcji. Zapisz — potrzebny do zwrotu, gdyby coś poszło nie tak.</div>
+        <div class="key-warning" id="recoveredNotice" style="display:none;background:rgba(74,222,128,.1);border-color:var(--leaf);" data-i18n="swap_recovered_notice">✅ To ten sam klucz co poprzednio — odzyskany automatycznie, adres się nie zmienił.</div>
         <label style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);" data-i18n="swap_privkey_label">Twój klucz prywatny (ZAPISZ)</label>
         <div class="priv-display" id="btcPrivKeyOut"></div>
+        <button class="download-key-btn" id="downloadKeyBtn">📥 <span data-i18n="revoffer_download_key">Pobierz plik z kluczem</span></button>
+        <label class="confirm-saved-row"><input type="checkbox" id="confirmSavedCheckbox"><span data-i18n="revoffer_confirm_saved">Zapisałem/pobrałem klucz prywatny — bez niego nie odbiorę BTC.</span></label>
         <label style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);" data-i18n="swap_lock_address_label">Adres zamka (wyślij BTC tutaj)</label>
         <div class="addr-display" id="htlcAddressOut"></div>
         <a id="checkOnMempoolLink" href="#" target="_blank" style="font-family:var(--font-mono);font-size:.8rem;color:var(--leaf);display:block;margin-bottom:10px;" data-i18n="swap_check_mempool_link">Sprawdź na mempool.space →</a>
@@ -152,32 +159,106 @@ document.getElementById("step1NextBtn").addEventListener("click", async () => {
     await setupBtcLock();
 });
 
-async function setupBtcLock() {
-    buyerPriv = randomPrivKeyBigInt();
-    const pubPoint = scalarMult(buyerPriv, G);
-    buyerPubKeyHash = bytesToHex(await hash160(compressPubKey(pubPoint)));
-    document.getElementById("btcPrivKeyOut").textContent = buyerPriv.toString(16).padStart(64, "0");
+let unsavedKey = false; // czy wygenerowany klucz nie zostal jeszcze potwierdzony jako zapisany
 
-    secretHex = randomHex(32);
-    hashLockValue = bytesToHex(await sha256(utf8ToBytes(secretHex)));
-
-    let tipHeight;
+function saveKeyToLocalStorage(offerId, privHex, pubKeyHash, secretHex, timeoutHeight) {
     try {
-        const res = await fetch(MEMPOOL_API + "/blocks/tip/height");
-        tipHeight = Number((await res.text()).trim());
-    } catch (err) {
-        showError(t("swap_err_tip_height"));
-        return;
+        localStorage.setItem("btc_key_backup_swap_" + offerId, JSON.stringify({
+            offerId, privateKeyHex: privHex, pubKeyHash, secretHex, timeoutHeight, savedAt: Date.now()
+        }));
+    } catch (err) { /* localStorage niedostępny - reszta zabezpieczeń nadal działa */ }
+}
+
+function downloadKeyFile() {
+    const privHex = buyerPriv.toString(16).padStart(64, "0");
+    const content =
+`BitBudCoin - klucz prywatny BTC dla oferty ${offer.offerId}
+Wygenerowano: ${new Date().toISOString()}
+
+KLUCZ PRYWATNY (potrzebny do zwrotu, gdyby coś poszło nie tak):
+${privHex}
+
+Adres zamka: ${htlcAddress}
+
+Nikomu nie udostępniaj tego pliku.
+`;
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bbc-btc-key-${offer.offerId}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    const btn = document.getElementById("downloadKeyBtn");
+    btn.classList.add("downloaded");
+    btn.innerHTML = "✅ <span>" + t("revoffer_downloaded") + "</span>";
+}
+
+document.getElementById("downloadKeyBtn").addEventListener("click", downloadKeyFile);
+document.getElementById("confirmSavedCheckbox").addEventListener("change", (e) => {
+    unsavedKey = !e.target.checked;
+});
+
+window.addEventListener("beforeunload", (e) => {
+    if (unsavedKey) {
+        e.preventDefault();
+        e.returnValue = "";
     }
-    const timeoutHeight = tipHeight + Math.ceil(offer.timeoutHours * 6);
+});
+
+function loadKeyFromLocalStorage(offerId) {
+    try {
+        const raw = localStorage.getItem("btc_key_backup_swap_" + offerId);
+        return raw ? JSON.parse(raw) : null;
+    } catch (err) { return null; }
+}
+
+async function setupBtcLock() {
+    const existing = loadKeyFromLocalStorage(offer.offerId);
+
+    if (existing && existing.secretHex && existing.timeoutHeight) {
+        // DOKŁADNIE TE SAME wartości co przy pierwszym wejściu - inaczej
+        // każde odświeżenie/awaria backendu dawałoby INNY adres BTC do
+        // wysyłki, i nikt by nie wiedział który jest "ten prawdziwy" (to
+        // prawdopodobnie namieszało w prawdziwej transakcji tej nocy).
+        buyerPriv = BigInt("0x" + existing.privateKeyHex);
+        buyerPubKeyHash = existing.pubKeyHash;
+        secretHex = existing.secretHex;
+        hashLockValue = bytesToHex(await sha256(utf8ToBytes(secretHex)));
+        offer.timeoutHeight = existing.timeoutHeight;
+        document.getElementById("recoveredNotice").style.display = "block";
+    } else {
+        buyerPriv = randomPrivKeyBigInt();
+        const pubPoint = scalarMult(buyerPriv, G);
+        buyerPubKeyHash = bytesToHex(await hash160(compressPubKey(pubPoint)));
+        secretHex = randomHex(32);
+        hashLockValue = bytesToHex(await sha256(utf8ToBytes(secretHex)));
+
+        let tipHeight;
+        try {
+            const res = await fetch(MEMPOOL_API + "/blocks/tip/height");
+            tipHeight = Number((await res.text()).trim());
+        } catch (err) {
+            showError(t("swap_err_tip_height"));
+            return;
+        }
+        offer.timeoutHeight = tipHeight + Math.ceil(offer.timeoutHours * 6);
+
+        saveKeyToLocalStorage(offer.offerId, buyerPriv.toString(16).padStart(64, "0"), buyerPubKeyHash, secretHex, offer.timeoutHeight);
+    }
+
+    document.getElementById("btcPrivKeyOut").textContent = buyerPriv.toString(16).padStart(64, "0");
+    unsavedKey = true;
 
     compiledScript = compileHtlcScript({
-        hashLock: hashLockValue, timeoutHeight,
+        hashLock: hashLockValue, timeoutHeight: offer.timeoutHeight,
         claimantPubKeyHash: offer.sellerPubKeyHash, refundeePubKeyHash: buyerPubKeyHash
     });
     const { address } = await deriveP2WSHAddress(compiledScript, "bc");
     htlcAddress = address;
-    offer.timeoutHeight = timeoutHeight;
 
     document.getElementById("htlcAddressOut").textContent = htlcAddress;
     document.getElementById("checkOnMempoolLink").href = `https://mempool.space/address/${htlcAddress}`;
