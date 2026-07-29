@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dołącz — BitBudCoin</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  .subtitle { font-family: var(--font-mono); font-size: .85rem; color: var(--leaf); margin-top: -6px; margin-bottom: 18px; }
+  .hero-intro { font-size: .95rem; color: var(--text-dim); line-height: 1.6; margin-bottom: 22px; }
+  .section-heading { margin-top: 30px; margin-bottom: 10px; font-size: 1.05rem; }
+  .stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; text-align: center; }
+  .stat-value { font-family: var(--font-display); font-size: 1.2rem; font-weight: 700; color: var(--leaf); word-break: break-word; }
+  .stat-label { font-family: var(--font-mono); font-size: .62rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .03em; margin-top: 3px; }
+  .block-row, .miner-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--surface-2); font-family: var(--font-mono); font-size: .8rem; }
+  .block-row:last-child, .miner-row:last-child { border-bottom: none; }
+  .block-height { color: var(--leaf); font-weight: 600; flex-shrink: 0; }
+  .block-time, .block-tx, .miner-shares { color: var(--text-dim); flex-shrink: 0; }
+  .miner-addr { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .empty-note { color: var(--text-dim); font-size: .85rem; padding: 6px 0; margin: 0; }
+  .cta-grid { display: flex; flex-direction: column; gap: 12px; }
+  .cta-card h3 { margin: 0 0 6px; font-size: .95rem; }
+  .cta-card p { font-size: .82rem; color: var(--text-dim); margin: 0 0 12px; line-height: 1.5; }
+  .cta-card .btn { width: 100%; justify-content: center; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="page">
+    <h1 style="margin-top:32px;" data-i18n="join_h1">Dołącz do BitBudCoin</h1>
+    <div class="subtitle" data-i18n="join_subtitle">Prawdziwy blockchain, budowany od zera, bez wielkich obietnic.</div>
+    <p class="hero-intro" data-i18n="join_intro">BitBudCoin (BbC) to niezależna sieć proof-of-work, którą kilka osób realnie kopie i używa już teraz. Żadnych fałszywych statystyk, żadnego marketingu — to, co widzisz niżej, dzieje się naprawdę, na żywo, na tym samym łańcuchu, który możesz sam sprawdzić w explorerze.</p>
+
+    <h2 class="section-heading" data-i18n="join_live_heading">To dzieje się właśnie teraz</h2>
+    <div class="card">
+        <div class="stat-grid">
+            <div><div class="stat-value" id="statHeight">–</div><div class="stat-label" data-i18n="dashboard_height">Wysokość</div></div>
+            <div><div class="stat-value" id="statSupply">–</div><div class="stat-label" data-i18n="index_stat_supply">Podaż w obiegu</div></div>
+            <div><div class="stat-value" id="statReward">–</div><div class="stat-label" data-i18n="index_stat_reward">Aktualna nagroda</div></div>
+        </div>
+    </div>
+
+    <h2 class="section-heading" data-i18n="dashboard_recent_blocks">Ostatnie bloki</h2>
+    <div class="card" id="blocksList"><p class="empty-note" id="blocksLoading" data-i18n="join_loading">Wczytuję dane z sieci…</p></div>
+
+    <h2 class="section-heading" data-i18n="miner_active_miners_heading">Aktywni górnicy</h2>
+    <div class="card" id="minersList"><p class="empty-note" id="minersLoading" data-i18n="join_loading">Wczytuję dane z sieci…</p></div>
+
+    <h2 class="section-heading" data-i18n="join_cta_heading">Jak zacząć</h2>
+    <div class="cta-grid">
+        <div class="card cta-card">
+            <h3 data-i18n="join_cta_wallet_title">1. Załóż portfel</h3>
+            <p data-i18n="join_cta_wallet_desc">Klucz prywatny powstaje w Twojej przeglądarce i nigdy nigdzie nie jest wysyłany. Zajmuje dosłownie minutę.</p>
+            <a class="btn flame" href="wallet.html" data-i18n="join_cta_wallet_btn">Otwórz portfel →</a>
+        </div>
+        <div class="card cta-card">
+            <h3 data-i18n="join_cta_mine_title">2. Kop BbC</h3>
+            <p data-i18n="join_cta_mine_desc">Liczysz hashe w przeglądarce, solo albo w puli z innymi. Realny udział w nagrodzie, nie punkty.</p>
+            <a class="btn flame" href="miner.html" data-i18n="join_cta_mine_btn">Zacznij kopać →</a>
+        </div>
+        <div class="card cta-card">
+            <h3 data-i18n="join_cta_buy_title">3. Albo kup za BTC</h3>
+            <p data-i18n="join_cta_buy_desc">Bezpośrednia wymiana z drugą osobą przez HTLC — nikt nie wysyła niczego na zaufanie.</p>
+            <a class="btn flame" href="create-offer.html" data-i18n="join_cta_buy_btn">Zaproponuj wymianę →</a>
+        </div>
+    </div>
+</div>
+
+<footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span></footer>
+
+<script src="assets/api.js"></script>
+<script src="assets/nav.js"></script>
+<script src="assets/native-responsive.js"></script>
+<script src="assets/i18n.js"></script>
+<script>
+let lastBlocks = null, lastPool = null;
+
+function timeAgo(ts) {
+    const diffSec = Math.floor((Date.now() - ts) / 1000);
+    if (diffSec < 10) return t("time_now");
+    if (diffSec < 60) return diffSec + t("time_s_ago");
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return diffMin + t("time_m_ago");
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return diffH + t("time_h_ago");
+    const diffD = Math.floor(diffH / 24);
+    return diffD + t("time_d_ago");
+}
+
+function renderStats(info) {
+    document.getElementById("statHeight").textContent = "#" + fmtNumber(info.height, 0);
+    document.getElementById("statSupply").textContent = fmtNumber(info.circulatingSupply, 0);
+    document.getElementById("statReward").textContent = info.currentBlockReward;
+}
+
+function renderBlocks(blocks) {
+    lastBlocks = blocks;
+    const el = document.getElementById("blocksList");
+    if (!blocks || blocks.length === 0) { el.innerHTML = `<p class="empty-note">—</p>`; return; }
+    el.innerHTML = blocks.slice(0, 6).map((b) => `
+        <div class="block-row">
+            <span class="block-height">#${b.height}</span>
+            <span class="block-time">${timeAgo(b.timestamp)}</span>
+            <span class="block-tx">${b.transactions.length} tx</span>
+        </div>
+    `).join("");
+}
+
+function renderMiners(pool) {
+    lastPool = pool;
+    const el = document.getElementById("minersList");
+    const miners = (pool && pool.activeMiners) || [];
+    if (miners.length === 0) {
+        el.innerHTML = `<p class="empty-note">${t("join_no_miners")}</p>`;
+        return;
+    }
+    el.innerHTML = miners.map((m) => `
+        <div class="miner-row">
+            <span class="miner-addr">${m.minerAddress.slice(0, 10)}…${m.minerAddress.slice(-6)}</span>
+            <span class="miner-shares">${m.shares} shares</span>
+        </div>
+    `).join("");
+}
+
+async function loadJoinData() {
+    try {
+        const [info, blocks, pool] = await Promise.all([
+            fetch(API_BASE + "/info").then((r) => r.json()),
+            fetch(API_BASE + "/blocks").then((r) => r.json()),
+            fetch(API_BASE + "/pool/status").then((r) => r.json())
+        ]);
+        renderStats(info);
+        renderBlocks(blocks);
+        renderMiners(pool);
+    } catch (err) {
+        const msg = `<p class="empty-note">${t("join_load_error")}</p>`;
+        document.getElementById("blocksList").innerHTML = msg;
+        document.getElementById("minersList").innerHTML = msg;
+    }
+}
+
+// Tak jak explorer/dashboard - przy zmianie języka odświeżamy z tego, co już
+// mamy (bez ponownego fetchowania), żeby "Aktywni górnicy" / czasy bloków nie
+// zostały zamrożone w starym języku.
+document.addEventListener("bbc:langchange", () => {
+    if (lastBlocks) renderBlocks(lastBlocks);
+    if (lastPool) renderMiners(lastPool);
+});
+
+loadJoinData();
+</script>
+</body>
+</html>
