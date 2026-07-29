@@ -2,12 +2,9 @@
 // Start/Giełda/Adres nie miały odpowiednika nigdzie - bez wymyślonych kluczy,
 // żeby nie wywalać i18n.js na nieznanym data-i18n.
 //
-// "Dołącz" (join.html) też na razie bez i18n z tego samego powodu - strona
-// jeszcze nie istnieje, więc klucz "nav_join" jeszcze nie ma tłumaczenia
-// w i18n.js. Dopisany razem z resztą kluczy strony, jak powstanie.
 const NAV_PAGES = [
     { href: "index.html",     label: "Start" },
-    { href: "join.html",      label: "Dołącz" },
+    { href: "join.html",      label: "Dołącz",    i18n: "nav_join" },
     { href: "dashboard.html", label: "Dashboard", i18n: "nav_dashboard" },
     { href: "explorer.html",  label: "Explorer",  i18n: "nav_explorer" },
     { href: "miner.html",     label: "Kopanie",   i18n: "nav_mining" },
