@@ -117,11 +117,20 @@ let unsavedKeys = new Set(); // offerId-y, ktore maja wygenerowany klucz jeszcze
 // leży zapomniany klucz z poprzedniej, przerwanej sesji (zamknięta karta,
 // crash przeglądarki, cokolwiek) - i pokazuje go na samej górze strony,
 // zanim zdąży się o nim zapomnieć na dobre.
+//
+// WAŻNE: swap.html (kupujący) zapisuje SWOJE klucze pod prefiksem
+// "btc_key_backup_swap_<offerId>" - to też zaczyna się od "btc_key_backup_",
+// więc bez wykluczenia tego wzorca ten skan (strona ADMINA) pokazywałby
+// też klucze zwrotne kupującego z aktywnych, niedokończonych transakcji.
+// Efekt: mylące "potrzebny do odebrania BTC" na kluczu, który w
+// rzeczywistości jest kluczem zwrotnym kupującego, plus ryzyko że admin
+// przypadkiem usunie ("Usuń") klucz, który kupujący jeszcze aktywnie
+// potrzebuje do dokończenia swapu.
 function scanForRecoveredKeys() {
     const found = [];
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith("btc_key_backup_")) {
+        if (key && key.startsWith("btc_key_backup_") && !key.startsWith("btc_key_backup_swap_")) {
             try {
                 const data = JSON.parse(localStorage.getItem(key));
                 found.push(data);
