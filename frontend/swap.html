@@ -143,6 +143,16 @@ async function loadOffer() {
         return;
     }
 
+    // Krytyczne: bez tego kupujący mógł wejść w cały flow (i zobaczyć
+    // wygenerowany klucz) dla oferty, której sprzedający jeszcze nie
+    // zaakceptował (albo odrzucił) - a krok 2 potem cicho się wywalał,
+    // bo sellerPubKeyHash jeszcze nie istnieje. Zero komunikatu, pusty
+    // adres zamka. Stąd ten twardy stop tutaj, zanim cokolwiek pokażemy.
+    if (offer.status !== "open") {
+        showError(t("swap_err_offer_not_ready"));
+        return;
+    }
+
     document.getElementById("offerSummary").innerHTML =
         `${t("swap_sending_label")}: <strong>${offer.expectedAmount} BTC</strong><br>${t("swap_receiving_label")}: <strong>${offer.bbcAmount} BbC</strong>`;
     document.getElementById("panel1").style.display = "block";
@@ -253,12 +263,22 @@ async function setupBtcLock() {
     document.getElementById("btcPrivKeyOut").textContent = buyerPriv.toString(16).padStart(64, "0");
     unsavedKey = true;
 
-    compiledScript = compileHtlcScript({
-        hashLock: hashLockValue, timeoutHeight: offer.timeoutHeight,
-        claimantPubKeyHash: offer.sellerPubKeyHash, refundeePubKeyHash: buyerPubKeyHash
-    });
-    const { address } = await deriveP2WSHAddress(compiledScript, "bc");
-    htlcAddress = address;
+    try {
+        compiledScript = compileHtlcScript({
+            hashLock: hashLockValue, timeoutHeight: offer.timeoutHeight,
+            claimantPubKeyHash: offer.sellerPubKeyHash, refundeePubKeyHash: buyerPubKeyHash
+        });
+        const { address } = await deriveP2WSHAddress(compiledScript, "bc");
+        htlcAddress = address;
+    } catch (err) {
+        // Druga warstwa - gdyby powyższy check statusu kiedyś nie
+        // wystarczył (np. dane sprzedającego uszkodzone z innego powodu),
+        // to i tak nigdy nie ma zostać cicho: brak adresu bez wyjaśnienia
+        // wyglądałby jak "strona nie działa", a to jest jasny sygnał
+        // "nie wysyłaj BTC, coś jest nie tak po stronie sprzedającego".
+        showError(t("swap_err_lock_build_failed"));
+        return;
+    }
 
     document.getElementById("htlcAddressOut").textContent = htlcAddress;
     document.getElementById("checkOnMempoolLink").href = `https://mempool.space/address/${htlcAddress}`;
