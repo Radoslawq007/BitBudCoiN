@@ -259,6 +259,20 @@
 <script src="assets/seed-phrase.js"></script>
 <script src="assets/i18n.js"></script>
 <script>
+// ==================== TYMCZASOWE DO DIAGNOZY ====================
+// Łapie KAŻDY nieobsłużony błąd JS na stronie (i każde odrzucone Promise)
+// i pokazuje jako zwykły alert() - działa na telefonie bez podłączania do
+// komputera, bez DevTools. Usunąć po znalezieniu przyczyny "nic się nie
+// dzieje" po kliknięciu "Utwórz HTLC".
+window.addEventListener("error", (e) => {
+    alert("BŁĄD JS: " + e.message + "\nplik: " + (e.filename ? e.filename.split("/").pop() : "?") + " linia: " + e.lineno);
+});
+window.addEventListener("unhandledrejection", (e) => {
+    const msg = (e.reason && e.reason.message) ? e.reason.message : String(e.reason);
+    alert("BŁĄD (async): " + msg);
+});
+// ==================== KONIEC TYMCZASOWEGO ====================
+
 mountSmokeField();
 mountNavStatus();
 
@@ -698,11 +712,13 @@ document.getElementById("htlcCreateBtn").addEventListener("click", async () => {
 
     // Kolejność pól MUSI się zgadzać z htlcCreatePayload() w backend/wallet.js -
     // podpis liczony jest z JSON.stringify tego dokładnego obiektu.
-    const payload = {
-        htlcId, from: currentWallet.address, amount, fee, hashLock, timeoutHeight,
-        claimant, refundee: currentWallet.address, timestamp: Date.now()
-    };
     try {
+        if (!currentWallet) { resultEl.innerHTML = `<span style="color:var(--danger)">❌ Portfel nie jest wczytany na tej stronie — wróć do "Mam już portfel" i zaloguj się ponownie.</span>`; return; }
+
+        const payload = {
+            htlcId, from: currentWallet.address, amount, fee, hashLock, timeoutHeight,
+            claimant, refundee: currentWallet.address, timestamp: Date.now()
+        };
         const signature = await signPayload(currentWallet.privateKey, payload);
         const tx = { ...payload, type: "HTLC_CREATE", publicKey: currentWallet.publicKeyPem, signature };
         const result = await apiPost("/htlc/submit", tx);
