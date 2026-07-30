@@ -89,6 +89,7 @@ async function loadOffers() {
                 </div>
                 <div class="accept-sub" id="accept-sub-${o.offerId}">
                     <div class="key-warning" data-i18n="revoffer_key_warning">⚠️ Nowy klucz BTC tylko dla tej transakcji. Zapisz — potrzebny do odebrania BTC później.</div>
+                    <div class="key-warning" id="recovered-notice-${o.offerId}" style="display:none;background:rgba(74,222,128,.1);border-color:var(--leaf);" data-i18n="swap_recovered_notice">✅ To ten sam klucz co poprzednio — odzyskany automatycznie, adres się nie zmienił.</div>
                     <div class="priv-display" id="priv-${o.offerId}"></div>
                     <button class="download-key-btn" data-action="download-key" data-id="${o.offerId}">📥 <span data-i18n="revoffer_download_key">Pobierz plik z kluczem</span></button>
                     <div class="field"><label data-i18n="revoffer_bbc_address_label">Twój adres BbC (istniejący z portfela)</label><input id="bbcaddr-${o.offerId}" placeholder="BbC..."></div>
@@ -183,6 +184,13 @@ function saveKeyToLocalStorage(offerId, priv, pubKeyHash) {
     } catch (err) { /* localStorage niedostępny (np. tryb prywatny) - reszta zabezpieczeń nadal działa */ }
 }
 
+function loadKeyFromLocalStorage(offerId) {
+    try {
+        const raw = localStorage.getItem("btc_key_backup_" + offerId);
+        return raw ? JSON.parse(raw) : null;
+    } catch (err) { return null; }
+}
+
 function downloadKeyFileFromData(data) {
     const content =
 `BitBudCoin - klucz prywatny BTC dla oferty ${data.offerId}
@@ -224,12 +232,26 @@ async function showAcceptForm(offerId) {
     sub.style.display = "block";
 
     if (!generatedKeys[offerId]) {
-        const priv = randomPrivKeyBigInt();
-        const pubPoint = scalarMult(priv, G);
-        const pubKeyHash = bytesToHex(await hash160(compressPubKey(pubPoint)));
-        generatedKeys[offerId] = { priv, pubKeyHash };
-        document.getElementById("priv-" + offerId).textContent = priv.toString(16).padStart(64, "0");
-        saveKeyToLocalStorage(offerId, priv, pubKeyHash);
+        // Sprawdzamy NAJPIERW localStorage, zanim wylosujemy cokolwiek nowego -
+        // to naprawia bug, który spowodował całe zamieszanie z kluczami 29-30.07:
+        // bez tego KAŻDE odświeżenie strony + ponowne "Akceptuj" losowało zupełnie
+        // nowy klucz, cicho nadpisując poprzedni w localStorage, więc klucz
+        // widoczny na ekranie za pierwszym razem przestawał być tym prawdziwym.
+        // Dokładnie ten wzorzec, który swap.html już miał od początku.
+        const existing = loadKeyFromLocalStorage(offerId);
+        if (existing && existing.privateKeyHex && existing.pubKeyHash) {
+            const priv = BigInt("0x" + existing.privateKeyHex);
+            generatedKeys[offerId] = { priv, pubKeyHash: existing.pubKeyHash };
+            document.getElementById("priv-" + offerId).textContent = existing.privateKeyHex;
+            document.getElementById("recovered-notice-" + offerId).style.display = "block";
+        } else {
+            const priv = randomPrivKeyBigInt();
+            const pubPoint = scalarMult(priv, G);
+            const pubKeyHash = bytesToHex(await hash160(compressPubKey(pubPoint)));
+            generatedKeys[offerId] = { priv, pubKeyHash };
+            document.getElementById("priv-" + offerId).textContent = priv.toString(16).padStart(64, "0");
+            saveKeyToLocalStorage(offerId, priv, pubKeyHash);
+        }
         unsavedKeys.add(offerId);
     }
 
