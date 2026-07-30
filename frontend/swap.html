@@ -31,6 +31,8 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .copy-block { background: var(--surface-2); border: 1px dashed var(--leaf-dim); border-radius: 8px; padding: 12px; font-family: var(--font-mono); font-size: .8rem; margin: 10px 0; }
   .copy-block div { margin-bottom: 4px; word-break: break-all; }
+  .qr-wrap { display: flex; justify-content: center; margin: 4px 0 12px; }
+  .qr-wrap > div { background: #fff; padding: 12px; border-radius: 10px; line-height: 0; }
 </style>
 </head>
 <body>
@@ -64,6 +66,8 @@
         <label class="confirm-saved-row"><input type="checkbox" id="confirmSavedCheckbox"><span data-i18n="revoffer_confirm_saved">Zapisałem/pobrałem klucz prywatny — bez niego nie odbiorę BTC.</span></label>
         <label style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);" data-i18n="swap_lock_address_label">Adres zamka (wyślij BTC tutaj)</label>
         <div class="addr-display" id="htlcAddressOut"></div>
+        <div style="font-family:var(--font-mono);font-size:.75rem;color:var(--text-dim);text-align:center;margin:10px 0 4px;" data-i18n="swap_or_scan_qr">albo zeskanuj:</div>
+        <div class="qr-wrap" id="qrCodeWrap"><div id="qrCode"></div></div>
         <a id="checkOnMempoolLink" href="#" target="_blank" style="font-family:var(--font-mono);font-size:.8rem;color:var(--leaf);display:block;margin-bottom:10px;" data-i18n="swap_check_mempool_link">Sprawdź na mempool.space →</a>
         <div class="waiting"><span class="spinner"></span><span id="fundingStatus" data-i18n="swap_waiting_funding">Czekam na wpłatę…</span></div>
     </div>
@@ -96,6 +100,7 @@
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
 <script src="assets/btc-bridge.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="assets/i18n.js"></script>
 <script>
 const MEMPOOL_API = "https://mempool.space/api";
@@ -282,6 +287,21 @@ async function setupBtcLock() {
 
     document.getElementById("htlcAddressOut").textContent = htlcAddress;
     document.getElementById("checkOnMempoolLink").href = `https://mempool.space/address/${htlcAddress}`;
+
+    // BIP21 URI zamiast gołego adresu - portfele obsługujące ten format
+    // (większość) same wypełnią kwotę, więc kupujący nie musi jej przepisywać
+    // ręcznie po zeskanowaniu. Jeśli któryś portfel nie rozpozna URI, gołe
+    // "bc1..." wciąż jest widoczne obok jako tekst do skopiowania.
+    const qrEl = document.getElementById("qrCode");
+    qrEl.innerHTML = "";
+    try {
+        new QRCode(qrEl, {
+            text: `bitcoin:${htlcAddress}?amount=${offer.expectedAmount}`,
+            width: 200, height: 200,
+            colorDark: "#000000", colorLight: "#ffffff"
+        });
+    } catch (err) { document.getElementById("qrCodeWrap").style.display = "none"; }
+
     pollForFunding();
 }
 
