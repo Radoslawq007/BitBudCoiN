@@ -343,6 +343,7 @@ const translations = {
         swap_err_tip_height: "Nie mogę sprawdzić aktualnej wysokości BTC — spróbuj odświeżyć stronę.",
         swap_err_offer_not_ready: "Ta oferta nie jest jeszcze gotowa — sprzedający musi ją najpierw zaakceptować. Odśwież stronę za chwilę albo skontaktuj się ze sprzedającym.",
         swap_err_lock_build_failed: "Nie udało się zbudować adresu zamka BTC — brakuje danych sprzedającego. NIE wysyłaj BTC, skontaktuj się ze sprzedającym.",
+        swap_or_scan_qr: "albo zeskanuj:",
 
         nav_join: "Dołącz",
         join_h1: "Dołącz do BitBudCoin",
@@ -702,6 +703,7 @@ const translations = {
         swap_err_tip_height: "Can't check the current BTC height — try refreshing the page.",
         swap_err_offer_not_ready: "This offer isn't ready yet — the seller needs to accept it first. Refresh in a bit or contact the seller.",
         swap_err_lock_build_failed: "Couldn't build the BTC lock address — seller data is missing. Do NOT send BTC, contact the seller.",
+        swap_or_scan_qr: "or scan:",
 
         nav_join: "Join",
         join_h1: "Join BitBudCoin",
