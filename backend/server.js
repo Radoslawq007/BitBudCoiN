@@ -8,6 +8,10 @@ const P2P = require("./p2p");
 const SoloTracker = require("./solo-tracker");
 const { rateLimiter, strictLimiter } = require("./rate-limit");
 const { difficultyToTargetHex } = require("./bbcblockchain");
+const bridgeTags = require("./bridge-tags");
+const swapOffers = require("./swap-offers");
+const { verifyAcceptOfferSignature, verifyRejectOfferSignature } = require("./swap-offer-auth");
+const { verifyHtlcCreateSignature, verifyHtlcClaimSignature, verifyHtlcRefundSignature } = require("./htlc-wallet");
 
 const app = express();
 app.use(cors());
@@ -18,6 +22,7 @@ const blockchain = new Blockchain();
 const mempool = new Mempool(blockchain, blockchain.storage);
 const pool = new Pool(blockchain, { mempool, poolAddress: CONFIG.POOL_ADDRESS, poolFee: CONFIG.POOL_FEE, shareDifficulty: CONFIG.SHARE_DIFFICULTY });
 const p2p = new P2P(blockchain, CONFIG.P2P_PORT, CONFIG.PEERS);
+p2p.start();
 const soloTracker = new SoloTracker();
 
 app.get("/info", (req, res) => res.json(blockchain.getInfo()));
@@ -77,8 +82,124 @@ app.get("/network/addresses", (req, res) => {
     res.json(blockchain.getAddressStats());
 });
 
+app.get("/peers", (req, res) => {
+    res.json(p2p.getStatus());
+});
+
+app.post("/peers/connect", strictLimiter, (req, res) => {
+    const { address } = req.body || {};
+    if (!address || typeof address !== "string" || !address.includes(":")) {
+        return res.status(400).json({ error: "Nieprawidłowy adres - oczekiwano formatu host:port" });
+    }
+    p2p.connectToPeer(address);
+    res.json({ ok: true, message: `Próba połączenia z ${address} rozpoczęta` });
+});
+
+app.get("/bridge/annotations", (req, res) => {
+    res.json(bridgeTags.getAll());
+});
+
+app.post("/bridge/annotations", strictLimiter, (req, res) => {
+    const { secret, signature, blockHash, to, amount, chain, note } = req.body || {};
+    if (secret !== bridgeTags.ADMIN_SECRET) {
+        return res.status(403).json({ error: "Zły sekret" });
+    }
+    try {
+        const tag = bridgeTags.addTag({ signature, blockHash, to, amount, chain, note });
+        res.json({ ok: true, tag });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.get("/swap/offers", (req, res) => {
+    res.json(swapOffers.getAll());
+});
+
+app.get("/swap/offers/:id", (req, res) => {
+    const offer = swapOffers.getOffer(req.params.id);
+    if (!offer) return res.status(404).json({ error: "Oferta nie znaleziona" });
+    res.json(offer);
+});
+
+app.post("/swap/offers", strictLimiter, (req, res) => {
+    const { chain, bbcAmount, expectedAmount, timeoutHours, note, targetSellerAddress } = req.body || {};
+    try {
+        const offer = swapOffers.createOffer({ chain, bbcAmount, expectedAmount, timeoutHours, note, targetSellerAddress });
+        res.json({ ok: true, offer });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.post("/swap/offers/:id/accept", strictLimiter, (req, res) => {
+    const offer = swapOffers.getOffer(req.params.id);
+    if (!offer) return res.status(404).json({ error: "Oferta nie znaleziona" });
+    if (!verifyAcceptOfferSignature(req.body, offer.targetSellerAddress)) {
+        return res.status(403).json({ error: "Nieprawidłowy podpis - tylko właściciel adresu docelowego może zaakceptować tę ofertę" });
+    }
+    try {
+        const updated = swapOffers.acceptOffer(req.params.id, {
+            sellerPubKeyHash: req.body.sellerPubKeyHash,
+            sellerBbcAddress: offer.targetSellerAddress
+        });
+        res.json({ ok: true, offer: updated });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+app.post("/swap/offers/:id/reject", strictLimiter, (req, res) => {
+    const offer = swapOffers.getOffer(req.params.id);
+    if (!offer) return res.status(404).json({ error: "Oferta nie znaleziona" });
+    if (!verifyRejectOfferSignature(req.body, offer.targetSellerAddress)) {
+        return res.status(403).json({ error: "Nieprawidłowy podpis - tylko właściciel adresu docelowego może odrzucić tę ofertę" });
+    }
+    try {
+        const updated = swapOffers.rejectOffer(req.params.id, offer.targetSellerAddress);
+        res.json({ ok: true, offer: updated });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
 app.get("/transactions/address/:address", (req, res) => {
     res.json(blockchain.getTransactionsForAddress(req.params.address));
+});
+
+app.post("/htlc/submit", strictLimiter, (req, res) => {
+    const tx = req.body;
+    if (!tx || !tx.type) return res.status(400).json({ error: "Brak typu transakcji" });
+    if (tx.type === "HTLC_CREATE") {
+        if (!verifyHtlcCreateSignature(tx)) return res.status(400).json({ error: "Nieprawidłowy podpis - transakcja odrzucona" });
+        if (blockchain.findHTLC(tx.htlcId)) return res.status(400).json({ error: "HTLC o tym ID już istnieje" });
+        const fee = typeof tx.fee === "number" ? tx.fee : 0;
+        const available = mempool.getPendingAwareBalance(tx.from);
+        if (available < tx.amount + fee) return res.status(400).json({ error: `Niewystarczające saldo (dostępne: ${available})` });
+        mempool.addHtlcTransaction(tx);
+        return res.json({ accepted: true });
+    }
+    if (tx.type === "HTLC_CLAIM") {
+        if (!verifyHtlcClaimSignature(tx)) return res.status(400).json({ error: "Nieprawidłowy podpis - transakcja odrzucona" });
+        const validation = blockchain.validateHTLCClaim({ htlcId: tx.htlcId, secret: tx.secret, claimant: tx.claimant });
+        if (!validation.valid) return res.status(400).json({ error: validation.reason });
+        mempool.addHtlcTransaction({ ...tx, amount: validation.amount, to: validation.to });
+        return res.json({ accepted: true });
+    }
+    if (tx.type === "HTLC_REFUND") {
+        if (!verifyHtlcRefundSignature(tx)) return res.status(400).json({ error: "Nieprawidłowy podpis - transakcja odrzucona" });
+        const validation = blockchain.validateHTLCRefund({ htlcId: tx.htlcId, refundee: tx.refundee });
+        if (!validation.valid) return res.status(400).json({ error: validation.reason });
+        mempool.addHtlcTransaction({ ...tx, amount: validation.amount, to: validation.to });
+        return res.json({ accepted: true });
+    }
+    res.status(400).json({ error: `Nieznany typ transakcji "${tx.type}"` });
+});
+
+app.get("/htlc/:id", (req, res) => {
+    const htlc = blockchain.findHTLC(req.params.id);
+    if (!htlc) return res.status(404).json({ error: "HTLC nie znaleziony" });
+    res.json(htlc);
 });
 
 app.get("/pool/work", (req, res) => {
