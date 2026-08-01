@@ -344,6 +344,10 @@ const translations = {
         swap_err_offer_not_ready: "Ta oferta nie jest jeszcze gotowa — sprzedający musi ją najpierw zaakceptować. Odśwież stronę za chwilę albo skontaktuj się ze sprzedającym.",
         swap_err_lock_build_failed: "Nie udało się zbudować adresu zamka BTC — brakuje danych sprzedającego. NIE wysyłaj BTC, skontaktuj się ze sprzedającym.",
         swap_or_scan_qr: "albo zeskanuj:",
+        index_milestones_heading: "Kamienie milowe",
+        index_milestone1_desc: "Pierwszy w pełni dokończony atomic swap BTC↔BbC — ten sam hashlock po obu stronach, do sprawdzenia samemu.",
+        index_milestone1_btc_link: "Transakcja BTC →",
+        index_milestone1_bbc_link: "Blok BbC #3071 →",
 
         nav_join: "Dołącz",
         join_h1: "Dołącz do BitBudCoin",
@@ -704,6 +708,10 @@ const translations = {
         swap_err_offer_not_ready: "This offer isn't ready yet — the seller needs to accept it first. Refresh in a bit or contact the seller.",
         swap_err_lock_build_failed: "Couldn't build the BTC lock address — seller data is missing. Do NOT send BTC, contact the seller.",
         swap_or_scan_qr: "or scan:",
+        index_milestones_heading: "Milestones",
+        index_milestone1_desc: "The first fully completed BTC↔BbC atomic swap — the same hashlock on both sides, verifiable yourself.",
+        index_milestone1_btc_link: "BTC transaction →",
+        index_milestone1_bbc_link: "BbC block #3071 →",
 
         nav_join: "Join",
         join_h1: "Join BitBudCoin",
