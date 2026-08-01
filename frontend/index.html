@@ -20,6 +20,12 @@
   .status-item.testing { border-left-color: var(--flame); }
   .status-item.upcoming { border-left-color: var(--text-dim); color: var(--text-dim); }
   .status-icon { font-size: 1.05rem; flex-shrink: 0; }
+  .milestone-list { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+  .milestone-item { padding: 12px 14px; background: var(--surface-2); border-left: 3px solid var(--leaf); border-radius: 8px; }
+  .milestone-date { font-family: var(--font-mono); font-size: .72rem; color: var(--leaf); text-transform: uppercase; letter-spacing: .04em; }
+  .milestone-desc { margin-top: 4px; font-size: .92rem; }
+  .milestone-links { margin-top: 8px; font-family: var(--font-mono); font-size: .78rem; }
+  .milestone-links a { color: var(--leaf); margin-right: 12px; }
 </style>
 </head>
 <body>
@@ -62,6 +68,20 @@
             <div class="status-item testing">
                 <span class="status-icon">⏳</span>
                 <span data-i18n="index_status_exchange">Oczekiwanie na giełdę</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+        <h2 data-i18n="index_milestones_heading">Kamienie milowe</h2>
+        <div class="milestone-list">
+            <div class="milestone-item">
+                <div class="milestone-date">30.07.2026</div>
+                <div class="milestone-desc" data-i18n="index_milestone1_desc">Pierwszy w pełni dokończony atomic swap BTC↔BbC — ten sam hashlock po obu stronach, do sprawdzenia samemu.</div>
+                <div class="milestone-links">
+                    <a href="https://mempool.space/tx/26559e15d0e3d98389900c7747f07aea935bf90849d8b64bfd895cdd8109dfd0" target="_blank" data-i18n="index_milestone1_btc_link">Transakcja BTC →</a>
+                    <a href="block.html?height=3071" data-i18n="index_milestone1_bbc_link">Blok BbC #3071 →</a>
+                </div>
             </div>
         </div>
     </div>
