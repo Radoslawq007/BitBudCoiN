@@ -219,7 +219,10 @@
         <div class="field"><label>Adres odbiorcy (claimant)</label><input id="htlcCreateClaimant" placeholder="BbC..."></div>
         <div class="field"><label>Kwota (BbC)</label><input id="htlcCreateAmount" type="number" step="any"></div>
         <div class="field"><label>Opłata</label><input id="htlcCreateFee" type="number" step="any" value="0.01"></div>
-        <div class="field"><label>Wysokość terminu (numer bloku)</label><input id="htlcCreateTimeout" type="number"></div>
+        <div class="field"><label>Za ile godzin ma minąć termin</label><input id="htlcTimeoutHours" type="number" step="any" value="48"></div>
+        <button type="button" class="btn secondary" id="htlcCalcTimeoutBtn" style="width:100%;justify-content:center;margin-bottom:8px;">↻ Przelicz z realnego tempa bloków</button>
+        <div id="htlcTimeoutCalcInfo" style="font-family:var(--font-mono);font-size:.76rem;color:var(--text-dim);margin-bottom:12px;line-height:1.5;"></div>
+        <div class="field"><label>Wysokość terminu (numer bloku) — wyliczona automatycznie, można nadpisać ręcznie</label><input id="htlcCreateTimeout" type="number"></div>
         <button class="btn flame" id="htlcCreateBtn" style="width:100%;justify-content:center;">Utwórz HTLC</button>
         <div id="htlcCreateResult" style="margin-top:10px;font-family:var(--font-mono);font-size:.82rem;"></div>
       </div>
@@ -259,20 +262,6 @@
 <script src="assets/seed-phrase.js"></script>
 <script src="assets/i18n.js"></script>
 <script>
-// ==================== TYMCZASOWE DO DIAGNOZY ====================
-// Łapie KAŻDY nieobsłużony błąd JS na stronie (i każde odrzucone Promise)
-// i pokazuje jako zwykły alert() - działa na telefonie bez podłączania do
-// komputera, bez DevTools. Usunąć po znalezieniu przyczyny "nic się nie
-// dzieje" po kliknięciu "Utwórz HTLC".
-window.addEventListener("error", (e) => {
-    alert("BŁĄD JS: " + e.message + "\nplik: " + (e.filename ? e.filename.split("/").pop() : "?") + " linia: " + e.lineno);
-});
-window.addEventListener("unhandledrejection", (e) => {
-    const msg = (e.reason && e.reason.message) ? e.reason.message : String(e.reason);
-    alert("BŁĄD (async): " + msg);
-});
-// ==================== KONIEC TYMCZASOWEGO ====================
-
 mountSmokeField();
 mountNavStatus();
 
@@ -694,7 +683,51 @@ async function refreshHtlcCreateDefaults() {
     const secret = randomHex(32);
     document.getElementById("htlcCreateSecret").value = secret;
     document.getElementById("htlcCreateHashLock").value = await sha256HexOfText(secret);
+    await recalcHtlcTimeout();
 }
+
+// Liczy realną wysokość terminu z ZMIERZONEGO tempa ostatnich bloków, nie ze
+// wzoru czy założenia (to dokładnie ten krok, który ręcznie liczony na piechotę
+// wcześniej się pomylił o ~4,7x - 37 bloków zamiast ~173 na deklarowane 48h).
+// +2 na start: sama transakcja HTLC_CREATE potrzebuje co najmniej 1 wykopanego
+// bloku żeby wejść do łańcucha, plus margines na czas między liczeniem a
+// wysłaniem. +20% na margines bezpieczeństwa: koszt zbyt DŁUGIEGO terminu jest
+// znikomy (dłużej trzeba by czekać na ewentualny zwrot), koszt zbyt KRÓTKIEGO
+// już raz kosztował prawdziwe pieniądze.
+async function calculateRealTimeoutHeight(hours) {
+    const [info, blocks] = await Promise.all([
+        apiGet("/info"),
+        apiGet("/blocks?limit=50")
+    ]);
+    if (!blocks || blocks.length < 10) {
+        throw new Error(`za mało bloków do wiarygodnego przeliczenia (potrzeba min. 10, jest ${blocks ? blocks.length : 0})`);
+    }
+    const first = blocks[0], last = blocks[blocks.length - 1];
+    const spanSeconds = (first.timestamp - last.timestamp) / 1000;
+    const spanBlocks = first.height - last.height;
+    if (spanBlocks <= 0 || spanSeconds <= 0) throw new Error("nie udało się policzyć tempa bloków z pobranych danych");
+
+    const avgBlockTime = spanSeconds / spanBlocks;
+    const blocksNeededExact = (hours * 3600) / avgBlockTime;
+    const blocksWithMargin = Math.ceil(blocksNeededExact * 1.2);
+    const timeoutHeight = info.height + 2 + blocksWithMargin;
+
+    return { timeoutHeight, avgBlockTime, blocksWithMargin, currentHeight: info.height, realHours: (blocksWithMargin * avgBlockTime) / 3600 };
+}
+
+async function recalcHtlcTimeout() {
+    const infoEl = document.getElementById("htlcTimeoutCalcInfo");
+    const hours = Number(document.getElementById("htlcTimeoutHours").value) || 48;
+    infoEl.textContent = "Liczę z ostatnich 50 bloków…";
+    try {
+        const r = await calculateRealTimeoutHeight(hours);
+        document.getElementById("htlcCreateTimeout").value = r.timeoutHeight;
+        infoEl.innerHTML = `Tempo bloków: ~${(r.avgBlockTime / 60).toFixed(1)} min/blok (z ostatnich 50, teraz #${r.currentHeight})<br>Margines: ${r.blocksWithMargin} bloków ≈ ${r.realHours.toFixed(1)}h realnie (deklarowane ${hours}h + zapas)<br>Wysokość terminu: <strong style="color:var(--leaf)">${r.timeoutHeight}</strong>`;
+    } catch (err) {
+        infoEl.innerHTML = `<span style="color:var(--danger)">❌ Nie udało się przeliczyć automatycznie (${escapeHtml(err.message)}) — wpisz wysokość ręcznie, ostrożnie, najlepiej z dużym zapasem.</span>`;
+    }
+}
+document.getElementById("htlcCalcTimeoutBtn").addEventListener("click", recalcHtlcTimeout);
 
 document.getElementById("htlcCreateBtn").addEventListener("click", async () => {
     const resultEl = document.getElementById("htlcCreateResult");
@@ -714,6 +747,18 @@ document.getElementById("htlcCreateBtn").addEventListener("click", async () => {
     // podpis liczony jest z JSON.stringify tego dokładnego obiektu.
     try {
         if (!currentWallet) { resultEl.innerHTML = `<span style="color:var(--danger)">❌ Portfel nie jest wczytany na tej stronie — wróć do "Mam już portfel" i zaloguj się ponownie.</span>`; return; }
+
+        // Ostatnia linia obrony: sprawdzamy NA ŻYWO czy termin ma sensowny zapas,
+        // niezależnie od tego czy pochodzi z auto-przeliczenia czy ręcznej edycji.
+        // Nie blokuje na twardo (mogą być uzasadnione krótkie terminy), tylko ostrzega.
+        try {
+            const freshInfo = await apiGet("/info");
+            const margin = timeoutHeight - freshInfo.height;
+            if (margin < 20) {
+                const proceed = confirm(`Uwaga: termin (blok ${timeoutHeight}) jest tylko ${margin} bloków od teraz (blok ${freshInfo.height}). To może być za mało czasu. Kontynuować mimo to?`);
+                if (!proceed) { resultEl.textContent = "Anulowano."; return; }
+            }
+        } catch (marginErr) { /* jeśli to sprawdzenie się nie uda, nie blokujemy dalszej walidacji */ }
 
         const payload = {
             htlcId, from: currentWallet.address, amount, fee, hashLock, timeoutHeight,
