@@ -270,6 +270,7 @@ const translations = {
 
         reqoffer_h1: "Zaproponuj zakup BbC",
         reqoffer_intro: "Napisz ile chcesz wysłać i ile BbC oczekujesz w zamian. Sprzedający to zobaczy i zdecyduje — nic nie jest jeszcze wiążące.",
+        reqoffer_seller_label: "Adres BbC sprzedającego (od kogo kupujesz)",
         reqoffer_bbc_label: "Ile BbC chcesz otrzymać",
         reqoffer_btc_label: "Ile BTC oferujesz",
         reqoffer_timeout_label: "Ile godzin na dokończenie transakcji (po akceptacji)",
@@ -634,6 +635,7 @@ const translations = {
 
         reqoffer_h1: "Propose a BbC purchase",
         reqoffer_intro: "Write how much you want to send and how much BbC you expect in return. The seller will see it and decide — nothing is binding yet.",
+        reqoffer_seller_label: "Seller's BbC address (who you're buying from)",
         reqoffer_bbc_label: "How much BbC do you want",
         reqoffer_btc_label: "How much BTC are you offering",
         reqoffer_timeout_label: "Hours to complete the transaction (after acceptance)",
