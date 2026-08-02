@@ -23,6 +23,7 @@
     <p data-i18n="reqoffer_intro">Napisz ile chcesz wysłać i ile BbC oczekujesz w zamian. Sprzedający to zobaczy i zdecyduje — nic nie jest jeszcze wiążące.</p>
 
     <div class="card" id="formCard">
+        <div class="field"><label data-i18n="reqoffer_seller_label">Adres BbC sprzedającego (od kogo kupujesz)</label><input id="targetSellerAddress" placeholder="BbC..."></div>
         <div class="field"><label data-i18n="reqoffer_bbc_label">Ile BbC chcesz otrzymać</label><input id="bbcAmount" type="number" step="any" placeholder="10"></div>
         <div class="field"><label data-i18n="reqoffer_btc_label">Ile BTC oferujesz</label><input id="expectedAmount" type="number" step="any" placeholder="0.00011"></div>
         <div class="field"><label data-i18n="reqoffer_timeout_label">Ile godzin na dokończenie transakcji (po akceptacji)</label><input id="timeoutHours" type="number" value="48"></div>
@@ -47,12 +48,13 @@
 <script>
 document.getElementById("createBtn").addEventListener("click", async () => {
     const resultEl = document.getElementById("createResult");
+    const targetSellerAddress = document.getElementById("targetSellerAddress").value.trim();
     const bbcAmount = Number(document.getElementById("bbcAmount").value);
     const expectedAmount = Number(document.getElementById("expectedAmount").value);
     const timeoutHours = Number(document.getElementById("timeoutHours").value);
     const note = document.getElementById("note").value.trim();
 
-    if (!bbcAmount || !expectedAmount || !timeoutHours) {
+    if (!targetSellerAddress || !bbcAmount || !expectedAmount || !timeoutHours) {
         resultEl.textContent = t("reqoffer_fill_all");
         return;
     }
@@ -65,7 +67,7 @@ document.getElementById("createBtn").addEventListener("click", async () => {
         const res = await fetch(API_BASE + "/swap/offers", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chain: "BTC", bbcAmount, expectedAmount, timeoutHours, note })
+            body: JSON.stringify({ chain: "BTC", bbcAmount, expectedAmount, timeoutHours, note, targetSellerAddress })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || `${t("common_backend_error")} (${res.status})`);
