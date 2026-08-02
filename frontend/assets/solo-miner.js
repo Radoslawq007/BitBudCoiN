@@ -71,7 +71,18 @@ const SoloMiner = (() => {
         while (mining) {
             let work;
             try {
-                work = await fetch(`${apiBase}/solo/work?minerAddress=${encodeURIComponent(minerAddress)}`).then((r) => r.json());
+                const res = await fetch(`${apiBase}/solo/work?minerAddress=${encodeURIComponent(minerAddress)}`);
+                work = await res.json();
+                // KRYTYCZNE: jeśli serwer odpowiedział błędem (np. limit zapytań),
+                // "work" nie ma oczekiwanych pól (blockTarget itd.) - kopanie na
+                // takich danych kończyło się natychmiastowym, fałszywym "znalezieniem"
+                // bloku i pętlą bez przerwy, która dobijała serwer jeszcze bardziej.
+                // Teraz: sprawdzamy że dane są prawdziwe, zanim cokolwiek policzymy.
+                if (!res.ok || !work || !work.blockTarget) {
+                    onLog(`⚠️ Serwer: ${(work && (work.error || work.reason)) || "nieprawidłowa odpowiedź"} — czekam 5s...`, "warn");
+                    await new Promise((r) => setTimeout(r, 5000));
+                    continue;
+                }
             } catch (err) {
                 onLog("⚠️ Brak połączenia, ponawiam za 3s...", "warn");
                 await new Promise((r) => setTimeout(r, 3000));
@@ -82,21 +93,28 @@ const SoloMiner = (() => {
             if (!mining || !candidate) break;
 
             try {
-                const result = await fetch(`${apiBase}/solo/submit`, {
+                const res = await fetch(`${apiBase}/solo/submit`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ candidate })
-                }).then((r) => r.json());
+                });
+                const result = await res.json();
 
                 if (result.status === "mined") {
                     sessionStats.blocksFound++;
                     onLog(`🎉🎉 BLOK #${result.blockHeight} ZNALEZIONY SOLO! Nagroda: ${result.reward} BbC — cała Twoja!`, "block");
+                } else if (!res.ok && (result.error || "").toLowerCase().includes("zapyt")) {
+                    // Odrzucone przez limit zapytań, nie przez przegraną o blok -
+                    // to rozróżnienie jest ważne, żeby nie hamować dalej bez przerwy.
+                    onLog(`⚠️ Serwer: ${result.error} — czekam 3s...`, "warn");
+                    await new Promise((r) => setTimeout(r, 3000));
                 } else {
                     onLog(`Ktoś był szybszy o ten blok, próbuję dalej: ${result.reason || result.error}`, "warn");
                 }
                 onUpdate(sessionStats);
             } catch (err) {
-                onLog("⚠️ Błąd zgłaszania, ponawiam...", "warn");
+                onLog("⚠️ Błąd zgłaszania, ponawiam za 3s...", "warn");
+                await new Promise((r) => setTimeout(r, 3000));
             }
         }
     }
