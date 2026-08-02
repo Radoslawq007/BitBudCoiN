@@ -44,7 +44,17 @@ const BrowserMiner = (() => {
         while (mining) {
             let work;
             try {
-                work = await fetch(`${apiBase}/pool/work?minerAddress=${encodeURIComponent(minerAddress)}`).then((r) => r.json());
+                const res = await fetch(`${apiBase}/pool/work?minerAddress=${encodeURIComponent(minerAddress)}`);
+                work = await res.json();
+                // Tak samo jak w SoloMiner: jeśli serwer odpowiedział błędem (np.
+                // limit zapytań), "work" nie ma oczekiwanych pól - kopanie na takich
+                // danych kończyło się natychmiastowym, fałszywym wynikiem i pętlą
+                // bez przerwy, która dobijała serwer jeszcze bardziej.
+                if (!res.ok || !work || !work.shareTarget) {
+                    onLog(`⚠️ Serwer: ${(work && (work.error || work.reason)) || "nieprawidłowa odpowiedź"} — czekam 5s...`, "warn");
+                    await new Promise((r) => setTimeout(r, 5000));
+                    continue;
+                }
             } catch (err) {
                 onLog("⚠️ Brak połączenia z serwerem, ponawiam za 3s...", "warn");
                 await new Promise((r) => setTimeout(r, 3000));
@@ -57,11 +67,12 @@ const BrowserMiner = (() => {
             if (!candidate) continue;
 
             try {
-                const result = await fetch(`${apiBase}/pool/submit`, {
+                const res = await fetch(`${apiBase}/pool/submit`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ minerAddress, candidate })
-                }).then((r) => r.json());
+                });
+                const result = await res.json();
 
                 if (result.blockFound) {
                     sessionStats.blocksFound++;
@@ -69,12 +80,16 @@ const BrowserMiner = (() => {
                 } else if (result.accepted) {
                     sessionStats.shares++;
                     onLog(`Share zaakceptowany (#${sessionStats.shares})`, "share");
+                } else if (!res.ok && (result.error || "").toLowerCase().includes("zapyt")) {
+                    onLog(`⚠️ Serwer: ${result.error} — czekam 3s...`, "warn");
+                    await new Promise((r) => setTimeout(r, 3000));
                 } else {
                     onLog(`Odrzucone: ${result.reason}`, "warn");
                 }
                 onUpdate(sessionStats);
             } catch (err) {
-                onLog("⚠️ Błąd zgłaszania share, ponawiam...", "warn");
+                onLog("⚠️ Błąd zgłaszania share, ponawiam za 3s...", "warn");
+                await new Promise((r) => setTimeout(r, 3000));
             }
         }
     }
