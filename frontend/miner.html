@@ -14,6 +14,23 @@
   .mine-stats { display:flex; gap:24px; font-family:var(--font-mono); font-size:.95rem; margin-top:14px; }
   .mine-stats .n { color:var(--leaf); font-size:1.3rem; display:block; }
   .mine-stats .l { color:var(--text-dim); font-size:.72rem; text-transform:uppercase; }
+
+  /* Siatka statystyk puli - zamiast ściany tekstu z <br>, ten sam styl co
+     karty na dashboardzie/stronie głównej, tylko lżejszy (bez zagnieżdżonych
+     ramek kart wewnątrz karty). */
+  .stat-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin-top:6px; }
+  .stat-value { font-family:var(--font-display); font-size:1.15rem; font-weight:600; color:var(--text); word-break:break-word; }
+  .stat-value.leaf { color:var(--leaf); }
+  .stat-value.flame { color:var(--flame); }
+  .stat-label { font-family:var(--font-mono); font-size:.66rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.03em; margin-top:2px; }
+
+  /* Wskaźnik "na żywo" - dokładnie ten sam wzorzec co w explorerze, dla
+     spójności między stronami. */
+  .live-indicator { display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:.72rem; color:var(--text-dim); margin-left:10px; vertical-align:middle; }
+  .live-dot { width:7px; height:7px; border-radius:50%; background:var(--leaf); animation:live-pulse 1.8s ease-in-out infinite; }
+  @keyframes live-pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.4; transform:scale(.8); } }
+
+  .th-hashrate { text-align:right; }
 </style>
 </head>
 <body>
@@ -22,8 +39,8 @@
   <h1 style="margin-top:32px;" data-i18n="miner_h1">Kopanie</h1>
 
   <div class="card">
-    <h3 data-i18n="miner_pool_status">Status puli</h3>
-    <div id="poolStatus" class="skeleton" style="height:60px;"></div>
+    <h3 data-i18n="miner_pool_status">Status puli<span class="live-indicator"><span class="live-dot"></span><span data-i18n="explorer_live_label">na żywo</span></span></h3>
+    <div id="poolStatus" class="skeleton" style="height:80px;"></div>
   </div>
 
   <div class="card">
@@ -89,22 +106,37 @@ function formatHashrate(h) {
     return Math.round(h) + " H/s";
 }
 
+// Vardiff celuje w jeden share na VARDIFF_TARGET_SECONDS=12s (patrz pool.js) -
+// więc trudność przypisana danemu górnikowi / 12 to rozsądny szacunek jego
+// realnego hashrate. Suma po wszystkich górnikach puli = hashrate puli.
+// POPRAWKA: poprzednia wersja czytała "status.estimatedHashrate", pole
+// którego /pool/status nigdy nie zwracał - stąd zawsze pokazywało 0,
+// niezależnie ile osób faktycznie kopało.
+const VARDIFF_TARGET_SECONDS = 12;
+function estimateMinerHashrate(difficulty) {
+    return difficulty / VARDIFF_TARGET_SECONDS;
+}
+function estimatePoolHashrate(minerDifficulties) {
+    return Object.values(minerDifficulties || {}).reduce((sum, d) => sum + estimateMinerHashrate(d), 0);
+}
+
 async function refreshPoolStatus() {
     const poolStatusEl = document.getElementById("poolStatus");
     const minersEl = document.getElementById("activeMinersList");
     try {
         const status = await apiGet("/pool/status");
+        const poolHashrate = estimatePoolHashrate(status.minerDifficulties);
 
         poolStatusEl.classList.remove("skeleton");
         poolStatusEl.style.height = "";
         poolStatusEl.innerHTML = `
-            <div style="font-family:var(--font-mono);font-size:.9rem;line-height:1.8;">
-                ${t("miner_working_on_block")} <strong>#${status.workingOnHeight}</strong><br>
-                ${t("miner_share_block_diff")}: ${fmtNumber(status.shareDifficulty)} / ${fmtNumber(status.blockDifficulty)}<br>
-                ${t("miner_shares_this_round")}: ${status.totalSharesThisRound}<br>
-                ${t("miner_pool_fee_label")}: ${(status.poolFee * 100).toFixed(0)}%<br>
-                ${t("miner_pool_hashrate")}: <strong style="color:var(--leaf);">${formatHashrate(status.estimatedHashrate)}</strong><br>
-                ${t("miner_solo_hashrate")}: <strong style="color:var(--flame);">${formatHashrate(status.soloHashrate)}</strong>
+            <div class="stat-grid">
+                <div><div class="stat-value leaf">#${fmtNumber(status.workingOnHeight, 0)}</div><div class="stat-label">${t("miner_working_on_block")}</div></div>
+                <div><div class="stat-value">${status.totalSharesThisRound}</div><div class="stat-label">${t("miner_shares_this_round")}</div></div>
+                <div><div class="stat-value">${(status.poolFee * 100).toFixed(0)}%</div><div class="stat-label">${t("miner_pool_fee_label")}</div></div>
+                <div><div class="stat-value">${fmtNumber(status.shareDifficulty)}</div><div class="stat-label">${t("miner_share_block_diff")}</div></div>
+                <div><div class="stat-value leaf">${formatHashrate(poolHashrate)}</div><div class="stat-label">${t("miner_pool_hashrate")}</div></div>
+                <div><div class="stat-value flame">${formatHashrate(status.soloHashrate)}</div><div class="stat-label">${t("miner_solo_hashrate")}</div></div>
             </div>`;
 
         minersEl.classList.remove("skeleton");
@@ -115,17 +147,23 @@ async function refreshPoolStatus() {
         } else {
             const rows = status.activeMiners.map((m) => {
                 const sourceLabel = m.source === "solo" ? t("common_solo_label") : t("common_pool_label");
-                const activity = m.source === "solo" ? `~${formatHashrate(m.hashrate)}` : `${m.shares} shares`;
+                const activity = m.source === "solo" ? formatHashrate(m.hashrate) : `${m.shares} shares`;
+                // Dla górników puli dorzucamy szacunkowy hashrate obok shares -
+                // te same jednostki co solo, łatwiej porównać na oko kto ile daje.
+                const hashrateCol = m.source === "solo"
+                    ? ""
+                    : formatHashrate(estimateMinerHashrate((status.minerDifficulties || {})[m.minerAddress]));
                 return `
                 <tr>
                     <td class="mono">${fmtAddress(m.minerAddress)}</td>
                     <td>${sourceLabel}</td>
                     <td class="num" style="text-align:right;">${activity}</td>
+                    <td class="num th-hashrate" style="color:var(--text-dim);">${hashrateCol}</td>
                 </tr>`;
             }).join("");
             minersEl.innerHTML = `
                 <table>
-                    <thead><tr><th>${t("miner_th_address")}</th><th>${t("miner_th_mode")}</th><th style="text-align:right;">${t("miner_th_activity")} (${windowMin} min)</th></tr></thead>
+                    <thead><tr><th>${t("miner_th_address")}</th><th>${t("miner_th_mode")}</th><th style="text-align:right;">${t("miner_th_activity")} (${windowMin} min)</th><th class="th-hashrate">~H/s</th></tr></thead>
                     <tbody>${rows}</tbody>
                 </table>`;
         }
