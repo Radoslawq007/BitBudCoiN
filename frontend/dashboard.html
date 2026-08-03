@@ -8,6 +8,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/theme.css">
+<style>
+  /* Rosnące listy (górnicy, adresy) - przewijane pudełko zamiast strony
+     rosnącej w nieskończoność, ten sam wzorzec co log kopania w miner.html. */
+  .scroll-list { max-height: 280px; overflow-y: auto; }
+  .list-row { padding: 8px 0; font-family: var(--font-mono); font-size: .85rem; border-bottom: 1px solid var(--border); }
+  .list-count { font-family: var(--font-mono); margin-bottom: 12px; }
+</style>
 </head>
 <body>
 
@@ -18,6 +25,7 @@
     <div class="grid cols-3">
         <div class="card"><div class="card-label" data-i18n="dashboard_height">Wysokość</div><div class="card-value leaf skeleton" id="s-height">— — —</div></div>
         <div class="card"><div class="card-label" data-i18n="index_stat_difficulty">Trudność</div><div class="card-value skeleton" id="s-difficulty">— — —</div></div>
+        <div class="card"><div class="card-label" data-i18n="dashboard_hashrate">Hashrate sieci</div><div class="card-value flame skeleton" id="s-hashrate">— — —</div></div>
         <div class="card"><div class="card-label" data-i18n="dashboard_supply_cap">Podaż / pułap</div><div class="card-value skeleton" id="s-supply">— — —</div></div>
         <div class="card"><div class="card-label" data-i18n="dashboard_block_reward">Nagroda za blok</div><div class="card-value flame skeleton" id="s-reward">— — —</div></div>
         <div class="card"><div class="card-label" data-i18n="dashboard_next_halving">Do następnego halvingu</div><div class="card-value skeleton" id="s-halving">— — —</div></div>
@@ -41,6 +49,16 @@
             <div style="margin-top:8px;"><a href="miner.html" data-i18n="dashboard_join_mining_link">Dołącz do kopania →</a></div>
         </div>
     </div>
+
+    <div class="card" style="margin-top:20px;">
+        <h3 data-i18n="common_known_miners">Znani górnicy</h3>
+        <div id="minersListBox"><p class="skeleton">ładowanie ładowanie ładowanie</p></div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+        <h3 data-i18n="dashboard_addresses_heading">Adresy w sieci</h3>
+        <div id="addrStatsBox"><p class="skeleton">ładowanie ładowanie ładowanie</p></div>
+    </div>
 </div>
 
 <footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span> · <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a></footer>
@@ -56,6 +74,33 @@ function unskeleton(id, html) {
     const el = document.getElementById(id);
     el.classList.remove("skeleton");
     el.innerHTML = html;
+}
+
+function formatHashrate(h) {
+    if (!h || h <= 0) return "0 H/s";
+    if (h >= 1e9) return (h / 1e9).toFixed(2) + " GH/s";
+    if (h >= 1e6) return (h / 1e6).toFixed(2) + " MH/s";
+    if (h >= 1e3) return (h / 1e3).toFixed(2) + " kH/s";
+    return Math.round(h) + " H/s";
+}
+
+// Hashrate = trudność / średni czas między ostatnimi blokami - ten sam
+// wzorzec liczenia co przy realnym tempie bloków wcześniej. Liczone z 30
+// ostatnich bloków - wystarczająco świeże przy obecnym tempie, żeby nie
+// przeciągać przez ewentualne przeliczenie trudności w trakcie próbki.
+async function loadNetworkHashrate() {
+    try {
+        const blocks = await apiGet("/blocks?limit=30");
+        if (!blocks || blocks.length < 5) { unskeleton("s-hashrate", t("common_unavailable")); return; }
+        const first = blocks[0], last = blocks[blocks.length - 1];
+        const spanSeconds = (first.timestamp - last.timestamp) / 1000;
+        const spanBlocks = first.height - last.height;
+        if (spanBlocks <= 0 || spanSeconds <= 0) { unskeleton("s-hashrate", t("common_unavailable")); return; }
+        const avgBlockTime = spanSeconds / spanBlocks;
+        unskeleton("s-hashrate", formatHashrate(first.difficulty / avgBlockTime));
+    } catch (e) {
+        unskeleton("s-hashrate", t("common_unavailable"));
+    }
 }
 
 async function load() {
@@ -74,6 +119,7 @@ async function load() {
     } catch (e) {
         document.getElementById("error-box").innerHTML = `<div class="error-banner">${t("common_backend_error")}: ${escapeHtml(e.message)}</div>`;
     }
+    loadNetworkHashrate();
 
     try {
         const blocks = await apiGet("/blocks?limit=5");
@@ -105,47 +151,49 @@ async function load() {
 load();
 setInterval(load, 15000);
 document.addEventListener("bbc:langchange", load);
-</script>
-</body>
-</html>
-<div class="card">
-  <h3 data-i18n="common_known_miners">Znani górnicy</h3>
-  <div id="minersListBox"></div>
-</div>
-<script>
+
+// --- Znani górnicy: przewijane pudełko z licznikiem na górze, żeby rosnąca
+// lista nie wydłużała strony w nieskończoność. Już posortowane przez
+// backend (najświeższa aktywność pierwsza) - nie sortuję drugi raz. ---
 async function loadKnownMiners() {
-  try {
-    const miners = await apiGet("/network/miners");
-    document.getElementById("minersListBox").innerHTML = miners.length === 0
-      ? `<p style="color:var(--text-dim);">${t("common_only_you")}</p>`
-      : miners.map(m => `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:.85rem;">
-          ${m.address.slice(0,14)}...${m.address.slice(-6)} · ${m.source === "pool" ? t("common_pool_label") : t("common_solo_label")} · ${fmtNumber(m.totalEarned)} BbC · ${t("common_last_block")} #${m.lastBlockHeight}
+    try {
+        const miners = await apiGet("/network/miners");
+        const box = document.getElementById("minersListBox");
+        if (miners.length === 0) {
+            box.innerHTML = `<p style="color:var(--text-dim);">${t("common_only_you")}</p>`;
+            return;
+        }
+        const rows = miners.map(m => `<div class="list-row">
+            ${m.address.slice(0,14)}...${m.address.slice(-6)} · ${m.source === "pool" ? t("common_pool_label") : t("common_solo_label")} · ${fmtNumber(m.totalEarned)} BbC · ${t("common_last_block")} #${m.lastBlockHeight}
         </div>`).join("");
-  } catch (e) {
-    document.getElementById("minersListBox").innerHTML = `<p style="color:var(--text-dim);">${t("common_unavailable")}</p>`;
-  }
+        box.innerHTML = `
+            <p class="list-count">${t("dashboard_miners_total")}: <strong>${miners.length}</strong></p>
+            <div class="scroll-list">${rows}</div>`;
+    } catch (e) {
+        document.getElementById("minersListBox").innerHTML = `<p style="color:var(--text-dim);">${t("common_unavailable")}</p>`;
+    }
 }
 loadKnownMiners();
 document.addEventListener("bbc:langchange", loadKnownMiners);
-</script><div class="card">
-  <h3 data-i18n="dashboard_addresses_heading">Adresy w sieci</h3>
-  <div id="addrStatsBox"></div>
-</div>
-<script>
+
+// --- Adresy w sieci: whales/newest już ograniczone do 10 przez backend,
+// ale i tak w przewijanym pudełku dla spójności i na wszelki wypadek. ---
 async function loadAddressStats() {
-  try {
-    const data = await apiGet("/network/addresses");
-    document.getElementById("addrStatsBox").innerHTML = `
-      <p style="font-family:var(--font-mono);margin-bottom:14px;">${t("dashboard_total_addresses")}: <strong>${data.totalAddresses}</strong></p>
-      <h4 style="color:var(--flame);margin-bottom:6px;">🐋 ${t("dashboard_whales_heading")}</h4>
-      ${data.whales.map(w => `<div style="padding:6px 0;font-family:var(--font-mono);font-size:.85rem;border-bottom:1px solid var(--border);">${w.address.slice(0,14)}...${w.address.slice(-6)} · ${fmtNumber(w.balance)} BbC</div>`).join("")}
-      <h4 style="color:var(--leaf);margin:14px 0 6px;">🌱 ${t("dashboard_newest_heading")}</h4>
-      ${data.newest.map(n => `<div style="padding:6px 0;font-family:var(--font-mono);font-size:.85rem;border-bottom:1px solid var(--border);">${n.address.slice(0,14)}...${n.address.slice(-6)} · ${t("dashboard_since_block")} #${n.firstSeenHeight}</div>`).join("")}
-    `;
-  } catch (e) {
-    document.getElementById("addrStatsBox").innerHTML = `<p style="color:var(--text-dim);">${t("common_unavailable")}</p>`;
-  }
+    try {
+        const data = await apiGet("/network/addresses");
+        document.getElementById("addrStatsBox").innerHTML = `
+            <p style="font-family:var(--font-mono);margin-bottom:14px;">${t("dashboard_total_addresses")}: <strong>${data.totalAddresses}</strong></p>
+            <h4 style="color:var(--flame);margin-bottom:6px;">🐋 ${t("dashboard_whales_heading")}</h4>
+            <div class="scroll-list">${data.whales.map(w => `<div class="list-row">${w.address.slice(0,14)}...${w.address.slice(-6)} · ${fmtNumber(w.balance)} BbC</div>`).join("")}</div>
+            <h4 style="color:var(--leaf);margin:14px 0 6px;">🌱 ${t("dashboard_newest_heading")}</h4>
+            <div class="scroll-list">${data.newest.map(n => `<div class="list-row">${n.address.slice(0,14)}...${n.address.slice(-6)} · ${t("dashboard_since_block")} #${n.firstSeenHeight}</div>`).join("")}</div>
+        `;
+    } catch (e) {
+        document.getElementById("addrStatsBox").innerHTML = `<p style="color:var(--text-dim);">${t("common_unavailable")}</p>`;
+    }
 }
 loadAddressStats();
 document.addEventListener("bbc:langchange", loadAddressStats);
 </script>
+</body>
+</html>
