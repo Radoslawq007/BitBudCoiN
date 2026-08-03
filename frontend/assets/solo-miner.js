@@ -1,13 +1,18 @@
 // Bezpieczne solo kopanie - liczy CAŁY blok (nie tylko share) w przeglądarce,
 // całą nagrodę bierze bezpośrednio górnik (bez dzielenia z pulą). Serwer
-// tylko weryfikuje gotowy wynik (szybko, nie blokuje nikogo) - dokładnie
-// tym samym bezpiecznym wzorcem co kopanie przez pulę w BrowserMiner.
+// tylko weryfikuje gotowy wynik (szybko, nie blokuje nikogo).
+//
+// WIELOWĄTKOWE (31.07.2026): tak jak BrowserMiner - N Web Workerów liczy
+// równolegle, każdy inny zakres nonce. Bez limitu prób na worker (solo i tak
+// czeka aż znajdzie albo dostanie stop, nie "wygasa" jak share).
 
 const SoloMiner = (() => {
     let mining = false;
     let sessionStats = { attempts: 0, blocksFound: 0 };
     let onUpdate = () => {};
     let onLog = () => {};
+    let workers = [];
+    let workerCount = 1;
 
     // Solo nie wysyła "shares" jak pula - serwer inaczej nie wie, że ktoś w danej
     // chwili kopie. Heartbeat co ~15s, poza właściwym liczeniem hashy, bez
@@ -40,31 +45,47 @@ const SoloMiner = (() => {
         });
     }
 
-    async function computeBlockHash({ height, previousHash, timestamp, transactions, difficulty, nonce }) {
-        const str = height + previousHash + timestamp + JSON.stringify(transactions) + difficulty + nonce;
-        const bytes = new TextEncoder().encode(str);
-        const hashBuffer = await crypto.subtle.digest("SHA-256", bytes);
-        return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    function createWorkers(count) {
+        terminateWorkers();
+        workers = [];
+        for (let i = 0; i < count; i++) workers.push(new Worker("assets/mining-worker.js"));
+    }
+    function terminateWorkers() {
+        workers.forEach((w) => w.terminate());
+        workers = [];
     }
 
-    async function mineOneBlock(work, minerAddress, apiBase) {
-        const candidate = {
-            height: work.height, previousHash: work.previousHash, timestamp: work.timestamp,
-            transactions: work.transactions, difficulty: work.difficulty, nonce: 0
-        };
-        let hash = await computeBlockHash(candidate);
-
-        while (hash > work.blockTarget) {
-            if (!mining) return null;
-            candidate.nonce++;
-            sessionStats.attempts++;
-            if (candidate.nonce % 300 === 0) onUpdate(sessionStats);
-            if (candidate.nonce % 300 === 0) maybeSendHeartbeat(minerAddress, apiBase);
-            if (candidate.nonce % 500 === 0) await new Promise((r) => setTimeout(r, 0));
-            hash = await computeBlockHash(candidate);
-        }
-        candidate.hash = hash;
-        return candidate;
+    // Ten sam wzorzec koordynacji co w BrowserMiner - patrz komentarz tam.
+    // Różnica: bez maxAttemptsPerWorker (null) - solo liczy dopóki nie
+    // znajdzie albo nie dostanie stop, nigdy nie "wygasa" samo z siebie.
+    function mineOneBlockParallel(work, minerAddress, apiBase) {
+        return new Promise((resolve) => {
+            let settled = false;
+            let finishedCount = 0;
+            workers.forEach((worker, i) => {
+                worker.onmessage = (e) => {
+                    const msg = e.data;
+                    if (msg.type === "progress") {
+                        sessionStats.attempts += msg.attempts;
+                        onUpdate(sessionStats);
+                        maybeSendHeartbeat(minerAddress, apiBase);
+                    } else if (msg.type === "found" && !settled) {
+                        settled = true;
+                        sessionStats.attempts += msg.attempts;
+                        workers.forEach((w) => w.postMessage({ type: "stop" }));
+                        resolve(msg.candidate);
+                    } else if (msg.type === "stopped" && !settled) {
+                        if (msg.attempts) sessionStats.attempts += msg.attempts;
+                        finishedCount++;
+                        if (finishedCount === workers.length) { settled = true; resolve(null); }
+                    }
+                };
+                worker.postMessage({
+                    type: "mine", work, targetField: "blockTarget",
+                    workerIndex: i, workerCount, maxAttemptsPerWorker: null
+                });
+            });
+        });
     }
 
     async function loop(minerAddress, apiBase) {
@@ -73,11 +94,6 @@ const SoloMiner = (() => {
             try {
                 const res = await fetch(`${apiBase}/solo/work?minerAddress=${encodeURIComponent(minerAddress)}`);
                 work = await res.json();
-                // KRYTYCZNE: jeśli serwer odpowiedział błędem (np. limit zapytań),
-                // "work" nie ma oczekiwanych pól (blockTarget itd.) - kopanie na
-                // takich danych kończyło się natychmiastowym, fałszywym "znalezieniem"
-                // bloku i pętlą bez przerwy, która dobijała serwer jeszcze bardziej.
-                // Teraz: sprawdzamy że dane są prawdziwe, zanim cokolwiek policzymy.
                 if (!res.ok || !work || !work.blockTarget) {
                     onLog(`⚠️ Serwer: ${(work && (work.error || work.reason)) || "nieprawidłowa odpowiedź"} — czekam 5s...`, "warn");
                     await new Promise((r) => setTimeout(r, 5000));
@@ -89,7 +105,7 @@ const SoloMiner = (() => {
                 continue;
             }
 
-            const candidate = await mineOneBlock(work, minerAddress, apiBase);
+            const candidate = await mineOneBlockParallel(work, minerAddress, apiBase);
             if (!mining || !candidate) break;
 
             try {
@@ -104,8 +120,6 @@ const SoloMiner = (() => {
                     sessionStats.blocksFound++;
                     onLog(`🎉🎉 BLOK #${result.blockHeight} ZNALEZIONY SOLO! Nagroda: ${result.reward} BbC — cała Twoja!`, "block");
                 } else if (!res.ok && (result.error || "").toLowerCase().includes("zapyt")) {
-                    // Odrzucone przez limit zapytań, nie przez przegraną o blok -
-                    // to rozróżnienie jest ważne, żeby nie hamować dalej bez przerwy.
                     onLog(`⚠️ Serwer: ${result.error} — czekam 3s...`, "warn");
                     await new Promise((r) => setTimeout(r, 3000));
                 } else {
@@ -117,20 +131,26 @@ const SoloMiner = (() => {
                 await new Promise((r) => setTimeout(r, 3000));
             }
         }
+        terminateWorkers();
     }
 
     return {
-        start(minerAddress, apiBase, callbacks = {}) {
+        start(minerAddress, apiBase, threads, callbacks = {}) {
             if (mining) return;
             mining = true;
+            workerCount = Math.max(1, Number(threads) || 1);
             sessionStats = { attempts: 0, blocksFound: 0 };
             lastHeartbeatTime = null;
             attemptsAtLastHeartbeat = 0;
             onUpdate = callbacks.onUpdate || (() => {});
             onLog = callbacks.onLog || (() => {});
+            createWorkers(workerCount);
             loop(minerAddress, apiBase);
         },
-        stop() { mining = false; },
+        stop() {
+            mining = false;
+            workers.forEach((w) => w.postMessage({ type: "stop" }));
+        },
         isMining() { return mining; }
     };
 })();
