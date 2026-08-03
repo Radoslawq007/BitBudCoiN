@@ -55,6 +55,11 @@
       <label data-i18n="miner_your_address">Twój adres BbC</label>
       <input id="autoMinerAddress" placeholder="BbC...">
     </div>
+    <div class="field">
+      <label data-i18n="miner_threads_label">Liczba wątków (więcej = szybciej, ale więcej baterii/ciepła)</label>
+      <input type="range" id="autoMineThreads" min="1" max="4" value="2" style="width:100%;">
+      <div style="text-align:center;font-family:var(--font-mono);color:var(--leaf);margin-top:4px;" id="autoMineThreadsLabel">2</div>
+    </div>
     <button class="btn" id="autoMineToggle" data-i18n="miner_start_btn">Zacznij kopać</button>
     <p class="hint" style="margin-top:10px;color:var(--text-dim);font-size:.8rem;" data-i18n="miner_auto_hint">Kopie dopóki ta karta jest otwarta na ekranie — zamknięcie karty albo zgaszenie ekranu telefonu może to zatrzymać.</p>
 
@@ -71,6 +76,11 @@
     <div class="field">
       <label data-i18n="miner_your_address">Twój adres BbC</label>
       <input id="soloAutoAddress" placeholder="BbC...">
+    </div>
+    <div class="field">
+      <label data-i18n="miner_threads_label">Liczba wątków (więcej = szybciej, ale więcej baterii/ciepła)</label>
+      <input type="range" id="soloAutoThreads" min="1" max="4" value="2" style="width:100%;">
+      <div style="text-align:center;font-family:var(--font-mono);color:var(--flame);margin-top:4px;" id="soloAutoThreadsLabel">2</div>
     </div>
     <button class="btn flame" id="soloAutoToggle" data-i18n="miner_solo_start">Zacznij kopać solo</button>
     <div style="margin-top:14px;font-family:var(--font-mono);font-size:.85rem;"><span data-i18n="miner_blocks_label">Bloki</span>: <span id="soloAutoBlocks">0</span> · <span data-i18n="miner_attempts_label">Próby</span>: <span id="soloAutoAttempts">0</span></div>
@@ -97,6 +107,21 @@
 mountSmokeField();
 mountNavStatus();
 setActiveNav();
+
+// Suwaki liczby wątków - maksimum ograniczone do realnej liczby rdzeni
+// urządzenia (jeśli przeglądarka to udostępnia; część mobilnych nie zawsze
+// podaje dokładnie, stąd bezpieczny fallback do 4). Domyślnie połowa
+// dostępnych rdzeni, nie wszystkie - żeby urządzenie zostawało używalne.
+const cores = navigator.hardwareConcurrency || 4;
+const maxThreads = Math.max(1, Math.min(cores, 8));
+const defaultThreads = Math.max(1, Math.min(2, maxThreads));
+["autoMineThreads", "soloAutoThreads"].forEach((id) => {
+    const el = document.getElementById(id);
+    el.max = maxThreads;
+    el.value = defaultThreads;
+    document.getElementById(id + "Label").textContent = defaultThreads;
+    el.addEventListener("input", () => { document.getElementById(id + "Label").textContent = el.value; });
+});
 
 // --- Status puli + aktywni górnicy: na żywo, odświeżane co 8 sekund ---
 function formatHashrate(h) {
@@ -226,10 +251,11 @@ document.getElementById("autoMineToggle").addEventListener("click", () => {
         btn.classList.remove("flame");
         document.getElementById("soloAutoToggle").disabled = false;
         document.getElementById("benchBtn").disabled = false;
+        document.getElementById("autoMineThreads").disabled = false;
     } else {
         const addr = document.getElementById("autoMinerAddress").value.trim();
         if (!addr) { alert(t("miner_need_address_alert")); return; }
-        BrowserMiner.start(addr, API_BASE, {
+        BrowserMiner.start(addr, API_BASE, document.getElementById("autoMineThreads").value, {
             onUpdate: (s) => {
                 document.getElementById("autoStatShares").textContent = s.shares;
                 document.getElementById("autoStatBlocks").textContent = s.blocksFound;
@@ -244,6 +270,7 @@ document.getElementById("autoMineToggle").addEventListener("click", () => {
         });
         btn.textContent = t("miner_stop_btn");
         btn.classList.add("flame");
+        document.getElementById("autoMineThreads").disabled = true;
         document.getElementById("soloAutoToggle").disabled = true;
         document.getElementById("benchBtn").disabled = true;
     }
@@ -257,10 +284,11 @@ document.getElementById("soloAutoToggle").addEventListener("click", () => {
         btn.textContent = t("miner_solo_start");
         document.getElementById("autoMineToggle").disabled = false;
         document.getElementById("benchBtn").disabled = false;
+        document.getElementById("soloAutoThreads").disabled = false;
     } else {
         const addr = document.getElementById("soloAutoAddress").value.trim();
         if (!addr) { alert(t("miner_need_address_alert")); return; }
-        SoloMiner.start(addr, API_BASE, {
+        SoloMiner.start(addr, API_BASE, document.getElementById("soloAutoThreads").value, {
             onUpdate: (s) => {
                 document.getElementById("soloAutoBlocks").textContent = s.blocksFound;
                 document.getElementById("soloAutoAttempts").textContent = fmtNumber(s.attempts);
@@ -275,6 +303,7 @@ document.getElementById("soloAutoToggle").addEventListener("click", () => {
         });
         btn.textContent = t("miner_stop_btn");
         document.getElementById("autoMineToggle").disabled = true;
+        document.getElementById("soloAutoThreads").disabled = true;
         document.getElementById("benchBtn").disabled = true;
     }
 });
