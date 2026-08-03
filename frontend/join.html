@@ -49,6 +49,15 @@
     <h2 class="section-heading" data-i18n="miner_active_miners_heading">Aktywni górnicy</h2>
     <div class="card" id="minersList"><p class="empty-note" id="minersLoading" data-i18n="join_loading">Wczytuję dane z sieci…</p></div>
 
+    <h2 class="section-heading" data-i18n="join_growth_heading">Rośnie</h2>
+    <div class="card">
+        <div class="stat-grid">
+            <div><div class="stat-value" id="statActive24h">–</div><div class="stat-label" data-i18n="join_active_24h">Aktywne adresy (24h)</div></div>
+            <div><div class="stat-value" id="statNew7d">–</div><div class="stat-label" data-i18n="join_new_7d">Nowe adresy (7 dni)</div></div>
+        </div>
+        <div id="topActiveList" style="margin-top:14px;"></div>
+    </div>
+
     <h2 class="section-heading" data-i18n="join_cta_heading">Jak zacząć</h2>
     <div class="cta-grid">
         <div class="card cta-card">
@@ -76,7 +85,7 @@
 <script src="assets/native-responsive.js"></script>
 <script src="assets/i18n.js"></script>
 <script>
-let lastBlocks = null, lastPool = null;
+let lastBlocks = null, lastPool = null, lastGrowth = null;
 
 function timeAgo(ts) {
     const diffSec = Math.floor((Date.now() - ts) / 1000);
@@ -105,6 +114,22 @@ function renderBlocks(blocks) {
             <span class="block-height">#${b.height}</span>
             <span class="block-time">${timeAgo(b.timestamp)}</span>
             <span class="block-tx">${b.transactions.length} tx</span>
+        </div>
+    `).join("");
+}
+
+function renderGrowth(active, newPerDay) {
+    lastGrowth = { active, newPerDay };
+    document.getElementById("statActive24h").textContent = active.totalActive;
+    document.getElementById("statNew7d").textContent = newPerDay.reduce((s, r) => s + r.newAddresses, 0);
+
+    const topEl = document.getElementById("topActiveList");
+    if (!active.top || active.top.length === 0) { topEl.innerHTML = ""; return; }
+    topEl.innerHTML = `<p style="font-size:.78rem;color:var(--text-dim);margin-bottom:6px;">${t("join_top_active_label")}</p>` +
+        active.top.map((a) => `
+        <div class="miner-row">
+            <span class="miner-addr">${a.address.slice(0, 10)}…${a.address.slice(-6)}</span>
+            <span class="miner-shares">${a.events} ${t("join_events_suffix")}</span>
         </div>
     `).join("");
 }
@@ -140,6 +165,16 @@ async function loadJoinData() {
         document.getElementById("blocksList").innerHTML = msg;
         document.getElementById("minersList").innerHTML = msg;
     }
+    try {
+        const [active, newPerDay] = await Promise.all([
+            fetch(API_BASE + "/stats/active-addresses").then((r) => r.json()),
+            fetch(API_BASE + "/stats/new-addresses?days=7").then((r) => r.json())
+        ]);
+        renderGrowth(active, newPerDay);
+    } catch (err) {
+        document.getElementById("statActive24h").textContent = "—";
+        document.getElementById("statNew7d").textContent = "—";
+    }
 }
 
 // Tak jak explorer/dashboard - przy zmianie języka odświeżamy z tego, co już
@@ -148,6 +183,7 @@ async function loadJoinData() {
 document.addEventListener("bbc:langchange", () => {
     if (lastBlocks) renderBlocks(lastBlocks);
     if (lastPool) renderMiners(lastPool);
+    if (lastGrowth) renderGrowth(lastGrowth.active, lastGrowth.newPerDay);
 });
 
 loadJoinData();
