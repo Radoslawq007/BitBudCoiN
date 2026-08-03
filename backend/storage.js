@@ -32,6 +32,11 @@ class Storage {
         this.db.exec("CREATE INDEX IF NOT EXISTS idx_tx_block ON transactions(blockHeight)");
         this.db.exec("CREATE INDEX IF NOT EXISTS idx_credits_miner ON pool_credits(minerAddress)");
         this.db.exec("CREATE INDEX IF NOT EXISTS idx_credits_paid ON pool_credits(paid)");
+        // Nowe (31.07.2026) - wspierają statystyki adresów (nowe/aktywne w
+        // czasie) liczone bezpośrednio w bazie, nie przez ściąganie
+        // wszystkich transakcji do przeglądarki.
+        this.db.exec("CREATE INDEX IF NOT EXISTS idx_tx_to ON transactions(to_address)");
+        this.db.exec("CREATE INDEX IF NOT EXISTS idx_tx_from ON transactions(from_address)");
 
         this._insertBlock = this.db.prepare("INSERT INTO blocks (height, timestamp, previousHash, hash, nonce, difficulty) VALUES (?, ?, ?, ?, ?, ?)");
         this._insertTx = this.db.prepare("INSERT INTO transactions (blockHeight, from_address, to_address, amount, type, fee, timestamp, publicKey, signature) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -101,6 +106,59 @@ class Storage {
     markCreditsPaid(creditIds) {
         const stmt = this.db.prepare("UPDATE pool_credits SET paid = 1 WHERE id = ?");
         for (const id of creditIds) stmt.run(id);
+    }
+
+    // ============ Statystyki adresów (31.07.2026) ============
+    // "Pierwsze pojawienie się" adresu = najwcześniejszy moment, w którym
+    // wystąpił jako from_address LUB to_address w dowolnej transakcji.
+    // KRYTYCZNE: transakcje coinbase (nagrody za blok - najczęstszy sposób,
+    // w jaki NOWY adres w ogóle się pojawia) nie mają własnego timestamp,
+    // tylko blockHeight - stąd COALESCE do timestamp bloku przez JOIN.
+    // Bez tego każdy górnik, który jeszcze nic nie wysłał, byłby całkowicie
+    // pomijany w tych statystykach.
+    _addressEventsCTE() {
+        return `
+            WITH address_events AS (
+                SELECT t.to_address AS address, COALESCE(t.timestamp, b.timestamp) AS ts
+                FROM transactions t JOIN blocks b ON t.blockHeight = b.height
+                WHERE t.to_address IS NOT NULL
+                UNION ALL
+                SELECT t.from_address AS address, COALESCE(t.timestamp, b.timestamp) AS ts
+                FROM transactions t JOIN blocks b ON t.blockHeight = b.height
+                WHERE t.from_address IS NOT NULL
+            )
+        `;
+    }
+
+    // Zwraca [{day: "YYYY-MM-DD", newAddresses: N}, ...], malejąco po dacie.
+    getNewAddressesPerDay(days = 30) {
+        const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+        return this.db.prepare(`
+            ${this._addressEventsCTE()},
+            first_seen AS (SELECT address, MIN(ts) AS first_ts FROM address_events GROUP BY address)
+            SELECT date(first_ts / 1000, 'unixepoch') AS day, COUNT(*) AS newAddresses
+            FROM first_seen
+            WHERE first_ts >= ?
+            GROUP BY day
+            ORDER BY day DESC
+        `).all(sinceMs);
+    }
+
+    // Zwraca { totalActive, top: [{address, events, lastActive}, ...] } -
+    // "events" to liczba transakcji (jako nadawca lub odbiorca) w oknie,
+    // nie prawdziwe shares - dobre przybliżenie aktywności, nie dokładna
+    // miara mocy obliczeniowej (do tego służy już istniejący /pool/status).
+    getActiveAddresses24h(topLimit = 5) {
+        const sinceMs = Date.now() - 24 * 60 * 60 * 1000;
+        const rows = this.db.prepare(`
+            ${this._addressEventsCTE()}
+            SELECT address, COUNT(*) AS events, MAX(ts) AS lastActive
+            FROM address_events
+            WHERE ts >= ?
+            GROUP BY address
+            ORDER BY events DESC
+        `).all(sinceMs);
+        return { totalActive: rows.length, top: rows.slice(0, topLimit) };
     }
 
     close() { this.db.close(); }
