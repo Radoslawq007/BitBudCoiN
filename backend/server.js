@@ -82,6 +82,15 @@ app.get("/network/addresses", (req, res) => {
     res.json(blockchain.getAddressStats());
 });
 
+app.get("/stats/new-addresses", (req, res) => {
+    const days = Math.min(Number(req.query.days) || 30, 90);
+    res.json(blockchain.storage.getNewAddressesPerDay(days));
+});
+
+app.get("/stats/active-addresses", (req, res) => {
+    res.json(blockchain.storage.getActiveAddresses24h());
+});
+
 app.get("/peers", (req, res) => {
     res.json(p2p.getStatus());
 });
