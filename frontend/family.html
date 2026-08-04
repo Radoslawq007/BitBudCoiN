@@ -162,7 +162,7 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
         const data = await res.json();
 
         if (!res.ok) {
-            errorEl.textContent = data.reason || t("common_backend_error");
+            errorEl.textContent = data.reason || data.error || t("common_backend_error");
         } else if (data.pending) {
             input.value = "";
             errorEl.style.color = "var(--flame)";
