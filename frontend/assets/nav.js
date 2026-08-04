@@ -1,10 +1,8 @@
 // i18n tylko na kluczach, które NAPRAWDĘ istniały w Twoim kodzie (z miner.html).
 // Start/Giełda/Adres nie miały odpowiednika nigdzie - bez wymyślonych kluczy,
 // żeby nie wywalać i18n.js na nieznanym data-i18n.
-//
 const NAV_PAGES = [
     { href: "index.html",     label: "Start" },
-    { href: "join.html",      label: "Dołącz",    i18n: "nav_join" },
     { href: "dashboard.html", label: "Dashboard", i18n: "nav_dashboard" },
     { href: "explorer.html",  label: "Explorer",  i18n: "nav_explorer" },
     { href: "miner.html",     label: "Kopanie",   i18n: "nav_mining" },
@@ -14,6 +12,7 @@ const NAV_PAGES = [
     { href: "create-offer.html", label: "Kup BbC",   i18n: "nav_swap" },
     { href: "address.html",   label: "Adres" },
     { href: "wallet.html",    label: "Portfel",   i18n: "nav_wallet" },
+    { href: "family.html",    label: "Rodzina BbC", i18n: "nav_family" },
     { href: "docks.html",     label: "Docs",      i18n: "nav_docs" }
 ];
 
