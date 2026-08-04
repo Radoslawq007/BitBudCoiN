@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rodzina BbC — BitBudCoin</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-family: var(--font-mono); font-size: .72rem; color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px; }
+  .field textarea { width: 100%; box-sizing: border-box; background: var(--surface-2); border: 1px solid var(--leaf-dim); border-radius: 6px; padding: 9px 12px; color: var(--text); font-family: var(--font-mono); font-size: .85rem; resize: vertical; }
+  .field input { width: 100%; box-sizing: border-box; background: var(--surface-2); border: 1px solid var(--leaf-dim); border-radius: 6px; padding: 9px 12px; color: var(--text); font-family: var(--font-mono); font-size: .95rem; }
+  .msg-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .msg-item { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+  .msg-addr { font-family: var(--font-mono); font-size: .72rem; color: var(--leaf); }
+  .msg-time { font-family: var(--font-mono); font-size: .68rem; color: var(--text-dim); margin-left: 8px; }
+  .msg-text { margin-top: 4px; font-size: .9rem; word-wrap: break-word; }
+  .compose-row { display: flex; gap: 8px; align-items: flex-end; }
+  .compose-row textarea { flex: 1; min-height: 44px; }
+  .logged-in-badge { font-family: var(--font-mono); font-size: .78rem; color: var(--leaf); margin-bottom: 12px; }
+  .live-indicator { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: .72rem; color: var(--text-dim); margin-left: 10px; vertical-align: middle; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--leaf); animation: live-pulse 1.8s ease-in-out infinite; }
+  @keyframes live-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.8); } }
+</style>
+</head>
+<body>
+
+<div class="page">
+    <h1 style="margin-top:32px;" data-i18n="family_h1">Rodzina BbC<span class="live-indicator"><span class="live-dot"></span><span data-i18n="explorer_live_label">na żywo</span></span></h1>
+    <p style="font-size:.85rem;color:var(--text-dim);" data-i18n="family_intro">Miejsce do rozmowy dla każdego, kto ma udział w sieci. Zaloguj się parą kluczy z portfela (dokładnie ta sama, co do wysyłania BbC) — to potwierdza że jesteś prawdziwym uczestnikiem sieci, nie hasło do zapamiętania.</p>
+
+    <div class="card" style="border-color:var(--flame);">
+        <h3 data-i18n="family_rules_heading">Zasady</h3>
+        <p style="font-size:.85rem;" data-i18n="family_rules_text">Rodzina BbC skupia się na ulepszaniu sieci. Zabronione wprost: proszenie kogokolwiek o klucz prywatny, obiecywanie gwarantowanych zysków, linki do stron trzecich bez wyraźnego powodu, podszywanie się pod innych. Podejrzane wiadomości czekają na sprawdzenie przez człowieka, nie znikają automatycznie — ale też się nie pokazują, dopóki ktoś nie potwierdzi że są w porządku. Trzy naruszenia — blokada.</p>
+    </div>
+
+    <div class="card" id="loginCard">
+        <div class="field"><label data-i18n="family_login_label">Wklej parę kluczy z portfela (klucz publiczny + prywatny)</label><textarea id="keyBundleInput" rows="6" placeholder="-----BEGIN PUBLIC KEY-----&#10;...&#10;-----BEGIN PRIVATE KEY-----&#10;..."></textarea></div>
+        <button class="btn flame" id="loginBtn" style="width:100%;justify-content:center;" data-i18n="family_login_btn">Zaloguj się</button>
+        <div id="loginError" style="margin-top:8px;font-family:var(--font-mono);font-size:.82rem;color:var(--danger);"></div>
+    </div>
+
+    <div id="chatArea" style="display:none;">
+        <div class="logged-in-badge" id="loggedInBadge"></div>
+        <div class="card" id="strikeWarning" style="display:none;background:rgba(255,80,80,.1);border-color:#ff5050;"></div>
+
+        <div class="card">
+            <div class="compose-row">
+                <textarea id="messageInput" placeholder="" data-i18n-placeholder="family_compose_placeholder"></textarea>
+                <button class="btn flame" id="sendBtn" data-i18n="family_send_btn">Wyślij</button>
+            </div>
+            <div id="composeError" style="margin-top:8px;font-family:var(--font-mono);font-size:.82rem;color:var(--danger);"></div>
+        </div>
+
+        <h2 style="margin-top:20px;" data-i18n="family_messages_heading">Wiadomości</h2>
+        <div class="card">
+            <div class="msg-list" id="msgList"><p class="empty-note" data-i18n="join_loading">Wczytuję dane z sieci…</p></div>
+        </div>
+    </div>
+</div>
+
+<footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span></footer>
+
+<script src="assets/api.js"></script>
+<script src="assets/nav.js"></script>
+<script src="assets/native-responsive.js"></script>
+<script src="assets/wallet-crypto.js"></script>
+<script src="assets/i18n.js"></script>
+<script>
+let currentWallet = null; // { address, publicKeyPem, privateKey (CryptoKey) }
+
+function timeAgo(ts) {
+    const diffSec = Math.floor((Date.now() - ts) / 1000);
+    if (diffSec < 60) return t("time_now");
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return diffMin + t("time_m_ago");
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return diffH + t("time_h_ago");
+    return Math.floor(diffH / 24) + t("time_d_ago");
+}
+
+document.getElementById("loginBtn").addEventListener("click", async () => {
+    const errorEl = document.getElementById("loginError");
+    errorEl.textContent = "";
+    const text = document.getElementById("keyBundleInput").value;
+    const { publicKeyPem, privateKeyPem } = parseWalletBundle(text);
+
+    if (!publicKeyPem || !privateKeyPem) {
+        errorEl.textContent = t("family_err_need_both_keys");
+        return;
+    }
+
+    try {
+        const address = await deriveAddressFromPublicKeyPem(publicKeyPem);
+        const privateKey = await importPrivateKeyFromPem(privateKeyPem);
+        currentWallet = { address, publicKeyPem, privateKey };
+
+        document.getElementById("loginCard").style.display = "none";
+        document.getElementById("chatArea").style.display = "block";
+        document.getElementById("loggedInBadge").textContent = t("family_logged_in_as") + ": " + address;
+
+        await checkStrikes();
+        await loadMessages();
+        startPolling();
+    } catch (err) {
+        errorEl.textContent = t("family_err_bad_keys") + ": " + err.message;
+    }
+});
+
+async function checkStrikes() {
+    // Brak dedykowanej trasy do sprawdzenia ostrzeżeń z góry - dowiemy się
+    // naturalnie przy pierwszej odrzuconej wiadomości. To celowo proste na
+    // start, nie blokuje logowania dodatkowym zapytaniem.
+}
+
+async function loadMessages() {
+    try {
+        const messages = await fetch(API_BASE + "/family/messages").then(r => r.json());
+        renderMessages(messages);
+    } catch (err) {
+        document.getElementById("msgList").innerHTML = `<p class="empty-note">${t("common_unavailable")}</p>`;
+    }
+}
+
+function renderMessages(messages) {
+    const el = document.getElementById("msgList");
+    if (messages.length === 0) { el.innerHTML = `<p class="empty-note">${t("family_no_messages")}</p>`; return; }
+    el.innerHTML = messages.map(m => `
+        <div class="msg-item">
+            <span class="msg-addr">${m.address.slice(0,10)}…${m.address.slice(-6)}</span>
+            <span class="msg-time">${timeAgo(m.timestamp)}</span>
+            <div class="msg-text">${escapeHtml(m.message)}</div>
+        </div>
+    `).join("");
+}
+
+document.getElementById("sendBtn").addEventListener("click", async () => {
+    const errorEl = document.getElementById("composeError");
+    const input = document.getElementById("messageInput");
+    const message = input.value.trim();
+    errorEl.textContent = "";
+
+    if (!message) return;
+    if (!currentWallet) { errorEl.textContent = t("family_err_not_logged_in"); return; }
+
+    const btn = document.getElementById("sendBtn");
+    btn.disabled = true;
+
+    try {
+        const timestamp = Date.now();
+        const payload = { address: currentWallet.address, message, timestamp };
+        const signature = await signPayload(currentWallet.privateKey, payload);
+
+        const res = await fetch(API_BASE + "/family/message", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...payload, publicKey: currentWallet.publicKeyPem, signature })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            errorEl.textContent = data.reason || t("common_backend_error");
+        } else if (data.pending) {
+            input.value = "";
+            errorEl.style.color = "var(--flame)";
+            errorEl.textContent = "⏳ " + (data.reason || t("family_pending_notice"));
+        } else {
+            errorEl.style.color = "var(--danger)";
+            input.value = "";
+            await loadMessages();
+        }
+    } catch (err) {
+        errorEl.textContent = err.message;
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+function showStrikeWarning(strikes) {
+    const el = document.getElementById("strikeWarning");
+    el.style.display = "block";
+    el.innerHTML = strikes >= 3
+        ? `⛔ ${t("family_blocked_notice")}`
+        : `⚠️ ${t("family_strike_notice")} ${strikes}/3`;
+}
+
+let pollTimer = null;
+function startPolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(loadMessages, 10000);
+}
+
+document.addEventListener("bbc:langchange", () => { if (currentWallet) loadMessages(); });
+</script>
+</body>
+</html>
