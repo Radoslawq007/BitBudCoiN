@@ -95,8 +95,16 @@ app.get("/peers", (req, res) => {
     res.json(p2p.getStatus());
 });
 
+// BEZPIECZEŃSTWO (05.08.2026): brakowało autoryzacji - dowolny caller mógł
+// kazać węzłowi łączyć się z dowolnym adresem (SSRF-podobny wektor: skanowanie
+// wewnętrznej sieci Oracle Cloud, próby połączenia z localhost/metadanymi
+// chmury, itp.). Ten sam ADMIN_SECRET co /bridge/annotations - jedna spójna
+// bramka admina, nie druga, osobna.
 app.post("/peers/connect", strictLimiter, (req, res) => {
-    const { address } = req.body || {};
+    const { address, secret } = req.body || {};
+    if (secret !== bridgeTags.ADMIN_SECRET) {
+        return res.status(403).json({ error: "Zły sekret" });
+    }
     if (!address || typeof address !== "string" || !address.includes(":")) {
         return res.status(400).json({ error: "Nieprawidłowy adres - oczekiwano formatu host:port" });
     }
@@ -180,6 +188,13 @@ app.post("/htlc/submit", strictLimiter, (req, res) => {
     const tx = req.body;
     if (!tx || !tx.type) return res.status(400).json({ error: "Brak typu transakcji" });
     if (tx.type === "HTLC_CREATE") {
+        // BEZPIECZEŃSTWO (05.08.2026): ten sam wzorzec co przy trudności -
+        // "available < tx.amount + fee" z NaN zawsze daje false (sprawdzenie
+        // przechodzi niezależnie od kwoty). Podpis potwierdza KTO wysłał, nie
+        // że dane mają sens - typ trzeba sprawdzić osobno, jawnie.
+        if (typeof tx.amount !== "number" || !(tx.amount > 0)) {
+            return res.status(400).json({ error: "Nieprawidłowa kwota" });
+        }
         if (!verifyHtlcCreateSignature(tx)) return res.status(400).json({ error: "Nieprawidłowy podpis - transakcja odrzucona" });
         if (blockchain.findHTLC(tx.htlcId)) return res.status(400).json({ error: "HTLC o tym ID już istnieje" });
         const fee = typeof tx.fee === "number" ? tx.fee : 0;
@@ -217,7 +232,12 @@ app.get("/pool/work", (req, res) => {
     res.json(pool.getWork(minerAddress));
 });
 
-app.post("/pool/submit", strictLimiter, (req, res) => {
+// Limit podniesiony do 05.08.2026: kopanie to legalnie wysoka częstotliwość
+// zapytań (share co kilka-kilkanaście sekund NA GÓRNIKA, a kilku górników
+// za jednym CGNAT-owym IP to normalka). strictLimiter (60/min) dławił
+// prawdziwe kopanie - te dwie trasy zostają tylko na ogólnym rateLimiter
+// (1000/min), zastosowanym już globalnie przez app.use() wyżej.
+app.post("/pool/submit", (req, res) => {
     const result = pool.submitShare(req.body.minerAddress, req.body.candidate);
     if (!result.accepted) return res.status(400).json(result);
     if (result.blockFound) p2p.broadcastNewBlock(result.block);
@@ -237,7 +257,7 @@ app.get("/solo/work", (req, res) => {
     });
 });
 
-app.post("/solo/submit", strictLimiter, (req, res) => {
+app.post("/solo/submit", (req, res) => {
     const { candidate } = req.body;
     if (!candidate) return res.status(400).json({ error: "Brak candidate" });
     const result = blockchain.receiveBlock(candidate);
@@ -259,6 +279,19 @@ app.post("/mine/start", strictLimiter, (req, res) => {
 });
 
 app.get("/miners/models", (req, res) => res.json([]));
+
+// STABILNOŚĆ (05.08.2026): globalny error handler - bez tego jeden
+// nieprzewidziany wyjątek w dowolnym route (mempool/pool/p2p/storage) leciał
+// jako domyślna strona błędu Express zamiast czystego JSON-a, a przy
+// niektórych typach błędów mógł ubić cały proces. Łapie wszystko synchroniczne
+// (Express 4 sam to robi dla handlerów bez async/await - a tu żaden handler
+// nie używa async/await). Jeśli w przyszłości pojawi się handler z async,
+// będzie potrzebował własnego try/catch + next(err), ten handler sam z siebie
+// złapie tylko rzuty synchroniczne.
+app.use((err, req, res, next) => {
+    console.error("Nieobsłużony błąd:", err);
+    res.status(500).json({ error: "Wewnętrzny błąd serwera" });
+});
 
 app.listen(CONFIG.API_PORT, "127.0.0.1", () => {
     console.log(`BitBudCoin API nasłuchuje na porcie ${CONFIG.API_PORT}`);
