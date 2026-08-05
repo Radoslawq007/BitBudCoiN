@@ -4,14 +4,22 @@
 // listy aktywnych po ACTIVE_WINDOW_SECONDS bez świeżego heartbeatu.
 const ACTIVE_WINDOW_SECONDS = 300; // 5 minut - ten sam rząd wielkości co pula
 
+// BEZPIECZEŃSTWO/STABILNOŚĆ (05.08.2026): `Number(intervalSeconds) || 1`
+// łapało tylko 0/undefined/NaN - bardzo małą, ale niezerową wartość
+// (np. 0.01s, realny bug po stronie przeglądarki albo celowe zaniżenie)
+// przepuszczało bez zmian, więc attempts/interval potrafiło wywindować
+// hashrate o rzędy wielkości (stąd fałszywe 1.52 GH/s z przeglądarki).
+// Math.max wymusza sensowne minimum niezależnie od tego, co przyjdzie.
+const MIN_INTERVAL_SECONDS = 1;
+
 class SoloTracker {
     constructor() {
         this.miners = new Map(); // minerAddress -> { hashrate, lastSeen }
     }
 
     heartbeat(minerAddress, attempts, intervalSeconds) {
-        const validAttempts = Number(attempts) || 0;
-        const validInterval = Number(intervalSeconds) || 1;
+        const validAttempts = Math.max(0, Number(attempts) || 0);
+        const validInterval = Math.max(MIN_INTERVAL_SECONDS, Number(intervalSeconds) || MIN_INTERVAL_SECONDS);
         const hashrate = validAttempts / validInterval;
         this.miners.set(minerAddress, { hashrate, lastSeen: Date.now() });
     }
