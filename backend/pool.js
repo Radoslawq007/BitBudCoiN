@@ -42,7 +42,10 @@ class MiningPool {
         // pula płaci z własnego, już zgromadzonego salda, ważone trudnością
         // (trudniejszy share = więcej realnej pracy = więcej BbC), niezależnie
         // od tego czy TA runda akurat trafi cały blok. Adres puli sam siebie
-        // nie płaci (to była wcześniejsza usterka - self-credit).
+        // nie płaci (to była wcześniejsza usterka - self-credit). Liczone z
+        // minerDiffAtSubmit i this.blockchain.difficulty - obie wartości
+        // serwerowe/zaufane, candidate.difficulty (od zgłaszającego) nigdy tu
+        // nie wchodzi do gry.
         let paidNow = 0;
         if (minerAddress !== this.poolAddress) {
             const height = this.blockchain.getLatestBlock().height + 1;
@@ -54,7 +57,15 @@ class MiningPool {
             }
         }
 
-        const blockTargetHex = difficultyToTargetHex(candidate.difficulty);
+        // BEZPIECZEŃSTWO (05.08.2026): target liczony z this.blockchain.difficulty
+        // (zaufana, serwerowa), NIE z candidate.difficulty. candidate.difficulty
+        // ustawia ten, kto zgłasza - receiveBlock() i tak by odrzucił blok z
+        // fałszywą trudnością, ale PRZED tą poprawką sam fakt "czy w ogóle
+        // spróbować zgłosić jako blok" zależał od tej samej fałszywej wartości.
+        // Podbita trudność w candidate mogła ukryć naprawdę wykopany blok -
+        // hash realnie bijący prawdziwy próg trafiał tu tylko jako "share",
+        // nigdy nie leciał do receiveBlock().
+        const blockTargetHex = difficultyToTargetHex(this.blockchain.difficulty);
         if (candidate.hash > blockTargetHex) return { accepted: true, share: true, blockFound: false, paidNow };
         const result = this.blockchain.receiveBlock(candidate);
         if (!result.accepted) return { accepted: true, share: true, blockFound: false, note: result.reason, paidNow };
