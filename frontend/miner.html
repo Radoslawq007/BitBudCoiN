@@ -15,17 +15,12 @@
   .mine-stats .n { color:var(--leaf); font-size:1.3rem; display:block; }
   .mine-stats .l { color:var(--text-dim); font-size:.72rem; text-transform:uppercase; }
 
-  /* Siatka statystyk puli - zamiast ściany tekstu z <br>, ten sam styl co
-     karty na dashboardzie/stronie głównej, tylko lżejszy (bez zagnieżdżonych
-     ramek kart wewnątrz karty). */
   .stat-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin-top:6px; }
   .stat-value { font-family:var(--font-display); font-size:1.15rem; font-weight:600; color:var(--text); word-break:break-word; }
   .stat-value.leaf { color:var(--leaf); }
   .stat-value.flame { color:var(--flame); }
   .stat-label { font-family:var(--font-mono); font-size:.66rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.03em; margin-top:2px; }
 
-  /* Wskaźnik "na żywo" - dokładnie ten sam wzorzec co w explorerze, dla
-     spójności między stronami. */
   .live-indicator { display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:.72rem; color:var(--text-dim); margin-left:10px; vertical-align:middle; }
   .live-dot { width:7px; height:7px; border-radius:50%; background:var(--leaf); animation:live-pulse 1.8s ease-in-out infinite; }
   @keyframes live-pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.4; transform:scale(.8); } }
@@ -44,8 +39,13 @@
   </div>
 
   <div class="card">
-    <h3><span data-i18n="miner_active_miners_heading">Aktywni górnicy</span> <span style="font-weight:400;color:var(--text-dim);font-size:.75rem;text-transform:none;letter-spacing:0;" data-i18n="miner_active_miners_window">(ostatnie kilka minut)</span></h3>
-    <div id="activeMinersList" class="skeleton" style="height:60px;"></div>
+    <h3><span>Aktywni górnicy — solo</span> <span style="font-weight:400;color:var(--text-dim);font-size:.75rem;text-transform:none;letter-spacing:0;" data-i18n="miner_active_miners_window">(ostatnie kilka minut)</span></h3>
+    <div id="activeSoloList" class="skeleton" style="height:60px;"></div>
+  </div>
+
+  <div class="card">
+    <h3><span>Aktywni górnicy — pula</span> <span style="font-weight:400;color:var(--text-dim);font-size:.75rem;text-transform:none;letter-spacing:0;">(bieżąca runda)</span></h3>
+    <div id="activePoolList" class="skeleton" style="height:60px;"></div>
   </div>
 
   <div class="card">
@@ -108,10 +108,6 @@ mountSmokeField();
 mountNavStatus();
 setActiveNav();
 
-// Suwaki liczby wątków - maksimum ograniczone do realnej liczby rdzeni
-// urządzenia (jeśli przeglądarka to udostępnia; część mobilnych nie zawsze
-// podaje dokładnie, stąd bezpieczny fallback do 4). Domyślnie połowa
-// dostępnych rdzeni, nie wszystkie - żeby urządzenie zostawało używalne.
 const cores = navigator.hardwareConcurrency || 4;
 const maxThreads = Math.max(1, Math.min(cores, 8));
 const defaultThreads = Math.max(1, Math.min(2, maxThreads));
@@ -123,7 +119,6 @@ const defaultThreads = Math.max(1, Math.min(2, maxThreads));
     el.addEventListener("input", () => { document.getElementById(id + "Label").textContent = el.value; });
 });
 
-// --- Status puli + aktywni górnicy: na żywo, odświeżane co 8 sekund ---
 function formatHashrate(h) {
     if (!h || h <= 0) return "0 H/s";
     if (h >= 1e6) return (h / 1e6).toFixed(2) + " MH/s";
@@ -131,12 +126,6 @@ function formatHashrate(h) {
     return Math.round(h) + " H/s";
 }
 
-// Vardiff celuje w jeden share na VARDIFF_TARGET_SECONDS=12s (patrz pool.js) -
-// więc trudność przypisana danemu górnikowi / 12 to rozsądny szacunek jego
-// realnego hashrate. Suma po wszystkich górnikach puli = hashrate puli.
-// POPRAWKA: poprzednia wersja czytała "status.estimatedHashrate", pole
-// którego /pool/status nigdy nie zwracał - stąd zawsze pokazywało 0,
-// niezależnie ile osób faktycznie kopało.
 const VARDIFF_TARGET_SECONDS = 12;
 function estimateMinerHashrate(difficulty) {
     return difficulty / VARDIFF_TARGET_SECONDS;
@@ -147,7 +136,8 @@ function estimatePoolHashrate(minerDifficulties) {
 
 async function refreshPoolStatus() {
     const poolStatusEl = document.getElementById("poolStatus");
-    const minersEl = document.getElementById("activeMinersList");
+    const soloListEl = document.getElementById("activeSoloList");
+    const poolListEl = document.getElementById("activePoolList");
     try {
         const status = await apiGet("/pool/status");
         const poolHashrate = estimatePoolHashrate(status.minerDifficulties);
@@ -164,46 +154,65 @@ async function refreshPoolStatus() {
                 <div><div class="stat-value flame">${formatHashrate(status.soloHashrate)}</div><div class="stat-label">${t("miner_solo_hashrate")}</div></div>
             </div>`;
 
-        minersEl.classList.remove("skeleton");
-        minersEl.style.height = "";
+        const allMiners = status.activeMiners || [];
+        const soloMiners = allMiners.filter((m) => m.source === "solo");
+        const poolMiners = allMiners.filter((m) => m.source !== "solo");
         const windowMin = Math.max(1, Math.round((status.activeMinersWindowSeconds || 300) / 60));
-        if (!status.activeMiners || status.activeMiners.length === 0) {
-            minersEl.innerHTML = `<div style="color:var(--text-dim);font-size:.88rem;">${t("miner_no_active_miners")} ${windowMin} min.</div>`;
+
+        // --- Tabela solo: adres + hashrate wprost (to jedyna sensowna
+        // jednostka aktywności, którą solo w ogóle zgłasza) ---
+        soloListEl.classList.remove("skeleton");
+        soloListEl.style.height = "";
+        if (soloMiners.length === 0) {
+            soloListEl.innerHTML = `<div style="color:var(--text-dim);font-size:.88rem;">${t("miner_no_active_miners")} ${windowMin} min.</div>`;
         } else {
-            const rows = status.activeMiners.map((m) => {
-                const sourceLabel = m.source === "solo" ? t("common_solo_label") : t("common_pool_label");
-                const activity = m.source === "solo" ? formatHashrate(m.hashrate) : `${m.shares} shares`;
-                // Dla górników puli dorzucamy szacunkowy hashrate obok shares -
-                // te same jednostki co solo, łatwiej porównać na oko kto ile daje.
-                const hashrateCol = m.source === "solo"
-                    ? ""
-                    : formatHashrate(estimateMinerHashrate((status.minerDifficulties || {})[m.minerAddress]));
+            const soloRows = soloMiners.map((m) => `
+                <tr>
+                    <td class="mono">${fmtAddress(m.minerAddress)}</td>
+                    <td class="num th-hashrate">${formatHashrate(m.hashrate)}</td>
+                </tr>`).join("");
+            soloListEl.innerHTML = `
+                <table>
+                    <thead><tr><th>${t("miner_th_address")}</th><th class="th-hashrate">~H/s</th></tr></thead>
+                    <tbody>${soloRows}</tbody>
+                </table>`;
+        }
+
+        // --- Tabela puli: adres + shares tej rundy + szacunkowy hashrate
+        // (osobna kolumna, nie mieszana z "aktywnością" solo) ---
+        poolListEl.classList.remove("skeleton");
+        poolListEl.style.height = "";
+        if (poolMiners.length === 0) {
+            poolListEl.innerHTML = `<div style="color:var(--text-dim);font-size:.88rem;">Nikt jeszcze nie zgłosił share w tej rundzie.</div>`;
+        } else {
+            const poolRows = poolMiners.map((m) => {
+                const hashrateCol = formatHashrate(estimateMinerHashrate((status.minerDifficulties || {})[m.minerAddress]));
                 return `
                 <tr>
                     <td class="mono">${fmtAddress(m.minerAddress)}</td>
-                    <td>${sourceLabel}</td>
-                    <td class="num" style="text-align:right;">${activity}</td>
+                    <td class="num" style="text-align:right;">${m.shares} shares</td>
                     <td class="num th-hashrate" style="color:var(--text-dim);">${hashrateCol}</td>
                 </tr>`;
             }).join("");
-            minersEl.innerHTML = `
+            poolListEl.innerHTML = `
                 <table>
-                    <thead><tr><th>${t("miner_th_address")}</th><th>${t("miner_th_mode")}</th><th style="text-align:right;">${t("miner_th_activity")} (${windowMin} min)</th><th class="th-hashrate">~H/s</th></tr></thead>
-                    <tbody>${rows}</tbody>
+                    <thead><tr><th>${t("miner_th_address")}</th><th style="text-align:right;">Shares (runda)</th><th class="th-hashrate">~H/s</th></tr></thead>
+                    <tbody>${poolRows}</tbody>
                 </table>`;
         }
     } catch (e) {
         poolStatusEl.classList.remove("skeleton");
         poolStatusEl.innerHTML = `<div class="error-banner">${t("common_pool_unavailable")}: ${e.message}</div>`;
-        minersEl.classList.remove("skeleton");
-        minersEl.innerHTML = "";
+        soloListEl.classList.remove("skeleton");
+        soloListEl.innerHTML = "";
+        poolListEl.classList.remove("skeleton");
+        poolListEl.innerHTML = "";
     }
 }
 refreshPoolStatus();
 setInterval(refreshPoolStatus, 8000);
 document.addEventListener("bbc:langchange", refreshPoolStatus);
 
-// --- Benchmark realnej prędkości urządzenia ---
 async function benchmarkDevice(durationMs) {
     const start = performance.now();
     let count = 0;
@@ -242,7 +251,6 @@ document.getElementById("benchBtn").addEventListener("click", async () => {
     btn.textContent = t("miner_bench_btn");
 });
 
-// --- Kopanie automatyczne w przeglądarce ---
 document.getElementById("autoMineToggle").addEventListener("click", () => {
     const btn = document.getElementById("autoMineToggle");
     if (BrowserMiner.isMining()) {
@@ -276,7 +284,6 @@ document.getElementById("autoMineToggle").addEventListener("click", () => {
     }
 });
 
-// --- Solo (bezpieczne, w przeglądarce) ---
 document.getElementById("soloAutoToggle").addEventListener("click", () => {
     const btn = document.getElementById("soloAutoToggle");
     if (SoloMiner.isMining()) {
