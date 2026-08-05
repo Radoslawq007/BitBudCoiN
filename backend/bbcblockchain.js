@@ -40,19 +40,21 @@ function isProjectFeeActive(height) {
 class Blockchain {
     constructor() {
         this.storage = new Storage(CONFIG.DATABASE);
-        // BEZPIECZEŃSTWO (31.07.2026): trudność NIGDY nie jest wczytywana z
-        // zapisanych bloków - to pole może być sfałszowane przez tego, kto
-        // zgłasza blok (patrz poprawka w receiveBlock() niżej - realny
+        // BEZPIECZEŃSTWO (31.07.2026, zaktualizowane 05.08.2026 przy dodaniu
+        // retargetingu): trudność NIGDY nie jest wczytywana z zapisanych
+        // bloków ani od tego, kto zgłasza blok - to pole może być
+        // sfałszowane (patrz poprawka w receiveBlock() niżej - realny
         // incydent, nie teoria: ktoś zgłaszał bloki z zaniżoną trudnością,
-        // ~550x szybciej niż powinno wychodzić). W tym kodzie nie ma
-        // mechanizmu przeliczania trudności (retarget), więc prawdziwa
-        // trudność zawsze i tak pochodzi z tej samej stałej co przy
-        // genesis - czytanie jej z łańcucha nie miało żadnej przewagi,
-        // tylko otwierało furtkę: fałszywie niska wartość przemycona raz
-        // mogłaby się utrwalić na stałe dla całej sieci przy restarcie.
+        // ~550x szybciej niż powinno wychodzić). Start ZAWSZE z tej samej
+        // stałej co przy genesis. this.difficulty MOŻE się teraz zmieniać w
+        // czasie działania przez retargetIfDue() niżej - ale WYŁĄCZNIE
+        // licząc z historii WŁASNEGO, już zweryfikowanego łańcucha, nigdy z
+        // danych przysłanych z zewnątrz.
         this.difficulty = Math.pow(16, CONFIG.DIFFICULTY);
         if (this.storage.hasBlocks()) {
             this.chain = this.storage.loadChain();
+            this._warnIfChainHasGaps();
+            this._recomputeDifficultyFromHistory();
         } else {
             const transactions = CONFIG.GENESIS_TRANSACTIONS.map((tx) => ({
                 from: CONFIG.GENESIS_ADDRESS, to: tx.to, amount: tx.amount, type: "genesis"
@@ -140,9 +142,79 @@ class Blockchain {
             return { accepted: false, reason: `nieprawidłowa trudność (oczekiwano ${this.difficulty}, otrzymano ${candidate.difficulty})` };
         }
         if (candidate.hash > difficultyToTargetHex(candidate.difficulty)) return { accepted: false, reason: "nie spełnia trudności" };
+        // SPÓJNOŚĆ (05.08.2026): zapis do bazy MUSI się udać PRZED dodaniem
+        // bloku do this.chain. Wcześniej push() szedł PIERWSZY - jeśli
+        // saveBlock() rzucił (np. transakcja z to_address=null łamiąca
+        // NOT NULL w SQLite), blok zostawał w pamięci jako "widmo", którego
+        // baza nigdy nie miała. Po restarcie loadChain() czyta czystą bazę
+        // bez tego wpisu - to była realna przyczyna dziury w łańcuchu
+        // (bloki 3497 i 3614 zniknęły dokładnie tak, bez żadnego błędu w
+        // logach, bo wyjątek nigdy nie docierał do nikogo, kto by go
+        // zauważył).
+        try {
+            this.storage.saveBlock(candidate);
+        } catch (err) {
+            return { accepted: false, reason: "błąd zapisu do bazy: " + err.message };
+        }
         this.chain.push(candidate);
-        this.storage.saveBlock(candidate);
+        this.retargetIfDue(candidate);
         return { accepted: true, block: candidate };
+    }
+    // Wywoływane PO udanym zapisaniu każdego bloku. Jeśli właśnie przyjęty
+    // blok kończy okno przeliczania (jego wysokość jest wielokrotnością
+    // CONFIG.DIFFICULTY_ADJUSTMENT), porównuje jak długo NAPRAWDĘ zajęło
+    // wykopanie tych bloków względem tego, ile powinno zająć (przy
+    // CONFIG.TARGET_BLOCK_TIME_MS) i proporcjonalnie dostosowuje
+    // this.difficulty dla WSZYSTKICH kolejnych bloków. Zmiana ograniczona do
+    // max 4x w górę i max 4x w dół na jedno okno, żeby jeden dziwny odczyt
+    // zegara albo chwilowy skok hashrate'u nie wywrócił trudności do zera
+    // albo w kosmos. Blok #0 (genesis) nigdy nie wyzwala przeliczenia - nie
+    // ma go z czym porównać.
+    retargetIfDue(justAccepted) {
+        const interval = CONFIG.DIFFICULTY_ADJUSTMENT;
+        if (justAccepted.height === 0 || justAccepted.height % interval !== 0) return;
+
+        const windowStart = this.chain.find((b) => b.height === justAccepted.height - interval);
+        if (!windowStart) return; // za mało historii (np. świeżo zsynchronizowany węzeł)
+
+        const actualMs = Math.max(1, justAccepted.timestamp - windowStart.timestamp);
+        const expectedMs = interval * CONFIG.TARGET_BLOCK_TIME_MS;
+
+        let ratio = expectedMs / actualMs;
+        ratio = Math.max(0.25, Math.min(4, ratio));
+
+        this.difficulty = Math.max(1, this.difficulty * ratio);
+    }
+    // Wywoływane RAZ przy starcie, zaraz po loadChain(). this.difficulty
+    // zaczyna zawsze od tej samej stałej bazowej (patrz konstruktor) - bez
+    // tego kroku węzeł po restarcie miałby INNĄ lokalną trudność niż węzeł,
+    // który działał bez przerwy, mimo identycznego łańcucha. Dwa węzły z
+    // różną lokalną trudnością odrzucają nawzajem swoje bloki jako
+    // "nieprawidłowa trudność" - to realne ryzyko forka między
+    // 141.147.98.57 a węzłem kolegi po restarcie, nie tylko czystość kodu.
+    // Rozwiązanie: przewinąć wszystkie okna retargetingu, które już minęły
+    // w załadowanej historii, dokładnie tak samo jak działyby się na żywo.
+    _recomputeDifficultyFromHistory() {
+        const interval = CONFIG.DIFFICULTY_ADJUSTMENT;
+        const latestHeight = this.getLatestBlock().height;
+        for (let h = interval; h <= latestHeight; h += interval) {
+            const block = this.chain.find((b) => b.height === h);
+            if (block) this.retargetIfDue(block);
+        }
+    }
+    // Wywoływane RAZ przy starcie. NIE naprawia dziur (to wymaga ręcznego
+    // odzyskania brakujących bloków, np. z nocnego backupu) - tylko krzyczy
+    // o nich głośno w logach, zamiast pozwolić im siedzieć niezauważone
+    // miesiącami tak jak bloki 3497 i 3614.
+    _warnIfChainHasGaps() {
+        for (let i = 1; i < this.chain.length; i++) {
+            const expected = this.chain[i - 1].height + 1;
+            if (this.chain[i].height !== expected) {
+                const missingEnd = this.chain[i].height - 1;
+                const label = expected === missingEnd ? `${expected}` : `${expected}-${missingEnd}`;
+                console.error(`⚠️  DZIURA W ŁAŃCUCHU: brakuje bloku/bloków ${label} (baza przeskakuje z wysokości ${this.chain[i - 1].height} na ${this.chain[i].height})`);
+            }
+        }
     }
     getChain() { return this.chain; }
     getRecentBlocks(limit = 20, beforeHeight = null) {
