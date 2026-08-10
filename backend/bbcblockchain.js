@@ -1,9 +1,11 @@
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
 const CONFIG = require("./config");
 const Storage = require("./storage");
 const MAX_TARGET = (1n << 256n) - 1n;
 const GENESIS_TIMESTAMP = Date.UTC(2026, 0, 1);
-// Opłata protokołu - usztywniona w kodzie, nie w configu (patrz poprzednia
+// Oplata protokolu - usztywniona w kodzie, nie w configu (patrz poprzednia
 // zmiana). Bez ruszania tego dzisiaj.
 const PROJECT_FEE_PERCENT = 0.005;
 function difficultyToTargetHex(difficulty) {
@@ -32,6 +34,24 @@ class Block {
         return this.hash;
     }
 }
+function emergencyStatePath() {
+    return path.join(path.dirname(CONFIG.DATABASE), ".difficulty-emergency-state.json");
+}
+function loadEmergencyDifficultyState() {
+    try {
+        const raw = fs.readFileSync(emergencyStatePath(), "utf8");
+        const state = JSON.parse(raw);
+        if (typeof state.difficulty === "number" && state.difficulty > 0) return state;
+    } catch (e) { }
+    return null;
+}
+function saveEmergencyDifficultyState(difficulty, height) {
+    try {
+        fs.writeFileSync(emergencyStatePath(), JSON.stringify({ difficulty, height, savedAt: Date.now() }));
+    } catch (e) {
+        console.error("Nie udalo sie zapisac stanu awaryjnej trudnosci: " + e.message);
+    }
+}
 function isProjectFeeActive(height) {
     return !!(CONFIG.PROJECT_FEE_ADDRESS &&
         CONFIG.PROJECT_FEE_ACTIVATION_HEIGHT !== undefined &&
@@ -40,21 +60,36 @@ function isProjectFeeActive(height) {
 class Blockchain {
     constructor() {
         this.storage = new Storage(CONFIG.DATABASE);
-        // BEZPIECZEŃSTWO (31.07.2026, zaktualizowane 05.08.2026 przy dodaniu
-        // retargetingu): trudność NIGDY nie jest wczytywana z zapisanych
-        // bloków ani od tego, kto zgłasza blok - to pole może być
-        // sfałszowane (patrz poprawka w receiveBlock() niżej - realny
-        // incydent, nie teoria: ktoś zgłaszał bloki z zaniżoną trudnością,
-        // ~550x szybciej niż powinno wychodzić). Start ZAWSZE z tej samej
-        // stałej co przy genesis. this.difficulty MOŻE się teraz zmieniać w
-        // czasie działania przez retargetIfDue() niżej - ale WYŁĄCZNIE
-        // licząc z historii WŁASNEGO, już zweryfikowanego łańcucha, nigdy z
-        // danych przysłanych z zewnątrz.
+        // BEZPIECZENSTWO (31.07.2026, zaktualizowane 05.08.2026 przy dodaniu
+        // retargetingu): trudnosc NIGDY nie jest wczytywana z zapisanych
+        // blokow ani od tego, kto zglasza blok - to pole moze byc
+        // sfalszowane (patrz poprawka w receiveBlock() nizej - realny
+        // incydent, nie teoria: ktos zglaszal bloki z zanizona trudnoscia,
+        // ~550x szybciej niz powinno wychodzic). Start ZAWSZE z tej samej
+        // stalej co przy genesis. this.difficulty MOZE sie teraz zmieniac w
+        // czasie dzialania przez retargetIfDue() nizej - ale WYLACZNIE
+        // liczac z historii WLASNEGO, juz zweryfikowanego lancucha, nigdy z
+        // danych przyslanych z zewnatrz.
         this.difficulty = Math.pow(16, CONFIG.DIFFICULTY);
         if (this.storage.hasBlocks()) {
             this.chain = this.storage.loadChain();
             this._warnIfChainHasGaps();
             this._recomputeDifficultyFromHistory();
+            const emergencyState = loadEmergencyDifficultyState();
+            if (emergencyState) {
+                const savedWindow = Math.floor((emergencyState.height ?? 0) / CONFIG.DIFFICULTY_ADJUSTMENT);
+                const currentWindow = Math.floor(this.getLatestBlock().height / CONFIG.DIFFICULTY_ADJUSTMENT);
+                if (savedWindow === currentWindow) {
+                    // Zadna nowa granica okna nie zostala przekroczona od zapisu -
+                    // zapisana wartosc (EDA albo reczna korekta) wciaz jest
+                    // aktualna, uzyj jej zamiast czystej, historycznej wartosci
+                    // (ktora nie wie nic o cieciach EDA ani recznych korektach).
+                    console.error("Uzywam zapisanego stanu trudnosci (" + emergencyState.difficulty + ") zamiast przeliczonej z historii (" + this.difficulty + ") - to samo okno, restart nie cofa zmiany.");
+                    this.difficulty = emergencyState.difficulty;
+                }
+                // w przeciwnym razie: normalny retarget okienny juz wlaczyl
+                // swiezsza wiedze od czasu zapisu - ufaj przeliczonej wartosci
+            }
         } else {
             const transactions = CONFIG.GENESIS_TRANSACTIONS.map((tx) => ({
                 from: CONFIG.GENESIS_ADDRESS, to: tx.to, amount: tx.amount, type: "genesis"
@@ -66,16 +101,17 @@ class Blockchain {
             this.chain = [genesis];
             this.storage.saveBlock(genesis);
         }
+        this._rebuildIndexes();
     }
     getLatestBlock() { return this.chain[this.chain.length - 1]; }
     getRewardForHeight(height) {
         return CONFIG.BLOCK_REWARD / Math.pow(2, Math.floor(height / CONFIG.HALVING_INTERVAL));
     }
-    // Buduje listę transakcji do nowego bloku. HTLC_CREATE/CLAIM/REFUND
-    // ZACHOWUJĄ swój prawdziwy typ i pola (poprzednio WSZYSTKO trafiało jako
-    // "transfer", gubiąc htlcId/hashLock/claimant/itd. - to była realna luka,
-    // przez którą /htlc/submit nie miałby jak w ogóle zadziałać, nawet gdyby
-    // istniał).
+    // Buduje liste transakcji do nowego bloku. HTLC_CREATE/CLAIM/REFUND
+    // ZACHOWUJA swoj prawdziwy typ i pola (poprzednio WSZYSTKO trafialo jako
+    // "transfer", gubiac htlcId/hashLock/claimant/itd. - to byla realna luka,
+    // przez ktora /htlc/submit nie mialby jak w ogole zadzialac, nawet gdyby
+    // istnial).
     buildBlockTransactions(rewardRecipient, pendingTransactions = []) {
         const height = this.getLatestBlock().height + 1;
         const reward = this.getRewardForHeight(height);
@@ -130,52 +166,71 @@ class Blockchain {
     }
     receiveBlock(candidate) {
         const latest = this.getLatestBlock();
-        if (candidate.height !== latest.height + 1) return { accepted: false, reason: "wysokość nie pasuje" };
+        if (candidate.height !== latest.height + 1) return { accepted: false, reason: "wysokosc nie pasuje" };
         if (candidate.previousHash !== latest.hash) return { accepted: false, reason: "previousHash nie pasuje" };
-        if (computeBlockHash(candidate) !== candidate.hash) return { accepted: false, reason: "hash się nie zgadza" };
-        // BEZPIECZEŃSTWO (31.07.2026): candidate.difficulty pochodzi od tego,
-        // kto ZGŁASZA blok - bez tego sprawdzenia dało się wpisać dowolnie
-        // niską wartość, robiąc próg trudności absurdalnie łatwym, mimo że
-        // /info dalej pokazywałoby prawdziwą, wysoką trudność sieci. Realny
+        if (computeBlockHash(candidate) !== candidate.hash) return { accepted: false, reason: "hash sie nie zgadza" };
+        // BEZPIECZENSTWO (31.07.2026): candidate.difficulty pochodzi od tego,
+        // kto ZGLASZA blok - bez tego sprawdzenia dalo sie wpisac dowolnie
+        // niska wartosc, robiac prog trudnosci absurdalnie latwym, mimo ze
+        // /info dalej pokazywaloby prawdziwa, wysoka trudnosc sieci. Realny
         // incydent 31.07.2026 (~550x przyspieszenie kopania), nie teoria.
         if (candidate.difficulty !== this.difficulty) {
-            return { accepted: false, reason: `nieprawidłowa trudność (oczekiwano ${this.difficulty}, otrzymano ${candidate.difficulty})` };
+            return { accepted: false, reason: `nieprawidlowa trudnosc (oczekiwano ${this.difficulty}, otrzymano ${candidate.difficulty})` };
         }
-        if (candidate.hash > difficultyToTargetHex(candidate.difficulty)) return { accepted: false, reason: "nie spełnia trudności" };
-        // SPÓJNOŚĆ (05.08.2026): zapis do bazy MUSI się udać PRZED dodaniem
-        // bloku do this.chain. Wcześniej push() szedł PIERWSZY - jeśli
-        // saveBlock() rzucił (np. transakcja z to_address=null łamiąca
-        // NOT NULL w SQLite), blok zostawał w pamięci jako "widmo", którego
-        // baza nigdy nie miała. Po restarcie loadChain() czyta czystą bazę
-        // bez tego wpisu - to była realna przyczyna dziury w łańcuchu
-        // (bloki 3497 i 3614 zniknęły dokładnie tak, bez żadnego błędu w
-        // logach, bo wyjątek nigdy nie docierał do nikogo, kto by go
-        // zauważył).
+        if (candidate.hash > difficultyToTargetHex(candidate.difficulty)) return { accepted: false, reason: "nie spelnia trudnosci" };
+        // BEZPIECZENSTWO (06.08.2026): blok nigdy nie byl sprawdzany pod katem
+        // PODWOJNEGO rozwiazania tego samego HTLC. Jesli dwa zgloszenia
+        // HTLC_CLAIM dla tego samego htlcId trafily do mempoola (np. klient
+        // wyslal drugi raz po braku odpowiedzi), oba mogly wejsc do bloku i
+        // OBA zostac wyplacone - realny incydent, nie teoria (BbC wyslane
+        // dwa razy za jeden swap). Sprawdza: czy HTLC istnieje, czy nie jest
+        // juz rozwiazany we wczesniejszej historii, i czy nie powtarza sie
+        // wewnatrz TEGO SAMEGO bloku.
+        const seenHtlcResolutions = new Set();
+        for (const tx of candidate.transactions) {
+            if (tx.type === "HTLC_CLAIM" || tx.type === "HTLC_REFUND") {
+                const existing = this.findHTLC(tx.htlcId);
+                if (!existing) return { accepted: false, reason: `${tx.type} dla nieistniejacego HTLC ${tx.htlcId}` };
+                if (existing.status !== "locked") return { accepted: false, reason: `HTLC ${tx.htlcId} juz ma status "${existing.status}" - podwojne rozwiazanie odrzucone` };
+                if (seenHtlcResolutions.has(tx.htlcId)) return { accepted: false, reason: `blok zawiera dwa rozwiazania tego samego HTLC ${tx.htlcId} naraz` };
+                seenHtlcResolutions.add(tx.htlcId);
+            }
+        }
+        // SPOJNOSC (05.08.2026): zapis do bazy MUSI sie udac PRZED dodaniem
+        // bloku do this.chain. Wczesniej push() szedl PIERWSZY - jesli
+        // saveBlock() rzucil (np. transakcja z to_address=null lamiaca
+        // NOT NULL w SQLite), blok zostawal w pamieci jako "widmo", ktorego
+        // baza nigdy nie miala. Po restarcie loadChain() czyta czysta baze
+        // bez tego wpisu - to byla realna przyczyna dziury w lancuchu
+        // (bloki 3497 i 3614 zniknely dokladnie tak, bez zadnego bledu w
+        // logach, bo wyjatek nigdy nie docieral do nikogo, kto by go
+        // zauwazyl).
         try {
             this.storage.saveBlock(candidate);
         } catch (err) {
-            return { accepted: false, reason: "błąd zapisu do bazy: " + err.message };
+            return { accepted: false, reason: "blad zapisu do bazy: " + err.message };
         }
         this.chain.push(candidate);
+        this._applyBlockToIndexes(candidate);
         this.retargetIfDue(candidate);
         return { accepted: true, block: candidate };
     }
-    // Wywoływane PO udanym zapisaniu każdego bloku. Jeśli właśnie przyjęty
-    // blok kończy okno przeliczania (jego wysokość jest wielokrotnością
-    // CONFIG.DIFFICULTY_ADJUSTMENT), porównuje jak długo NAPRAWDĘ zajęło
-    // wykopanie tych bloków względem tego, ile powinno zająć (przy
+    // Wywolywane PO udanym zapisaniu kazdego bloku. Jesli wlasnie przyjety
+    // blok konczy okno przeliczania (jego wysokosc jest wielokrotnoscia
+    // CONFIG.DIFFICULTY_ADJUSTMENT), porownuje jak dlugo NAPRAWDE zajelo
+    // wykopanie tych blokow wzgledem tego, ile powinno zajac (przy
     // CONFIG.TARGET_BLOCK_TIME_MS) i proporcjonalnie dostosowuje
-    // this.difficulty dla WSZYSTKICH kolejnych bloków. Zmiana ograniczona do
-    // max 4x w górę i max 4x w dół na jedno okno, żeby jeden dziwny odczyt
-    // zegara albo chwilowy skok hashrate'u nie wywrócił trudności do zera
+    // this.difficulty dla WSZYSTKICH kolejnych blokow. Zmiana ograniczona do
+    // max 4x w gore i max 4x w dol na jedno okno, zeby jeden dziwny odczyt
+    // zegara albo chwilowy skok hashrate'u nie wywrocil trudnosci do zera
     // albo w kosmos. Blok #0 (genesis) nigdy nie wyzwala przeliczenia - nie
-    // ma go z czym porównać.
+    // ma go z czym porownac.
     retargetIfDue(justAccepted) {
         const interval = CONFIG.DIFFICULTY_ADJUSTMENT;
         if (justAccepted.height === 0 || justAccepted.height % interval !== 0) return;
 
         const windowStart = this.chain.find((b) => b.height === justAccepted.height - interval);
-        if (!windowStart) return; // za mało historii (np. świeżo zsynchronizowany węzeł)
+        if (!windowStart) return; // za malo historii (np. swiezo zsynchronizowany wezel)
 
         const actualMs = Math.max(1, justAccepted.timestamp - windowStart.timestamp);
         const expectedMs = interval * CONFIG.TARGET_BLOCK_TIME_MS;
@@ -185,15 +240,15 @@ class Blockchain {
 
         this.difficulty = Math.max(1, this.difficulty * ratio);
     }
-    // Wywoływane RAZ przy starcie, zaraz po loadChain(). this.difficulty
-    // zaczyna zawsze od tej samej stałej bazowej (patrz konstruktor) - bez
-    // tego kroku węzeł po restarcie miałby INNĄ lokalną trudność niż węzeł,
-    // który działał bez przerwy, mimo identycznego łańcucha. Dwa węzły z
-    // różną lokalną trudnością odrzucają nawzajem swoje bloki jako
-    // "nieprawidłowa trudność" - to realne ryzyko forka między
-    // 141.147.98.57 a węzłem kolegi po restarcie, nie tylko czystość kodu.
-    // Rozwiązanie: przewinąć wszystkie okna retargetingu, które już minęły
-    // w załadowanej historii, dokładnie tak samo jak działyby się na żywo.
+    // Wywolywane RAZ przy starcie, zaraz po loadChain(). this.difficulty
+    // zaczyna zawsze od tej samej stalej bazowej (patrz konstruktor) - bez
+    // tego kroku wezel po restarcie mialby INNA lokalna trudnosc niz wezel,
+    // ktory dzialal bez przerwy, mimo identycznego lancucha. Dwa wezly z
+    // rozna lokalna trudnoscia odrzucaja nawzajem swoje bloki jako
+    // "nieprawidlowa trudnosc" - to realne ryzyko forka miedzy
+    // 141.147.98.57 a wezlem kolegi po restarcie, nie tylko czystosc kodu.
+    // Rozwiazanie: przewinac wszystkie okna retargetingu, ktore juz minely
+    // w zaladowanej historii, dokladnie tak samo jak dzialyby sie na zywo.
     _recomputeDifficultyFromHistory() {
         const interval = CONFIG.DIFFICULTY_ADJUSTMENT;
         const latestHeight = this.getLatestBlock().height;
@@ -202,19 +257,80 @@ class Blockchain {
             if (block) this.retargetIfDue(block);
         }
     }
-    // Wywoływane RAZ przy starcie. NIE naprawia dziur (to wymaga ręcznego
-    // odzyskania brakujących bloków, np. z nocnego backupu) - tylko krzyczy
-    // o nich głośno w logach, zamiast pozwolić im siedzieć niezauważone
-    // miesiącami tak jak bloki 3497 i 3614.
+    // Wywolywane RAZ przy starcie. NIE naprawia dziur (to wymaga recznego
+    // odzyskania brakujacych blokow, np. z nocnego backupu) - tylko krzyczy
+    // o nich glosno w logach, zamiast pozwolic im siedziec niezauwazone
+    // miesiacami tak jak bloki 3497 i 3614.
     _warnIfChainHasGaps() {
         for (let i = 1; i < this.chain.length; i++) {
             const expected = this.chain[i - 1].height + 1;
             if (this.chain[i].height !== expected) {
                 const missingEnd = this.chain[i].height - 1;
                 const label = expected === missingEnd ? `${expected}` : `${expected}-${missingEnd}`;
-                console.error(`⚠️  DZIURA W ŁAŃCUCHU: brakuje bloku/bloków ${label} (baza przeskakuje z wysokości ${this.chain[i - 1].height} na ${this.chain[i].height})`);
+                console.error(`  DZIURA W LANCUCHU: brakuje bloku/blokow ${label} (baza przeskakuje z wysokosci ${this.chain[i - 1].height} na ${this.chain[i].height})`);
             }
         }
+    }
+    // SYNCHRONIZACJA NOWEGO WEZLA (06.08.2026): wolane przez p2p.js po
+    // otrzymaniu pelnego lancucha od peera (wiadomosc CHAIN). Ta metoda
+    // wczesniej NIE ISTNIALA WCALE, mimo ze p2p.js jej uzywal - kazda proba
+    // synchronizacji nowego wezla konczyla sie cichym wyjatkiem zlapanym w
+    // p2p.js (tylko ostrzezenie w logu), bez faktycznego pobrania historii.
+    //
+    // Sprawdza: spojnosc hashy/wysokosci przez caly kandydacki lancuch,
+    // ze kazdy hash faktycznie odpowiada tresci bloku (computeBlockHash),
+    // i ze kazdy hash bije cel wyliczony z WLASNEGO zadeklarowanego
+    // difficulty tego bloku (prawdziwy PoW, nie wymyslona liczba).
+    //
+    // UCZCIWIE O GRANICY TEGO MECHANIZMU: NIE odtwarza pelnej historii
+    // retargetingu blok-po-bloku zeby zweryfikowac, ze same wartosci
+    // difficulty byly uczciwie wyliczone (tak jak _recomputeDifficultyFromHistory
+    // robi to dla WLASNEGO lancucha) - odkad istnieje maybeEmergencyAdjust(),
+    // ktore reaguje na realny uplyw czasu (Date.now()), a nie tylko na
+    // wysokosc bloku, dokladne odtworzenie "ile ciec EDA naprawde zaszlo
+    // miedzy blokiem A i B" nie jest w pelni odtwarzalne z samych
+    // timestampow w danych. To oznacza: ta metoda ufa zapisanym wartosciom
+    // difficulty jako faktowi historycznemu (jak w prawdziwym Bitcoinie
+    // ufa sie skumulowanej pracy), nie weryfikuje ich w 100% niezaleznie.
+    // Dla kilku znanych, zaufanych wezlow (jak dzisiaj) to rozsadny
+    // kompromis - dla w pelni obcych/wrogich peerow wymagaloby to dalszej
+    // pracy.
+    replaceChain(candidateChain) {
+        if (!Array.isArray(candidateChain) || candidateChain.length === 0) {
+            return { accepted: false, reason: "pusty lub nieprawidlowy lancuch" };
+        }
+        if (candidateChain[0].hash !== this.chain[0].hash) {
+            return { accepted: false, reason: "inny genesis - inna siec" };
+        }
+        if (candidateChain.length <= this.chain.length) {
+            return { accepted: false, reason: `krotszy lub rowny (${candidateChain.length} <= ${this.chain.length}) - odrzucony, nie ma powodu podmieniac` };
+        }
+        for (let i = 0; i < candidateChain.length; i++) {
+            const block = candidateChain[i];
+            if (block.height !== i) {
+                return { accepted: false, reason: `blok #${i}: wysokosc ${block.height} nie pasuje do pozycji` };
+            }
+            if (i > 0 && block.previousHash !== candidateChain[i - 1].hash) {
+                return { accepted: false, reason: `blok #${i}: previousHash nie pasuje do bloku #${i - 1}` };
+            }
+            if (computeBlockHash(block) !== block.hash) {
+                return { accepted: false, reason: `blok #${i}: hash nie zgadza sie z trescia` };
+            }
+            if (i > 0 && block.hash > difficultyToTargetHex(block.difficulty)) {
+                return { accepted: false, reason: `blok #${i}: nie spelnia wlasnej deklarowanej trudnosci (brak realnego PoW)` };
+            }
+        }
+        try {
+            this.storage.replaceAllBlocks(candidateChain);
+        } catch (err) {
+            return { accepted: false, reason: "blad zapisu do bazy: " + err.message };
+        }
+        this.chain = candidateChain;
+        this._warnIfChainHasGaps();
+        this._rebuildIndexes();
+        this.difficulty = Math.pow(16, CONFIG.DIFFICULTY);
+        this._recomputeDifficultyFromHistory();
+        return { accepted: true, height: this.getLatestBlock().height };
     }
     getChain() { return this.chain; }
     getRecentBlocks(limit = 20, beforeHeight = null) {
@@ -241,47 +357,78 @@ class Blockchain {
     validateHTLCClaim({ htlcId, secret, claimant }) {
         const htlc = this.findHTLC(htlcId);
         if (!htlc) return { valid: false, reason: "HTLC nie istnieje" };
-        if (htlc.status !== "locked") return { valid: false, reason: `HTLC ma status "${htlc.status}", nie można odebrać` };
-        if (claimant !== htlc.claimant) return { valid: false, reason: "tylko wyznaczony odbiorca może odebrać" };
+        if (htlc.status !== "locked") return { valid: false, reason: `HTLC ma status "${htlc.status}", nie mozna odebrac` };
+        if (claimant !== htlc.claimant) return { valid: false, reason: "tylko wyznaczony odbiorca moze odebrac" };
         const nextHeight = this.getLatestBlock().height + 1;
-        if (nextHeight >= htlc.timeoutHeight) return { valid: false, reason: "termin już minął, odbiór niemożliwy - tylko zwrot" };
-        if (sha256Hex(secret) !== htlc.hashLock) return { valid: false, reason: "zły sekret - hash się nie zgadza" };
+        if (nextHeight >= htlc.timeoutHeight) return { valid: false, reason: "termin juz minal, odbior niemozliwy - tylko zwrot" };
+        if (sha256Hex(secret) !== htlc.hashLock) return { valid: false, reason: "zly sekret - hash sie nie zgadza" };
         return { valid: true, amount: htlc.amount, to: htlc.claimant };
     }
     validateHTLCRefund({ htlcId, refundee }) {
         const htlc = this.findHTLC(htlcId);
         if (!htlc) return { valid: false, reason: "HTLC nie istnieje" };
-        if (htlc.status !== "locked") return { valid: false, reason: `HTLC ma status "${htlc.status}", nie można zwrócić` };
-        if (refundee !== htlc.refundee) return { valid: false, reason: "tylko oryginalny nadawca może dostać zwrot" };
+        if (htlc.status !== "locked") return { valid: false, reason: `HTLC ma status "${htlc.status}", nie mozna zwrocic` };
+        if (refundee !== htlc.refundee) return { valid: false, reason: "tylko oryginalny nadawca moze dostac zwrot" };
         const nextHeight = this.getLatestBlock().height + 1;
-        if (nextHeight < htlc.timeoutHeight) return { valid: false, reason: `termin jeszcze nie minął (blok ${nextHeight} < ${htlc.timeoutHeight})` };
+        if (nextHeight < htlc.timeoutHeight) return { valid: false, reason: `termin jeszcze nie minal (blok ${nextHeight} < ${htlc.timeoutHeight})` };
         return { valid: true, amount: htlc.amount, to: htlc.refundee };
     }
-    getBalance(address) {
-        let balance = 0;
-        for (const block of this.chain) {
-            const feeActive = isProjectFeeActive(block.height);
-            for (const tx of block.transactions) {
-                if (tx.type === "transfer" && tx.to === address) {
-                    balance += feeActive ? tx.amount * (1 - PROJECT_FEE_PERCENT) : tx.amount;
-                } else if (tx.type === "transfer" && tx.from === address) {
-                    balance -= (tx.amount + (tx.fee || 0));
-                } else if (tx.type === "HTLC_CREATE" && tx.from === address) {
-                    balance -= (tx.amount + (tx.fee || 0));
-                } else if (tx.type === "HTLC_CLAIM" && tx.to === address) {
-                    balance += tx.amount;
-                } else if (tx.type === "HTLC_REFUND" && tx.to === address) {
-                    balance += tx.amount;
-                } else if (tx.to === address && tx.type !== "HTLC_CREATE") {
-                    // Ta sama poprawka co w getAddressStats - HTLC_CREATE ma
-                    // teraz "to" (=claimant) dla samego zapisu do bazy, ale
-                    // środki są zablokowane, nie odebrane - to wykluczenie
-                    // zapobiega przedwczesnemu doliczeniu ich do salda.
-                    balance += tx.amount;
-                }
+    // INDEKSY WYDAJNOSCIOWE (10.08.2026): getBalance/getAddressStats/
+    // getTransactionsForAddress kiedys skanowaly CALY lancuch (63000+
+    // blokow) przy KAZDYM wywolaniu - kazde sprawdzenie salda, kazde
+    // odswiezenie explorera. To nie jest problem "za duzo ludzi na raz",
+    // to problem ktory sam z siebie pogarsza sie z czasem, bo lancuch
+    // tylko rosnie. Rozwiazanie: te same wyliczenia co wczesniej, ale
+    // zaaplikowane RAZ na blok (przy jego przyjeciu), trzymane w Map,
+    // zamiast przeliczane od zera za kazdym zapytaniem. Wyniki musza
+    // wychodzic IDENTYCZNIE jak stara wersja - to weryfikowane osobnym
+    // testem roznicowym (stara vs nowa implementacja, wiele losowych
+    // scenariuszy), nie tylko na oko.
+    _rebuildIndexes() {
+        this.balances = new Map();
+        this.firstSeenHeight = new Map();
+        this.addressTransactions = new Map();
+        for (const block of this.chain) this._applyBlockToIndexes(block);
+    }
+    _addBalance(address, delta) {
+        this.balances.set(address, (this.balances.get(address) || 0) + delta);
+    }
+    _touchFirstSeen(address, height) {
+        if (!this.firstSeenHeight.has(address)) this.firstSeenHeight.set(address, height);
+    }
+    _applyBlockToIndexes(block) {
+        const feeActive = isProjectFeeActive(block.height);
+        for (const tx of block.transactions) {
+            const involved = new Set([tx.to, tx.from].filter(Boolean));
+            for (const addr of involved) {
+                if (!this.addressTransactions.has(addr)) this.addressTransactions.set(addr, []);
+                this.addressTransactions.get(addr).push({ ...tx, blockHeight: block.height });
+            }
+            if (tx.type === "transfer" && tx.to) {
+                this._touchFirstSeen(tx.to, block.height);
+                const credited = feeActive ? tx.amount * (1 - PROJECT_FEE_PERCENT) : tx.amount;
+                this._addBalance(tx.to, credited);
+            } else if (tx.type === "HTLC_CLAIM" && tx.to) {
+                this._touchFirstSeen(tx.to, block.height);
+                this._addBalance(tx.to, tx.amount);
+            } else if (tx.type === "HTLC_REFUND" && tx.to) {
+                this._touchFirstSeen(tx.to, block.height);
+                this._addBalance(tx.to, tx.amount);
+            } else if (tx.to && tx.type !== "HTLC_CREATE") {
+                this._touchFirstSeen(tx.to, block.height);
+                this._addBalance(tx.to, tx.amount);
+            }
+            if (tx.type === "transfer" && tx.from) {
+                this._touchFirstSeen(tx.from, block.height);
+                this._addBalance(tx.from, -(tx.amount + (tx.fee || 0)));
+            } else if (tx.type === "HTLC_CREATE" && tx.from) {
+                this._touchFirstSeen(tx.from, block.height);
+                this._addBalance(tx.from, -(tx.amount + (tx.fee || 0)));
             }
         }
-        return balance;
+    }
+    getBalance(address) {
+        return this.balances.get(address) || 0;
     }
     getSoloMiners() {
         const seen = new Map();
@@ -299,46 +446,13 @@ class Blockchain {
         return Array.from(seen.values()).sort((a, b) => b.lastBlockHeight - a.lastBlockHeight);
     }
     getAddressStats(whaleLimit = 10, newestLimit = 10) {
-        const balances = new Map();
-        const firstSeen = new Map();
-        for (const block of this.chain) {
-            const feeActive = isProjectFeeActive(block.height);
-            for (const tx of block.transactions) {
-                if (tx.type === "transfer" && tx.to) {
-                    if (!firstSeen.has(tx.to)) firstSeen.set(tx.to, block.height);
-                    const credited = feeActive ? tx.amount * (1 - PROJECT_FEE_PERCENT) : tx.amount;
-                    balances.set(tx.to, (balances.get(tx.to) || 0) + credited);
-                } else if (tx.type === "HTLC_CLAIM" && tx.to) {
-                    if (!firstSeen.has(tx.to)) firstSeen.set(tx.to, block.height);
-                    balances.set(tx.to, (balances.get(tx.to) || 0) + tx.amount);
-                } else if (tx.type === "HTLC_REFUND" && tx.to) {
-                    if (!firstSeen.has(tx.to)) firstSeen.set(tx.to, block.height);
-                    balances.set(tx.to, (balances.get(tx.to) || 0) + tx.amount);
-                } else if (tx.to && tx.type !== "HTLC_CREATE") {
-                    // HTLC_CREATE MA teraz pole "to" (=claimant, dodane żeby
-                    // zapis do bazy działał - patrz buildBlockTransactions),
-                    // ale środki są ZABLOKOWANE, nie odebrane - to jawne
-                    // wykluczenie zapobiega przedwczesnemu doliczeniu ich do
-                    // salda claimanta zanim faktycznie odbierze (HTLC_CLAIM).
-                    if (!firstSeen.has(tx.to)) firstSeen.set(tx.to, block.height);
-                    balances.set(tx.to, (balances.get(tx.to) || 0) + tx.amount);
-                }
-                if (tx.type === "transfer" && tx.from) {
-                    if (!firstSeen.has(tx.from)) firstSeen.set(tx.from, block.height);
-                    balances.set(tx.from, (balances.get(tx.from) || 0) - (tx.amount + (tx.fee || 0)));
-                } else if (tx.type === "HTLC_CREATE" && tx.from) {
-                    if (!firstSeen.has(tx.from)) firstSeen.set(tx.from, block.height);
-                    balances.set(tx.from, (balances.get(tx.from) || 0) - (tx.amount + (tx.fee || 0)));
-                }
-            }
-        }
-        const addresses = Array.from(balances.keys());
+        const addresses = Array.from(this.balances.keys());
         const whales = addresses
-            .map((address) => ({ address, balance: balances.get(address) }))
+            .map((address) => ({ address, balance: this.balances.get(address) }))
             .sort((a, b) => b.balance - a.balance)
             .slice(0, whaleLimit);
-        const newest = addresses
-            .map((address) => ({ address, firstSeenHeight: firstSeen.get(address) }))
+        const newest = Array.from(this.firstSeenHeight.entries())
+            .map(([address, firstSeenHeight]) => ({ address, firstSeenHeight }))
             .sort((a, b) => b.firstSeenHeight - a.firstSeenHeight)
             .slice(0, newestLimit);
         return { totalAddresses: addresses.length, whales, newest };
@@ -347,17 +461,62 @@ class Blockchain {
         this.storage.saveCredit(credit);
     }
     getTransactionsForAddress(address) {
-        const results = [];
-        for (const block of this.chain) {
-            for (const tx of block.transactions) {
-                if (tx.to === address || tx.from === address) {
-                    results.push({ ...tx, blockHeight: block.height });
-                }
-            }
+        return (this.addressTransactions.get(address) || []).slice().reverse();
+    }
+    // AWARYJNE OBNIZENIE TRUDNOSCI (06.08.2026): retargetIfDue() dziala
+    // TYLKO gdy okno CONFIG.DIFFICULTY_ADJUSTMENT blokow sie domknie - a
+    // jesli trudnosc kiedykolwiek stanie sie nieosiagalna dla realnego
+    // hashrate, okno NIGDY sie nie domyka (bloki po prostu nie powstaja),
+    // wiec normalny retarget nigdy nie dostaje szansy zadzialac. Siec
+    // utyka trwale. Dokladnie to sie stalo 06.08.2026: przy retargetingu
+    // liczonym z historii chaotycznej sesji (bloki co sekunde) trudnosc
+    // wyszla rzedu 4e20 - przy realnym hashrate koparek przegladarkowych
+    // to postawilo blok #47285 na wiele godzin bez szans na znalezienie.
+    // Ta metoda dziala NIEZALEZNIE od okna, na podstawie samego uplywu
+    // czasu od ostatniego bloku: jesli minelo znacznie dluzej niz
+    // oczekiwano (15x), tnie trudnosc, mocniej im dluzej czekamy (max
+    // /1024 na jedno zadzialanie), z odstepem miedzy kolejnymi ciciami
+    // zeby dac kazdemu nowemu poziomowi realna szanse. Gdy tylko jakis
+    // blok zostanie znaleziony, ten mechanizm sam sie wylacza (licznik
+    // czasu resetuje sie do swiezego bloku) i oddaje kontrole normalnemu
+    // retargetIfDue().
+    // RECZNA KOREKTA (10.08.2026): narzedzie na wypadek gdy EDA sluszne obetnie
+    // trudnosc podczas realnego przestoju, ale zostawi ja duzo za nisko wzgledem
+    // faktycznego hashrate po powrocie serwera - normalny retargetIfDue naprawia
+    // to tylko w tempie max 4x na okno (2028 blokow), co przy duzym rozjezdzie
+    // mogloby trwac tysiace blokow. Uzywa DOKLADNIE tego samego mechanizmu
+    // zapisu co EDA (saveEmergencyDifficultyState) - wiec przetrwa restart tak
+    // samo niezawodnie, bez osobnej sciezki kodu do utrzymania.
+    setDifficultyManually(newDifficulty) {
+        if (typeof newDifficulty !== "number" || !Number.isFinite(newDifficulty) || !(newDifficulty > 0)) {
+            throw new Error("Nieprawidlowa wartosc trudnosci - musi byc liczba dodatnia");
         }
-        return results.reverse();
+        const old = this.difficulty;
+        this.difficulty = newDifficulty;
+        saveEmergencyDifficultyState(newDifficulty, this.getLatestBlock().height);
+        console.error("RECZNA KOREKTA TRUDNOSCI: " + old + " -> " + newDifficulty);
+        return { old, new: newDifficulty };
+    }
+
+    maybeEmergencyAdjust() {
+        const latest = this.getLatestBlock();
+        if (latest.height === 0) return;
+        const msSinceLastBlock = Date.now() - latest.timestamp;
+        const target = CONFIG.TARGET_BLOCK_TIME_MS;
+        if (msSinceLastBlock < target * 15) return;
+        const cooldownMs = target * 3;
+        if (this._lastEmergencyAdjustAt && Date.now() - this._lastEmergencyAdjustAt < cooldownMs) return;
+        const overshoot = msSinceLastBlock / target;
+        const cuts = Math.min(10, Math.max(1, Math.floor(Math.log2(overshoot))));
+        const divisor = Math.pow(2, cuts);
+        const old = this.difficulty;
+        this.difficulty = Math.max(1, this.difficulty / divisor);
+        this._lastEmergencyAdjustAt = Date.now();
+        saveEmergencyDifficultyState(this.difficulty, latest.height);
+        console.error("AWARYJNE OBNIZENIE TRUDNOSCI: " + Math.round(msSinceLastBlock / 60000) + "min bez bloku (oczekiwano " + Math.round(target / 60000) + "min) - dzielone przez " + divisor + ": " + old + " -> " + this.difficulty);
     }
     getInfo() {
+        this.maybeEmergencyAdjust();
         const latest = this.getLatestBlock();
         const height = latest.height;
         let circulatingSupply = 0;
