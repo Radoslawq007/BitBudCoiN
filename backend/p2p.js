@@ -1,35 +1,23 @@
 const net = require("net");
 const CONFIG = require("./config");
 
-// Zabezpieczenie przed złośliwym/zepsutym peerem, który nigdy nie wysyła "\n" -
-// bez tego bufor rósłby w nieskończoność
 const MAX_BUFFER_BYTES = 64 * 1024 * 1024;
-
-// Ile trzymamy w pamięci hashy ostatnio widzianych bloków (dedup gossipu NEW_BLOCK)
 const SEEN_HASHES_CAP = 5000;
-
 const RECONNECT_DELAY_MS = 5000;
+const CHAIN_CHUNK_SIZE = 2000;
+const MAX_CHAIN_CHUNKS = 5000;
 
-/**
- * Węzeł P2P: surowe gniazda TCP (net), wiadomości jako JSON oddzielony znakiem
- * nowej linii (NDJSON). Nie WebSocket - żeby nie dokładać zależności npm, a Node
- * ma to wbudowane. Protokół:
- *   HELLO      { height, latestHash, genesisHash }   - wysyłane od razu po połączeniu
- *   GET_CHAIN  {}                                     - "wyślij mi cały swój łańcuch"
- *   CHAIN      { chain: [...] }                       - odpowiedź na GET_CHAIN
- *   NEW_BLOCK  { block }                               - propagacja świeżo wykopanego bloku
- */
 class P2PNode {
     constructor(blockchain, { port, peers, mempool } = {}) {
         this.blockchain = blockchain;
         this.mempool = mempool ?? null;
         this.port = port ?? CONFIG.P2P_PORT;
         this.initialPeers = peers ?? CONFIG.PEERS ?? [];
-
-        this.sockets = new Map(); // adres "host:port" -> net.Socket
-        this.configuredPeers = new Set(); // adresy, do których SAMI się łączymy (dostają retry)
+        this.sockets = new Map();
+        this.configuredPeers = new Set();
         this.reconnectTimers = new Map();
         this.seenBlockHashes = new Set();
+        this.chainSyncBuffers = new Map();
         this.server = null;
         this.closed = false;
     }
@@ -39,40 +27,30 @@ class P2PNode {
             const remoteAddr = `${socket.remoteAddress}:${socket.remotePort}`;
             this._handleConnection(socket, remoteAddr);
         });
-
         this.server.on("error", (err) => {
-            console.error(`❌ Błąd serwera P2P: ${err.message}`);
+            console.error("Blad serwera P2P: " + err.message);
         });
-
         this.server.listen(this.port, () => {
-            console.log(`🌐 Węzeł P2P nasłuchuje na porcie ${this.port}`);
+            console.log("Wezel P2P nasluchuje na porcie " + this.port);
         });
-
         for (const addr of this.initialPeers) {
             this.connectToPeer(addr);
         }
     }
 
-    // Łączy się z peerem "host:port". Bezpieczne do wywołania wielokrotnie -
-    // pomija, jeśli już połączeni. Nieudane połączenie i późniejszy rozłącznik
-    // uruchamiają automatyczny retry co RECONNECT_DELAY_MS.
     connectToPeer(address) {
         if (this.closed || this.sockets.has(address)) return;
         this.configuredPeers.add(address);
-
         const [host, portStr] = address.split(":");
         const socket = net.connect(Number(portStr), host);
-
         socket.on("connect", () => {
-            console.log(`🔗 Połączono z peerem ${address}`);
+            console.log("Polaczono z peerem " + address);
             this._clearReconnect(address);
             this._handleConnection(socket, address);
         });
-
         socket.on("error", (err) => {
-            console.warn(`⚠️  Problem z połączeniem do ${address}: ${err.message}`);
+            console.warn("Problem z polaczeniem do " + address + ": " + err.message);
         });
-
         socket.on("close", () => {
             this.sockets.delete(address);
             if (!this.closed) this._scheduleReconnect(address);
@@ -97,18 +75,14 @@ class P2PNode {
         }
     }
 
-    // Wspólna obsługa gniazda - zarówno dla połączeń przychodzących (od razu),
-    // jak i wychodzących (wołane dopiero po evencie "connect")
     _handleConnection(socket, remoteAddr) {
         this.sockets.set(remoteAddr, socket);
         let buffer = "";
-
         this._send(socket, this._helloMessage());
-
         socket.on("data", (chunk) => {
             buffer += chunk.toString("utf8");
             if (buffer.length > MAX_BUFFER_BYTES) {
-                console.warn(`⚠️  Peer ${remoteAddr} przekroczył limit bufora wiadomości - rozłączam`);
+                console.warn("Peer " + remoteAddr + " przekroczyl limit bufora - rozlaczam");
                 socket.destroy();
                 return;
             }
@@ -119,16 +93,12 @@ class P2PNode {
                 if (line.trim()) this._handleMessage(socket, remoteAddr, line);
             }
         });
-
         socket.on("close", () => {
             this.sockets.delete(remoteAddr);
-            console.log(`🔌 Peer ${remoteAddr} rozłączony`);
+            this.chainSyncBuffers.delete(remoteAddr);
+            console.log("Peer " + remoteAddr + " rozlaczony");
         });
-
-        socket.on("error", () => {
-            // "close" i tak zaraz się odpali - to tylko po to, żeby nieobsłużony
-            // błąd nie wywrócił całego procesu
-        });
+        socket.on("error", () => {});
     }
 
     _helloMessage() {
@@ -156,9 +126,7 @@ class P2PNode {
     _send(socket, message) {
         try {
             socket.write(JSON.stringify(message) + "\n");
-        } catch (err) {
-            // socket mógł się właśnie zamknąć - ignorujemy
-        }
+        } catch (err) {}
     }
 
     broadcast(message, excludeAddr = null) {
@@ -167,13 +135,10 @@ class P2PNode {
             if (addr === excludeAddr) continue;
             try {
                 socket.write(line);
-            } catch (err) {
-                // ignorujemy pojedynczy zerwany socket, reszта peerów dostanie wiadomość
-            }
+            } catch (err) {}
         }
     }
 
-    // Wołane przez server.js zaraz po tym, jak SAMI wykopiemy nowy blok
     broadcastNewBlock(block) {
         const serialized = this._serializeBlock(block);
         this._rememberHash(serialized.hash);
@@ -185,19 +150,58 @@ class P2PNode {
         this.seenBlockHashes.add(hash);
     }
 
+    _sendChainChunked(socket) {
+        const allBlocks = this.blockchain.getChain().map((b) => this._serializeBlock(b));
+        const totalChunks = Math.max(1, Math.ceil(allBlocks.length / CHAIN_CHUNK_SIZE));
+        for (let i = 0; i < totalChunks; i++) {
+            const blocks = allBlocks.slice(i * CHAIN_CHUNK_SIZE, (i + 1) * CHAIN_CHUNK_SIZE);
+            this._send(socket, { type: "CHAIN_CHUNK", chunkIndex: i, totalChunks, blocks });
+        }
+    }
+
+    _handleChainChunk(remoteAddr, message) {
+        const { chunkIndex, totalChunks, blocks } = message;
+        if (!Number.isInteger(chunkIndex) || !Number.isInteger(totalChunks) ||
+            totalChunks < 1 || totalChunks > MAX_CHAIN_CHUNKS ||
+            chunkIndex < 0 || chunkIndex >= totalChunks || !Array.isArray(blocks)) {
+            console.warn("Nieprawidlowy CHAIN_CHUNK od " + remoteAddr + " - ignoruje");
+            return;
+        }
+        let buf = this.chainSyncBuffers.get(remoteAddr);
+        if (!buf || buf.totalChunks !== totalChunks) {
+            buf = { totalChunks, chunks: new Array(totalChunks).fill(null) };
+            this.chainSyncBuffers.set(remoteAddr, buf);
+        }
+        buf.chunks[chunkIndex] = blocks;
+        if (buf.chunks.every((c) => c !== null)) {
+            this.chainSyncBuffers.delete(remoteAddr);
+            this._applyCandidateChain(remoteAddr, buf.chunks.flat(), totalChunks);
+        }
+    }
+
+    _applyCandidateChain(remoteAddr, chain, chunkCount) {
+        const result = this.blockchain.replaceChain(chain);
+        if (result.accepted) {
+            const via = chunkCount ? " (" + chunkCount + " paczek)" : "";
+            console.log("Przyjeto dluzszy lancuch od " + remoteAddr + via + " - nowa wysokosc " + result.height);
+            if (this.mempool) this.mempool.revalidateAll();
+        } else {
+            console.log("Odrzucono lancuch od " + remoteAddr + ": " + result.reason);
+        }
+    }
+
     _handleMessage(socket, remoteAddr, line) {
         let message;
         try {
             message = JSON.parse(line);
         } catch (err) {
-            console.warn(`⚠️  Nieprawidłowy JSON od ${remoteAddr}`);
+            console.warn("Nieprawidlowy JSON od " + remoteAddr);
             return;
         }
-
         try {
             this._dispatch(socket, remoteAddr, message);
         } catch (err) {
-            console.warn(`⚠️  Błąd przetwarzania wiadomości od ${remoteAddr}: ${err.message}`);
+            console.warn("Blad przetwarzania wiadomosci od " + remoteAddr + ": " + err.message);
         }
     }
 
@@ -206,7 +210,7 @@ class P2PNode {
             case "HELLO": {
                 const ourGenesis = this.blockchain.chain[0].hash;
                 if (message.genesisHash && message.genesisHash !== ourGenesis) {
-                    console.warn(`⚠️  ${remoteAddr} ma inny genesis (inna sieć) - ignoruję`);
+                    console.warn(remoteAddr + " ma inny genesis (inna siec) - ignoruje");
                     return;
                 }
                 const ourHeight = this.blockchain.getLatestBlock().height;
@@ -215,50 +219,40 @@ class P2PNode {
                 }
                 break;
             }
-
             case "GET_CHAIN": {
-                this._send(socket, {
-                    type: "CHAIN",
-                    chain: this.blockchain.getChain().map((b) => this._serializeBlock(b))
-                });
+                this._sendChainChunked(socket);
                 break;
             }
-
             case "CHAIN": {
-                const result = this.blockchain.replaceChain(message.chain);
-                if (result.accepted) {
-                    console.log(`✅ Przyjęto dłuższy łańcuch od ${remoteAddr} - nowa wysokość ${result.height}`);
-                    if (this.mempool) this.mempool.revalidateAll();
-                } else {
-                    console.log(`↪️  Odrzucono łańcuch od ${remoteAddr}: ${result.reason}`);
-                }
+                this._applyCandidateChain(remoteAddr, message.chain, null);
                 break;
             }
-
+            case "CHAIN_CHUNK": {
+                this._handleChainChunk(remoteAddr, message);
+                break;
+            }
             case "NEW_BLOCK": {
                 const b = message.block;
                 if (!b || !b.hash || this.seenBlockHashes.has(b.hash)) return;
                 this._rememberHash(b.hash);
-
                 const ourHeight = this.blockchain.getLatestBlock().height;
                 if (b.height === ourHeight + 1) {
                     const result = this.blockchain.receiveBlock(b);
                     if (result.accepted) {
-                        console.log(`⛏️  Przyjęto nowy blok #${b.height} od ${remoteAddr}`);
+                        console.log("Przyjeto nowy blok #" + b.height + " od " + remoteAddr);
                         if (this.mempool) this.mempool.pruneConfirmed(result.block);
                         this.broadcast({ type: "NEW_BLOCK", block: b }, remoteAddr);
                     } else {
-                        console.log(`↪️  Odrzucono blok #${b.height} od ${remoteAddr}: ${result.reason}`);
+                        console.log("Odrzucono blok #" + b.height + " od " + remoteAddr + ": " + result.reason);
                     }
                 } else if (b.height > ourHeight + 1) {
-                    console.log(`📡 ${remoteAddr} jest do przodu (#${b.height}, my #${ourHeight}) - proszę o cały łańcuch`);
+                    console.log(remoteAddr + " jest do przodu (#" + b.height + ", my #" + ourHeight + ") - prosze o caly lancuch");
                     this._send(socket, { type: "GET_CHAIN" });
                 }
                 break;
             }
-
             default:
-                console.warn(`⚠️  Nieznany typ wiadomości od ${remoteAddr}: ${message.type}`);
+                console.warn("Nieznany typ wiadomosci od " + remoteAddr + ": " + message.type);
         }
     }
 
@@ -277,6 +271,7 @@ class P2PNode {
         this.reconnectTimers.clear();
         for (const socket of this.sockets.values()) socket.destroy();
         this.sockets.clear();
+        this.chainSyncBuffers.clear();
         if (this.server) this.server.close();
     }
 }
