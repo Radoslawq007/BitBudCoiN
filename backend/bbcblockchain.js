@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const CONFIG = require("./config");
 const Storage = require("./storage");
+const { asertNextDifficulty } = require("./asert-difficulty");
 const MAX_TARGET = (1n << 256n) - 1n;
 const GENESIS_TIMESTAMP = Date.UTC(2026, 0, 1);
 // Oplata protokolu - usztywniona w kodzie, nie w configu (patrz poprzednia
@@ -57,6 +58,14 @@ function isProjectFeeActive(height) {
         CONFIG.PROJECT_FEE_ACTIVATION_HEIGHT !== undefined &&
         height >= CONFIG.PROJECT_FEE_ACTIVATION_HEIGHT);
 }
+// vMax (dodane): identycznie jak isProjectFeeActive powyzej, ten sam
+// sprawdzony wzorzec z tego samego pliku, nie nowy mechanizm.
+// ANCHOR_HEIGHT (blok tuz PRZED aktywacja, ostatni pod starymi zasadami) =
+// ASERT_ACTIVATION_HEIGHT - 1. To ten blok jest kotwica ASERT, nie sam
+// blok aktywacyjny - jego trudnosc wychodzi Z kotwicy, wiec nie moze nia byc.
+function isAsertActive(height) {
+    return !!(CONFIG.ASERT_ACTIVATION_HEIGHT !== undefined && height >= CONFIG.ASERT_ACTIVATION_HEIGHT);
+}
 class Blockchain {
     constructor() {
         this.storage = new Storage(CONFIG.DATABASE);
@@ -71,24 +80,31 @@ class Blockchain {
         // liczac z historii WLASNEGO, juz zweryfikowanego lancucha, nigdy z
         // danych przyslanych z zewnatrz.
         this.difficulty = Math.pow(16, CONFIG.DIFFICULTY);
+        this._asertAnchor = null; // vMax: cache kotwicy ASERT, patrz _getAsertAnchor()
         if (this.storage.hasBlocks()) {
             this.chain = this.storage.loadChain();
             this._warnIfChainHasGaps();
             this._recomputeDifficultyFromHistory();
-            const emergencyState = loadEmergencyDifficultyState();
-            if (emergencyState) {
-                const savedWindow = Math.floor((emergencyState.height ?? 0) / CONFIG.DIFFICULTY_ADJUSTMENT);
-                const currentWindow = Math.floor(this.getLatestBlock().height / CONFIG.DIFFICULTY_ADJUSTMENT);
-                if (savedWindow === currentWindow) {
-                    // Zadna nowa granica okna nie zostala przekroczona od zapisu -
-                    // zapisana wartosc (EDA albo reczna korekta) wciaz jest
-                    // aktualna, uzyj jej zamiast czystej, historycznej wartosci
-                    // (ktora nie wie nic o cieciach EDA ani recznych korektach).
-                    console.error("Uzywam zapisanego stanu trudnosci (" + emergencyState.difficulty + ") zamiast przeliczonej z historii (" + this.difficulty + ") - to samo okno, restart nie cofa zmiany.");
-                    this.difficulty = emergencyState.difficulty;
+            // vMax: stan awaryjny (EDA/reczna korekta) nalezy WYLACZNIE do starego,
+            // windowowego systemu. Po aktywacji ASERT ufamy TYLKO swiezo policzonej
+            // wartosci z _recomputeDifficultyFromHistory() - wczytanie starego pliku
+            // awaryjnego nadpisaloby poprawny wynik ASERT nieaktualna liczba.
+            if (!isAsertActive(this.getLatestBlock().height + 1)) {
+                const emergencyState = loadEmergencyDifficultyState();
+                if (emergencyState) {
+                    const savedWindow = Math.floor((emergencyState.height ?? 0) / CONFIG.DIFFICULTY_ADJUSTMENT);
+                    const currentWindow = Math.floor(this.getLatestBlock().height / CONFIG.DIFFICULTY_ADJUSTMENT);
+                    if (savedWindow === currentWindow) {
+                        // Zadna nowa granica okna nie zostala przekroczona od zapisu -
+                        // zapisana wartosc (EDA albo reczna korekta) wciaz jest
+                        // aktualna, uzyj jej zamiast czystej, historycznej wartosci
+                        // (ktora nie wie nic o cieciach EDA ani recznych korektach).
+                        console.error("Uzywam zapisanego stanu trudnosci (" + emergencyState.difficulty + ") zamiast przeliczonej z historii (" + this.difficulty + ") - to samo okno, restart nie cofa zmiany.");
+                        this.difficulty = emergencyState.difficulty;
+                    }
+                    // w przeciwnym razie: normalny retarget okienny juz wlaczyl
+                    // swiezsza wiedze od czasu zapisu - ufaj przeliczonej wartosci
                 }
-                // w przeciwnym razie: normalny retarget okienny juz wlaczyl
-                // swiezsza wiedze od czasu zapisu - ufaj przeliczonej wartosci
             }
         } else {
             const transactions = CONFIG.GENESIS_TRANSACTIONS.map((tx) => ({
@@ -212,7 +228,14 @@ class Blockchain {
         }
         this.chain.push(candidate);
         this._applyBlockToIndexes(candidate);
-        this.retargetIfDue(candidate);
+        // vMax: od aktywacji, ASERT liczy trudnosc dla NASTEPNEGO bloku wprost
+        // z kotwicy - stary retargetIfDue() zostaje calkowicie nietkniety i
+        // dziala jak zawsze dla wszystkiego PRZED aktywacja.
+        if (isAsertActive(candidate.height + 1)) {
+            this._applyAsertDifficulty(candidate);
+        } else {
+            this.retargetIfDue(candidate);
+        }
         return { accepted: true, block: candidate };
     }
     // Wywolywane PO udanym zapisaniu kazdego bloku. Jesli wlasnie przyjety
@@ -225,6 +248,10 @@ class Blockchain {
     // zegara albo chwilowy skok hashrate'u nie wywrocil trudnosci do zera
     // albo w kosmos. Blok #0 (genesis) nigdy nie wyzwala przeliczenia - nie
     // ma go z czym porownac.
+    // vMax: od aktywacji ASERT ta funkcja juz nigdy nie jest wolana (patrz
+    // receiveBlock() i _recomputeDifficultyFromHistory()) - zostaje w
+    // calosci nietknieta jako dokladny zapis, jak dzialal stary system dla
+    // wszystkiego przed #75000.
     retargetIfDue(justAccepted) {
         const interval = CONFIG.DIFFICULTY_ADJUSTMENT;
         if (justAccepted.height === 0 || justAccepted.height % interval !== 0) return;
@@ -240,6 +267,52 @@ class Blockchain {
 
         this.difficulty = Math.max(1, this.difficulty * ratio);
     }
+    // vMax (dodane): kotwica ASERT = blok ASERT_ACTIVATION_HEIGHT - 1, jego
+    // RODZIC dostarcza t_ref (patrz specyfikacja aserti3-2d - "parent bloku
+    // kotwicy", nie sama kotwica). Cachowane raz - po znalezieniu kotwica
+    // sie nie zmienia nigdy wiecej, wiec liczenie tego przy kazdym bloku
+    // byloby zbedna praca.
+    _getAsertAnchor() {
+        if (this._asertAnchor) return this._asertAnchor;
+        const anchorHeight = CONFIG.ASERT_ACTIVATION_HEIGHT - 1;
+        const anchorBlock = this.chain[anchorHeight];
+        const anchorParentBlock = this.chain[anchorHeight - 1];
+        if (!anchorBlock || !anchorParentBlock || anchorBlock.height !== anchorHeight) return null;
+        this._asertAnchor = {
+            anchorHeight: BigInt(anchorHeight),
+            // Timestampy w bbcblockchain.js sa w MILISEKUNDACH (patrz
+            // maybeEmergencyAdjust nizej, Date.now() bez konwersji) -
+            // specyfikacja ASERT liczy w sekundach, konwersja tutaj, na
+            // granicy integracji, nie wewnatrz samego modulu ASERT.
+            anchorParentTime: BigInt(Math.floor(anchorParentBlock.timestamp / 1000)),
+            anchorDifficulty: BigInt(Math.max(1, Math.round(anchorBlock.difficulty))),
+        };
+        return this._asertAnchor;
+    }
+    // vMax (dodane): liczy trudnosc DLA NASTEPNEGO bloku wprost z kotwicy,
+    // na podstawie wysokosci/czasu bloku, ktory WLASNIE zostal przyjety.
+    // Number(nextDifficulty) - bezpieczne przy realnych wartosciach
+    // trudnosci (obecnie rzedu dziesiatek milionow, daleko od granicy
+    // precyzji Number ~9e15) - gdyby trudnosc kiedys urosla o rzedy
+    // wielkosci wiecej, warto to zrewidowac.
+    _applyAsertDifficulty(latestBlock) {
+        const anchor = this._getAsertAnchor();
+        if (!anchor) {
+            console.error("ASERT aktywny (wysokosc " + latestBlock.height + ") ale kotwica nieznaleziona w lancuchu - to nie powinno sie zdarzyc. Trudnosc zostaje bez zmian.");
+            return;
+        }
+        const nextDifficulty = asertNextDifficulty({
+            anchorHeight: anchor.anchorHeight,
+            anchorParentTime: anchor.anchorParentTime,
+            anchorDifficulty: anchor.anchorDifficulty,
+            evalHeight: BigInt(latestBlock.height),
+            evalTime: BigInt(Math.floor(latestBlock.timestamp / 1000)),
+            idealBlockTime: BigInt(CONFIG.BLOCK_TIME),
+            halflife: BigInt(CONFIG.ASERT_HALFLIFE_SECONDS),
+            maxTarget: MAX_TARGET,
+        });
+        this.difficulty = Number(nextDifficulty);
+    }
     // Wywolywane RAZ przy starcie, zaraz po loadChain(). this.difficulty
     // zaczyna zawsze od tej samej stalej bazowej (patrz konstruktor) - bez
     // tego kroku wezel po restarcie mialby INNA lokalna trudnosc niz wezel,
@@ -249,12 +322,23 @@ class Blockchain {
     // 141.147.98.57 a wezlem kolegi po restarcie, nie tylko czystosc kodu.
     // Rozwiazanie: przewinac wszystkie okna retargetingu, ktore juz minely
     // w zaladowanej historii, dokladnie tak samo jak dzialyby sie na zywo.
+    // vMax: po aktywacji ASERT ten "replay" to JEDNO wyliczenie wprost z
+    // kotwicy do czubka lancucha - to jest dokladnie ta wlasciwosc ASERT,
+    // ktora usuwa dzisiejszego glownego wroga (powtarzajace sie przy
+    // kazdym restarcie przeliczanie od zera) na zawsze, zamiast tylko go
+    // zaslaniac.
     _recomputeDifficultyFromHistory() {
         const interval = CONFIG.DIFFICULTY_ADJUSTMENT;
         const latestHeight = this.getLatestBlock().height;
-        for (let h = interval; h <= latestHeight; h += interval) {
+        const activationHeight = CONFIG.ASERT_ACTIVATION_HEIGHT;
+        const anchorHeight = activationHeight !== undefined ? activationHeight - 1 : undefined;
+        const preAsertCeiling = (anchorHeight !== undefined && anchorHeight < latestHeight) ? anchorHeight : latestHeight;
+        for (let h = interval; h <= preAsertCeiling; h += interval) {
             const block = this.chain.find((b) => b.height === h);
             if (block) this.retargetIfDue(block);
+        }
+        if (anchorHeight !== undefined && latestHeight >= anchorHeight) {
+            this._applyAsertDifficulty(this.getLatestBlock());
         }
     }
     // Wywolywane RAZ przy starcie. NIE naprawia dziur (to wymaga recznego
@@ -329,6 +413,7 @@ class Blockchain {
         this._warnIfChainHasGaps();
         this._rebuildIndexes();
         this.difficulty = Math.pow(16, CONFIG.DIFFICULTY);
+        this._asertAnchor = null; // vMax: nowy lancuch moze miec inna kotwice - nie ufaj staremu cache
         this._recomputeDifficultyFromHistory();
         return { accepted: true, height: this.getLatestBlock().height };
     }
@@ -487,7 +572,17 @@ class Blockchain {
     // mogloby trwac tysiace blokow. Uzywa DOKLADNIE tego samego mechanizmu
     // zapisu co EDA (saveEmergencyDifficultyState) - wiec przetrwa restart tak
     // samo niezawodnie, bez osobnej sciezki kodu do utrzymania.
+    // vMax: OBIE metody nizej (setDifficultyManually, maybeEmergencyAdjust)
+    // sa zablokowane po aktywacji ASERT. ASERT z definicji nigdy sie nie
+    // zaciska (patrz uzasadnienie w specyfikacji aserti3-2d), wiec mechanizm
+    // po ktory ta para istnieje przestaje byc potrzebny - a reczna albo
+    // czasowa (Date.now(), NIE deterministyczna miedzy wezlami) zmiana
+    // this.difficulty w trakcie dzialania ASERT rozjechalaby wezly
+    // natychmiast przy nastepnym bloku.
     setDifficultyManually(newDifficulty) {
+        if (isAsertActive(this.getLatestBlock().height + 1)) {
+            throw new Error("Reczna zmiana trudnosci zablokowana - ASERT aktywny od bloku " + CONFIG.ASERT_ACTIVATION_HEIGHT + ". Wymagalaby identycznej zmiany na wszystkich wezlach naraz, inaczej natychmiastowy fork.");
+        }
         if (typeof newDifficulty !== "number" || !Number.isFinite(newDifficulty) || !(newDifficulty > 0)) {
             throw new Error("Nieprawidlowa wartosc trudnosci - musi byc liczba dodatnia");
         }
@@ -501,6 +596,7 @@ class Blockchain {
     maybeEmergencyAdjust() {
         const latest = this.getLatestBlock();
         if (latest.height === 0) return;
+        if (isAsertActive(latest.height + 1)) return; // vMax: patrz komentarz nad setDifficultyManually
         const msSinceLastBlock = Date.now() - latest.timestamp;
         const target = CONFIG.TARGET_BLOCK_TIME_MS;
         if (msSinceLastBlock < target * 15) return;
@@ -543,3 +639,4 @@ module.exports = Blockchain;
 module.exports.difficultyToTargetHex = difficultyToTargetHex;
 module.exports.computeBlockHash = computeBlockHash;
 module.exports.sha256Hex = sha256Hex;
+module.exports.isAsertActive = isAsertActive;
