@@ -32,7 +32,10 @@ module.exports = {
     // --- vMax: aktywacja ASERT ---
     // Kotwica = ASERT_ACTIVATION_HEIGHT - 1 (ostatni blok pod starymi zasadami).
     // Musi byc IDENTYCZNA u wszystkich wezlow P2P, tak jak reszta tego pliku.
-    ASERT_ACTIVATION_HEIGHT: 75000,
+    // #75000 minelo pod starymi zasadami (retarget okienny), zanim ten plik
+    // zdazyl trafic na serwer - #80000 to nowy punkt, z realnym zapasem,
+    // i pokrywa sie z Waszym wlasnym celem "80k blokow".
+    ASERT_ACTIVATION_HEIGHT: 80000,
     // Punkt startowy do przetestowania na realnych danych, NIE finalna liczba -
     // patrz notatka w asert-difficulty.js.
     ASERT_HALFLIFE_SECONDS: 3600
