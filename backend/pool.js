@@ -25,13 +25,6 @@ class MiningPool {
         const transactions = this.blockchain.buildBlockTransactions(this.poolAddress, pendingTxs);
         return { height, previousHash: latest.hash, timestamp: Date.now(), transactions, difficulty: blockDifficulty, shareTarget: difficultyToTargetHex(personalDifficulty), blockTarget: difficultyToTargetHex(blockDifficulty), requestedBy: minerAddress ?? null };
     }
-    // WYPLATY (06.08.2026): przywrocone Pay Per Share po tym jak odkrylismy,
-    // ze wersja "dziel nagrode po znalezieniu bloku" trzymala roundShares
-    // WYLACZNIE w pamieci - restart procesu przed znalezieniem bloku kasowal
-    // prace gornikow bez zadnego zapisu, bez sladu. PPS placi za KAZDY
-    // zaakceptowany share od razu, wiec kazda wyplata jest juz bezpiecznie
-    // w bazie (saveCredit) w momencie share'a - restart moze najwyzej
-    // przerwac PRZYSZLE shares, nigdy nie kasuje juz przyznanych.
     submitShare(minerAddress, candidate) {
         if (!minerAddress) return { accepted: false, reason: "Brak adresu gornika" };
         if (!candidate || typeof candidate.hash !== "string") return { accepted: false, reason: "Nieprawidlowe zgloszenie" };
@@ -39,38 +32,27 @@ class MiningPool {
         if (this.seenShareHashes.has(candidate.hash)) return { accepted: false, reason: "duplikat" };
         const shareTargetHex = difficultyToTargetHex(this.getMinerDifficulty(minerAddress));
         if (candidate.hash > shareTargetHex) return { accepted: false, reason: "nie spelnia trudnosci share" };
-
         const minerDiffAtSubmit = this.getMinerDifficulty(minerAddress);
         this._adjustMinerDifficulty(minerAddress);
         this._rememberShareHash(candidate.hash);
         this.roundShares.set(minerAddress, (this.roundShares.get(minerAddress) || 0) + 1);
-
-        // Natychmiastowa wyplata za KAZDY zaakceptowany share (Pay Per Share) -
-        // pula placi z wlasnego, juz zgromadzonego salda, wazone trudnoscia
-        // (trudniejszy share = wiecej realnej pracy = wiecej BbC), niezaleznie
-        // od tego czy TA runda akurat trafi caly blok. Adres puli sam siebie
-        // nie placi (self-credit). Liczone z minerDiffAtSubmit i
-        // this.blockchain.difficulty - obie wartosci serwerowe/zaufane,
-        // candidate.difficulty (od zglaszajacego) nigdy tu nie wchodzi do gry.
         let paidNow = 0;
         if (minerAddress !== this.poolAddress) {
             const height = this.blockchain.getLatestBlock().height + 1;
             const reward = this.blockchain.getRewardForHeight(height);
-            const shareValue = reward * (1 - this.poolFee) * (minerDiffAtSubmit / this.blockchain.difficulty);
+            const effectiveMinerDiff = Math.min(minerDiffAtSubmit, this.blockchain.difficulty);
+            const shareValue = reward * (1 - this.poolFee) * (effectiveMinerDiff / this.blockchain.difficulty);
             if (shareValue > 0) {
                 this.blockchain.saveCredit({ minerAddress, blockHeight: height, shares: 1, amount: shareValue, timestamp: Date.now() });
                 paidNow = shareValue;
             }
         }
-
-        // BEZPIECZENSTWO: target liczony z this.blockchain.difficulty
-        // (zaufana, serwerowa), NIE z candidate.difficulty - to zglasza ten
-        // kto submituje. receiveBlock() i tak by odrzucil zly blok, ale bez
-        // tego pre-check sam fakt "czy w ogole probowac zglosic jako blok"
-        // zalezal od tej samej niezaufanej wartosci.
         const blockTargetHex = difficultyToTargetHex(this.blockchain.difficulty);
         if (candidate.hash > blockTargetHex) return { accepted: true, share: true, blockFound: false, paidNow };
         const result = this.blockchain.receiveBlock(candidate);
+        // DIAGNOSTYKA (tymczasowa, jedna linijka) - pokazuje prawdziwy powod
+        // odrzucenia w logu. Do usuniecia po znalezieniu przyczyny.
+        if (!result.accepted) console.error("BLOK ODRZUCONY przy wysokosci " + candidate.height + ": " + result.reason);
         if (!result.accepted) return { accepted: true, share: true, blockFound: false, note: result.reason, paidNow };
         this._finalizeRound();
         if (this.mempool) this.mempool.pruneConfirmed(result.block);
@@ -96,9 +78,6 @@ class MiningPool {
         if (this.seenShareHashes.size > MAX_SEEN_SHARE_HASHES) this.seenShareHashes.clear();
         this.seenShareHashes.add(hash);
     }
-    // Placi juz nie tutaj (patrz submitShare) - tu tylko zerujemy licznik
-    // rundy, uzywany WYLACZNIE do wyswietlania w UI ("sharesThisRound" w
-    // getStatus), nie do liczenia wyplat.
     _finalizeRound() {
         this.roundShares = new Map();
     }
