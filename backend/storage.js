@@ -98,8 +98,15 @@ class Storage {
                                   FROM pool_credits GROUP BY minerAddress ORDER BY lastBlockHeight DESC`).all();
     }
 
-    getUnpaidCreditsSummary() {
-        const rows = this.db.prepare("SELECT * FROM pool_credits WHERE paid = 0").all();
+    // NAPRAWA RAM (dzisiaj): brak limitu tutaj byl bardzo prawdopodobna
+    // prawdziwa przyczyna rosnacej pamieci payout-watchera. Po 29h+ zastoju
+    // kazdy zaakceptowany share (setki tysiecy) zostawil niewyplacony wiersz
+    // - SELECT * bez LIMIT wciagal WSZYSTKIE naraz do pamieci przy KAZDYM
+    // cyklu sprawdzania (co 30s), budujac ogromne tablice creditIds. LIMIT +
+    // ORDER BY id ASC (najstarsze pierwsze) sprawia, ze backlog czyści się
+    // stopniowo, bezpiecznymi porcjami, zamiast próbować za jednym razem.
+    getUnpaidCreditsSummary(maxRows = 5000) {
+        const rows = this.db.prepare("SELECT * FROM pool_credits WHERE paid = 0 ORDER BY id ASC LIMIT ?").all(maxRows);
         const byAddress = new Map();
         for (const row of rows) {
             const entry = byAddress.get(row.minerAddress) || { minerAddress: row.minerAddress, total: 0, creditIds: [] };
