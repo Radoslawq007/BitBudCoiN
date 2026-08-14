@@ -98,28 +98,27 @@ class Storage {
                                   FROM pool_credits GROUP BY minerAddress ORDER BY lastBlockHeight DESC`).all();
     }
 
-    // NAPRAWA RAM (dzisiaj): brak limitu tutaj byl bardzo prawdopodobna
-    // prawdziwa przyczyna rosnacej pamieci payout-watchera. Po 29h+ zastoju
-    // kazdy zaakceptowany share (setki tysiecy) zostawil niewyplacony wiersz
-    // - SELECT * bez LIMIT wciagal WSZYSTKIE naraz do pamieci przy KAZDYM
-    // cyklu sprawdzania (co 30s), budujac ogromne tablice creditIds. LIMIT +
-    // ORDER BY id ASC (najstarsze pierwsze) sprawia, ze backlog czyści się
-    // stopniowo, bezpiecznymi porcjami, zamiast próbować za jednym razem.
-    //
-    // maxRowAmount (opcjonalne, dzisiaj dodane): gdy podane, pomija
-    // POJEDYNCZE wiersze z amount > maxRowAmount PRZED agregacja po adresie.
-    // To filtr na poziomie wiersza, nie adresu - jeden adres moze miec
-    // zmieszane wiersze prawdziwe i skorumpowane (z okresu gdy
-    // blockchain.difficulty bylo przypiete do dna=1, effectiveMinerDiff
-    // sprawial ze pojedynczy share liczyl sie jak caly blok, albo
-    // wczesniej - zanim ta poprawka w ogole istniala - nawet wiecej).
-    // Skorumpowane wiersze ZOSTAJA w bazie jako paid=0, nietkniete -
-    // po prostu nigdy nie sa wybierane do wyplaty. Zadna decyzja o USUNIECIU
-    // czy oznaczeniu ich nie jest tu podejmowana.
-    getUnpaidCreditsSummary(maxRows = 5000, maxRowAmount = null) {
-        const rows = maxRowAmount === null
-            ? this.db.prepare("SELECT * FROM pool_credits WHERE paid = 0 ORDER BY id ASC LIMIT ?").all(maxRows)
-            : this.db.prepare("SELECT * FROM pool_credits WHERE paid = 0 AND amount <= ? ORDER BY id ASC LIMIT ?").all(maxRowAmount, maxRows);
+    // NAPRAWA (dzisiaj, poprawiona wersja): PIERWSZA próba (filtr po kwocie >
+    // 49) była błędna - 49 BbC/share to nie anomalia, to POPRAWNY wynik wzoru
+    // gdy trudność sieci była przypięta do dna podczas zastoju. Prawdziwy,
+    // czysty sygnał: podczas zastoju TYSIĄCE kredytów dzieli dokładnie tę samą
+    // wysokość bloku (bo łańcuch stał w miejscu, a share'y i tak wpływały).
+    // Zweryfikowane na realnych danych: 3 wysokości z licznikiem 59 688-839 155,
+    // następna w kolejności to już tylko 497 - przepaść ponad 100x, nie
+    // przypadek. pathologicalHeightThreshold (bezpiecznie między tymi dwiema
+    // wartościami) wyklucza CAŁE wysokości-anomalie, nie pojedyncze kwoty -
+    // nie wymaga zgadywania progu kwotowego, nie gubi prawdziwych kredytów
+    // zmieszanych z fałszywymi na tym samym adresie (bo są na INNYCH, zdrowych
+    // wysokościach).
+    getUnpaidCreditsSummary(maxRows = 5000, pathologicalHeightThreshold = 1000) {
+        const rows = this.db.prepare(`
+            SELECT * FROM pool_credits
+            WHERE paid = 0
+            AND blockHeight NOT IN (
+                SELECT blockHeight FROM pool_credits WHERE paid = 0 GROUP BY blockHeight HAVING COUNT(*) > ?
+            )
+            ORDER BY id ASC LIMIT ?
+        `).all(pathologicalHeightThreshold, maxRows);
         const byAddress = new Map();
         for (const row of rows) {
             const entry = byAddress.get(row.minerAddress) || { minerAddress: row.minerAddress, total: 0, creditIds: [] };
