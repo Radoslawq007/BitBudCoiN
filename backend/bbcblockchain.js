@@ -473,6 +473,12 @@ class Blockchain {
         this.balances = new Map();
         this.firstSeenHeight = new Map();
         this.addressTransactions = new Map();
+        // vMax (dodane): circulatingSupply liczone przyrostowo jak reszta
+        // indeksow ponizej - getInfo() wczesniej skanowalo CALY lancuch przy
+        // KAZDYM wywolaniu (jedyna metoda, ktorej nie dotknal wczesniejszy
+        // refaktor wydajnosci 10.08.2026). Ta sama logika co bylo w getInfo,
+        // przeniesiona tutaj i liczona raz na blok zamiast raz na zapytanie.
+        this.circulatingSupply = 0;
         for (const block of this.chain) this._applyBlockToIndexes(block);
     }
     _addBalance(address, delta) {
@@ -484,6 +490,10 @@ class Blockchain {
     _applyBlockToIndexes(block) {
         const feeActive = isProjectFeeActive(block.height);
         for (const tx of block.transactions) {
+            // vMax (dodane): patrz komentarz w _rebuildIndexes() wyzej.
+            if (tx.type === "coinbase" || tx.type === "genesis") {
+                this.circulatingSupply += tx.amount;
+            }
             const involved = new Set([tx.to, tx.from].filter(Boolean));
             for (const addr of involved) {
                 if (!this.addressTransactions.has(addr)) this.addressTransactions.set(addr, []);
@@ -615,19 +625,13 @@ class Blockchain {
         this.maybeEmergencyAdjust();
         const latest = this.getLatestBlock();
         const height = latest.height;
-        let circulatingSupply = 0;
-        for (const block of this.chain) {
-            for (const tx of block.transactions) {
-                if (tx.type === "coinbase" || tx.type === "genesis") circulatingSupply += tx.amount;
-            }
-        }
         return {
             network: CONFIG.NETWORK_NAME, symbol: CONFIG.SYMBOL, version: CONFIG.VERSION,
             chainId: CONFIG.CHAIN_ID, height, latestHash: latest.hash,
             difficulty: Math.round(this.difficulty),
             difficultyLeadingZerosApprox: Math.floor(Math.log(this.difficulty) / Math.log(16)),
             totalBlocks: this.chain.length, currentBlockReward: this.getRewardForHeight(height + 1),
-            circulatingSupply, maxSupply: CONFIG.MAX_SUPPLY, premine: CONFIG.PREMINE,
+            circulatingSupply: this.circulatingSupply, maxSupply: CONFIG.MAX_SUPPLY, premine: CONFIG.PREMINE,
             blocksUntilHalving: CONFIG.HALVING_INTERVAL - (height % CONFIG.HALVING_INTERVAL),
             blocksUntilRetarget: CONFIG.DIFFICULTY_ADJUSTMENT - (height % CONFIG.DIFFICULTY_ADJUSTMENT),
             isValid: true
