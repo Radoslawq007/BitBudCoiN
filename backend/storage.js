@@ -105,8 +105,21 @@ class Storage {
     // cyklu sprawdzania (co 30s), budujac ogromne tablice creditIds. LIMIT +
     // ORDER BY id ASC (najstarsze pierwsze) sprawia, ze backlog czyści się
     // stopniowo, bezpiecznymi porcjami, zamiast próbować za jednym razem.
-    getUnpaidCreditsSummary(maxRows = 5000) {
-        const rows = this.db.prepare("SELECT * FROM pool_credits WHERE paid = 0 ORDER BY id ASC LIMIT ?").all(maxRows);
+    //
+    // maxRowAmount (opcjonalne, dzisiaj dodane): gdy podane, pomija
+    // POJEDYNCZE wiersze z amount > maxRowAmount PRZED agregacja po adresie.
+    // To filtr na poziomie wiersza, nie adresu - jeden adres moze miec
+    // zmieszane wiersze prawdziwe i skorumpowane (z okresu gdy
+    // blockchain.difficulty bylo przypiete do dna=1, effectiveMinerDiff
+    // sprawial ze pojedynczy share liczyl sie jak caly blok, albo
+    // wczesniej - zanim ta poprawka w ogole istniala - nawet wiecej).
+    // Skorumpowane wiersze ZOSTAJA w bazie jako paid=0, nietkniete -
+    // po prostu nigdy nie sa wybierane do wyplaty. Zadna decyzja o USUNIECIU
+    // czy oznaczeniu ich nie jest tu podejmowana.
+    getUnpaidCreditsSummary(maxRows = 5000, maxRowAmount = null) {
+        const rows = maxRowAmount === null
+            ? this.db.prepare("SELECT * FROM pool_credits WHERE paid = 0 ORDER BY id ASC LIMIT ?").all(maxRows)
+            : this.db.prepare("SELECT * FROM pool_credits WHERE paid = 0 AND amount <= ? ORDER BY id ASC LIMIT ?").all(maxRowAmount, maxRows);
         const byAddress = new Map();
         for (const row of rows) {
             const entry = byAddress.get(row.minerAddress) || { minerAddress: row.minerAddress, total: 0, creditIds: [] };
