@@ -180,8 +180,14 @@ app.post("/swap/offers/:id/reject", strictLimiter, (req, res) => {
     }
 });
 
+// NAPRAWA OOM (dzisiaj): brak limitu tutaj byl bardzo prawdopodobna prawdziwa
+// przyczyna "JavaScript heap out of memory" - adres puli pojawia sie jako
+// odbiorca coinbase niemal w kazdym z 75000+ blokow, wiec pelna, niczym nie
+// ograniczona tablica dla tego jednego adresu byla rzedu dziesiatek tysiecy
+// wpisow. Ten sam wzorzec limitu co juz istnieje wyzej w /blocks.
 app.get("/transactions/address/:address", (req, res) => {
-    res.json(blockchain.getTransactionsForAddress(req.params.address));
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    res.json(blockchain.getTransactionsForAddress(req.params.address, limit));
 });
 
 app.post("/htlc/submit", strictLimiter, (req, res) => {
