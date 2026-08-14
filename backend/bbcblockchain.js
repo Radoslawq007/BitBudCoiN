@@ -555,8 +555,21 @@ class Blockchain {
     saveCredit(credit) {
         this.storage.saveCredit(credit);
     }
-    getTransactionsForAddress(address) {
-        return (this.addressTransactions.get(address) || []).slice().reverse();
+    // NAPRAWA OOM: adres puli pojawia sie jako `to` w coinbase niemal
+    // KAZDEGO bloku wykopanego przez pule - przy 75000+ blokach to tablica
+    // rzedu dziesiatek tysiecy wpisow. Zwracanie jej w calosci przez
+    // /transactions/address/:address (bez zadnego limitu) i JSON.stringify
+    // takiej tablicy to bardzo prawdopodobna PRAWDZIWA przyczyna awarii
+    // "JavaScript heap out of memory" - zaobserwowanej w logach, nie teoria.
+    // Domyslny limit 200 dopasowany do tego samego wzorca co juz istnieje
+    // w /blocks (Math.min(...,100)) w server.js.
+    getTransactionsForAddress(address, limit = 200) {
+        const all = this.addressTransactions.get(address) || [];
+        const requested = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 200;
+        const safeLimit = Math.min(requested, all.length);
+        const result = new Array(safeLimit);
+        for (let i = 0; i < safeLimit; i++) result[i] = all[all.length - 1 - i];
+        return result;
     }
     // AWARYJNE OBNIZENIE TRUDNOSCI (06.08.2026): retargetIfDue() dziala
     // TYLKO gdy okno CONFIG.DIFFICULTY_ADJUSTMENT blokow sie domknie - a
