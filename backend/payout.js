@@ -32,6 +32,17 @@ const PATHOLOGICAL_HEIGHT_THRESHOLD = 1000;
 // widzianymi w tym projekcie: "BbC" + 40 znaków hex.
 const ADDRESS_FORMAT = /^BbC[0-9a-fA-F]{40}$/;
 
+// NAPRAWA (dzisiaj): "Odrzucono: undefined" nie bylo prawdziwym odrzuceniem
+// transakcji - to byl limiter zapytan (/transactions/send go nie omija,
+// w przeciwienstwie do /pool/submit). Przy zbyt szybkich zadaniach zwraca
+// inny ksztalt odpowiedzi ({error:"..."}, bez pola reason), ktory ten kod
+// odczytywal jako "undefined". Teraz: (1) odczyt pokazuje prawdziwy powod
+// niezaleznie od ksztaltu odpowiedzi, (2) odstep miedzy wysylkami, zeby
+// w ogole rzadziej trafiac w ten limit - filtr wysokosci nareszcie odkryl
+// kilka adresow na raz zamiast jednego, a petla wysylala je wszystkie pod rzad.
+function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+const DELAY_BETWEEN_SENDS_MS = 1200;
+
 async function main() {
     const storage = new Storage(CONFIG.DATABASE);
     const unpaid = storage.getUnpaidCreditsSummary(5000, PATHOLOGICAL_HEIGHT_THRESHOLD);
@@ -58,8 +69,9 @@ async function main() {
             const res = await fetch(`${serverUrl}/transactions/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(candidate) });
             const result = await res.json();
             if (result.accepted) { storage.markCreditsPaid(creditIds); console.log(`✅   Wypłacono ${total.toFixed(4)} BbC dla ${minerAddress}`); }
-            else console.warn(`⚠️  Odrzucono: ${result.reason}`);
+            else console.warn(`⚠️  Odrzucono (${minerAddress}): ${result.reason ?? result.error ?? JSON.stringify(result)}`);
         } catch (err) { console.error(`❌   ${err.message}`); }
+        await sleep(DELAY_BETWEEN_SENDS_MS);
     }
     storage.close();
 }
