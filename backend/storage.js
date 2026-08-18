@@ -41,6 +41,15 @@ class Storage {
         this.db.exec("CREATE INDEX IF NOT EXISTS idx_tx_block ON transactions(blockHeight)");
         this.db.exec("CREATE INDEX IF NOT EXISTS idx_credits_miner ON pool_credits(minerAddress)");
         this.db.exec("CREATE INDEX IF NOT EXISTS idx_credits_paid ON pool_credits(paid)");
+        // NAPRAWA (teraz): getUnpaidCreditsSummary() grupuje po blockHeight
+        // wewnątrz WHERE paid=0 (filtr patologicznych wysokości) - bez tego
+        // złożonego indeksu SQLite musi przeskanować i posortować CAŁĄ
+        // tabelę pool_credits przy KAŻDYM cyklu payout-watchera (co 30s).
+        // Na jednordzeniowej maszynie to realnie duszące inne procesy -
+        // potwierdzone: po zatrzymaniu payout-watchera /info odpowiedziało
+        // natychmiast, nie zawieszone. Indeks złożony (paid, blockHeight)
+        // dokładnie pod ten wzorzec zapytania.
+        this.db.exec("CREATE INDEX IF NOT EXISTS idx_credits_paid_height ON pool_credits(paid, blockHeight)");
         this.db.exec("CREATE INDEX IF NOT EXISTS idx_tx_to ON transactions(to_address)");
         this.db.exec("CREATE INDEX IF NOT EXISTS idx_tx_from ON transactions(from_address)");
 
