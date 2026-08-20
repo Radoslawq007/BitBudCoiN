@@ -253,7 +253,7 @@ class Blockchain {
     // receiveBlock() i _recomputeDifficultyFromHistory()) - zostaje w
     // calosci nietknieta jako dokladny zapis, jak dzialal stary system dla
     // wszystkiego przed #75000.
-    retargetIfDue(justAccepted) {
+    retargetIfDue(justAccepted, persist = true) {
         const interval = CONFIG.DIFFICULTY_ADJUSTMENT;
         if (justAccepted.height === 0 || justAccepted.height % interval !== 0) return;
 
@@ -267,12 +267,13 @@ class Blockchain {
         ratio = Math.max(0.25, Math.min(4, ratio));
 
         this.difficulty = Math.max(1, this.difficulty * ratio);
-        // NAPRAWA STRUKTURALNA (teraz): zapisz KAZDY normalny retarget, nie
-        // tylko EDA/reczne korekty. To jest ta brakujaca czesc - bez tego
-        // zapisany stan starzeje sie z kazdym oknem, a po restarcie kod nie
-        // mial nic swiezego do czego wrocic poza zepsutym przeliczeniem od
-        // stalej bazowej.
-        saveEmergencyDifficultyState(this.difficulty, justAccepted.height);
+        // NAPRAWA STRUKTURALNA (teraz, poprawiona): zapisuj TYLKO gdy to
+        // zywe wywolanie z receiveBlock() (persist=true, domyslne). Gdy to
+        // wywoluje _recomputeDifficultyFromHistory() w petli replay (nizej),
+        // persist=false - inaczej niezaufane, kompoundujace przeliczenie od
+        // zera nadpisywalo zapisany, zaufany stan WLASNIE PRZED odczytaniem
+        // go - dokladnie ten bug, ktory wlasnie sie ujawnil.
+        if (persist) saveEmergencyDifficultyState(this.difficulty, justAccepted.height);
     }
     // vMax (dodane): kotwica ASERT = blok ASERT_ACTIVATION_HEIGHT - 1, jego
     // RODZIC dostarcza t_ref (patrz specyfikacja aserti3-2d - "parent bloku
@@ -342,7 +343,7 @@ class Blockchain {
         const preAsertCeiling = (anchorHeight !== undefined && anchorHeight < latestHeight) ? anchorHeight : latestHeight;
         for (let h = interval; h <= preAsertCeiling; h += interval) {
             const block = this.chain.find((b) => b.height === h);
-            if (block) this.retargetIfDue(block);
+            if (block) this.retargetIfDue(block, false); // false = nie zapisuj, to niezaufany replay
         }
         if (anchorHeight !== undefined && latestHeight >= anchorHeight) {
             this._applyAsertDifficulty(this.getLatestBlock());
