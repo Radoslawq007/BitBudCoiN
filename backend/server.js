@@ -95,6 +95,35 @@ app.get("/peers", (req, res) => {
     res.json(p2p.getStatus());
 });
 
+// JEDEN SPOJNY SNAPSHOT (dzisiaj, na prosbe): dashboard/miner/join/explorer
+// robily osobne fetch() do /info, /pool/status, /peers, /network/addresses -
+// cztery zapytania na kazde odswiezenie kazdej strony, kazde osobno
+// obciazajace ten sam serwer. Ten endpoint laczy dokladnie te same,
+// juz istniejace funkcje w jedno wywolanie - zero nowej logiki liczenia,
+// tylko jeden pakiet zamiast czterech.
+app.get("/state", (req, res) => {
+    const info = blockchain.getInfo();
+    const poolStatus = pool.getStatus();
+    const poolMiners = Object.entries(poolStatus.sharesThisRound || {}).map(([address, shares]) => ({
+        minerAddress: address, shares, source: "pool"
+    }));
+    const soloMiners = soloTracker.getActiveMiners().map((m) => ({ ...m, source: "solo" }));
+    res.json({
+        ...info,
+        pool: {
+            poolAddress: poolStatus.poolAddress,
+            poolFee: poolStatus.poolFee,
+            shareDifficulty: poolStatus.shareDifficulty,
+            totalSharesThisRound: poolStatus.totalSharesThisRound
+        },
+        activeMiners: [...poolMiners, ...soloMiners],
+        soloHashrate: soloTracker.getTotalHashrate(),
+        addresses: blockchain.getAddressStats(),
+        p2p: p2p.getStatus(),
+        updatedAt: Date.now()
+    });
+});
+
 // BEZPIECZEŃSTWO (05.08.2026): brakowało autoryzacji - dowolny caller mógł
 // kazać węzłowi łączyć się z dowolnym adresem (SSRF-podobny wektor: skanowanie
 // wewnętrznej sieci Oracle Cloud, próby połączenia z localhost/metadanymi
