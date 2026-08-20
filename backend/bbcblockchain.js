@@ -89,21 +89,22 @@ class Blockchain {
             // windowowego systemu. Po aktywacji ASERT ufamy TYLKO swiezo policzonej
             // wartosci z _recomputeDifficultyFromHistory() - wczytanie starego pliku
             // awaryjnego nadpisaloby poprawny wynik ASERT nieaktualna liczba.
+            // NAPRAWA STRUKTURALNA (teraz): usunieto warunek "to samo okno".
+            // Zalozenie ze "nowe okno = swiezy retargetIfDue juz to ogarnal"
+            // bylo BLEDNE - retargetIfDue() do tej pory NIC nie zapisywalo do
+            // pliku, wiec po przejsciu do nowego okna kod ufal
+            // _recomputeDifficultyFromHistory() (odtwarza WSZYSTKIE okna od
+            // stalej bazowej, bez wiedzy o EDA/recznych korektach po drodze -
+            // stad kosmiczne liczby, powtarzajace sie za kazdym razem gdy
+            // restart trafial akurat po przekroczeniu okna). Teraz
+            // retargetIfDue() (nizej) ZAWSZE zapisuje swiezy wynik - zapisany
+            // stan jest wiec zawsze aktualny, ufamy mu zawsze, niezaleznie
+            // od okna.
             if (!isAsertActive(this.getLatestBlock().height + 1)) {
                 const emergencyState = loadEmergencyDifficultyState();
                 if (emergencyState) {
-                    const savedWindow = Math.floor((emergencyState.height ?? 0) / CONFIG.DIFFICULTY_ADJUSTMENT);
-                    const currentWindow = Math.floor(this.getLatestBlock().height / CONFIG.DIFFICULTY_ADJUSTMENT);
-                    if (savedWindow === currentWindow) {
-                        // Zadna nowa granica okna nie zostala przekroczona od zapisu -
-                        // zapisana wartosc (EDA albo reczna korekta) wciaz jest
-                        // aktualna, uzyj jej zamiast czystej, historycznej wartosci
-                        // (ktora nie wie nic o cieciach EDA ani recznych korektach).
-                        console.error("Uzywam zapisanego stanu trudnosci (" + emergencyState.difficulty + ") zamiast przeliczonej z historii (" + this.difficulty + ") - to samo okno, restart nie cofa zmiany.");
-                        this.difficulty = emergencyState.difficulty;
-                    }
-                    // w przeciwnym razie: normalny retarget okienny juz wlaczyl
-                    // swiezsza wiedze od czasu zapisu - ufaj przeliczonej wartosci
+                    console.error("Uzywam zapisanego stanu trudnosci (" + emergencyState.difficulty + ") zamiast przeliczonej z historii (" + this.difficulty + ").");
+                    this.difficulty = emergencyState.difficulty;
                 }
             }
         } else {
@@ -266,6 +267,12 @@ class Blockchain {
         ratio = Math.max(0.25, Math.min(4, ratio));
 
         this.difficulty = Math.max(1, this.difficulty * ratio);
+        // NAPRAWA STRUKTURALNA (teraz): zapisz KAZDY normalny retarget, nie
+        // tylko EDA/reczne korekty. To jest ta brakujaca czesc - bez tego
+        // zapisany stan starzeje sie z kazdym oknem, a po restarcie kod nie
+        // mial nic swiezego do czego wrocic poza zepsutym przeliczeniem od
+        // stalej bazowej.
+        saveEmergencyDifficultyState(this.difficulty, justAccepted.height);
     }
     // vMax (dodane): kotwica ASERT = blok ASERT_ACTIVATION_HEIGHT - 1, jego
     // RODZIC dostarcza t_ref (patrz specyfikacja aserti3-2d - "parent bloku
