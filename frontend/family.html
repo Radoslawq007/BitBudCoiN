@@ -120,8 +120,15 @@ async function loadMessages() {
     try {
         const messages = await fetch(API_BASE + "/family/messages").then(r => r.json());
         renderMessages(messages);
+        document.getElementById("msgList").dataset.everLoaded = "1";
     } catch (err) {
-        document.getElementById("msgList").innerHTML = `<p class="empty-note">${t("common_unavailable")}</p>`;
+        // NAPRAWA (dzisiaj): przy chwilowym zacieciu polaczenia lista
+        // wiadomosci znikala do "niedostepne" - w czacie to wyglada jak
+        // utrata historii rozmowy. Teraz zostaje ostatnia wczytana tresc,
+        // tylko pierwsze (nigdy nieudane) laczenie nadal pokazuje komunikat.
+        if (!document.getElementById("msgList").dataset.everLoaded) {
+            document.getElementById("msgList").innerHTML = `<p class="empty-note">${t("common_unavailable")}</p>`;
+        }
     }
 }
 
