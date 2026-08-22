@@ -95,10 +95,9 @@ class Storage {
         }));
     }
     saveMempoolTx(tx) {
-        this.db.prepare("INSERT OR REPLACE INTO mempool (signature, from_address, to_address, amount, fee, timestamp, publicKey) VALUES (?, ?, ?, ?, ?, ?, ?)")
-            .run(tx.signature, tx.from, tx.to, tx.amount, tx.fee, tx.timestamp, tx.publicKey);
-    }
-    deleteMempoolTx(signature) { this.db.prepare("DELETE FROM mempool WHERE signature = ?").run(signature); }
+    this.db.prepare("INSERT OR REPLACE INTO mempool (signature, from_address, to_address, amount, fee, timestamp, publicKey, receivedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(tx.signature, tx.from, tx.to, tx.amount, tx.fee, tx.timestamp, tx.publicKey, tx.receivedAt ?? Date.now());
+}
 
     saveCredit(c) { this._insertCredit.run(c.minerAddress, c.blockHeight, c.shares, c.amount, c.timestamp); }
 
