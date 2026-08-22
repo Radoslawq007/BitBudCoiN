@@ -99,28 +99,15 @@ async function loadNetworkHashrate() {
         const avgBlockTime = spanSeconds / spanBlocks;
         unskeleton("s-hashrate", formatHashrate(first.difficulty / avgBlockTime));
     } catch (e) {
-        unskeleton("s-hashrate", t("common_unavailable"));
+        // NAPRAWA: nie nadpisuj ostatniej dobrej wartosci przy chwilowym zacieciu
+        const el = document.getElementById("s-hashrate");
+        if (el.classList.contains("skeleton")) unskeleton("s-hashrate", t("common_unavailable"));
     }
 }
+loadNetworkHashrate();
+setInterval(loadNetworkHashrate, 20000); // NAPRAWA: wczesniej wolane raz i nigdy wiecej
 
 async function load() {
-    try {
-        const info = await apiGet("/info");
-        unskeleton("s-height", "#" + fmtNumber(info.height, 0));
-        unskeleton("s-difficulty", fmtNumber(info.difficulty, 0));
-        unskeleton("s-supply", fmtNumber(info.circulatingSupply, 0) + " / " + fmtNumber(info.maxSupply, 0));
-        unskeleton("s-reward", fmtNumber(info.currentBlockReward) + " " + info.symbol);
-        unskeleton("s-halving", fmtNumber(info.blocksUntilHalving, 0) + " " + t("common_blocks_suffix"));
-        unskeleton("s-retarget", fmtNumber(info.blocksUntilRetarget, 0) + " " + t("common_blocks_suffix"));
-
-        if (!info.isValid) {
-            document.getElementById("error-box").innerHTML = `<div class="error-banner">⚠ ${t("dashboard_invalid_chain")}</div>`;
-        }
-    } catch (e) {
-        document.getElementById("error-box").innerHTML = `<div class="error-banner">${t("common_backend_error")}: ${escapeHtml(e.message)}</div>`;
-    }
-    loadNetworkHashrate();
-
     try {
         const blocks = await apiGet("/blocks?limit=5");
         const tbody = document.querySelector("#recent-blocks-table tbody");
@@ -135,22 +122,50 @@ async function load() {
                 </tr>`).join("");
         }
     } catch (e) {
-        document.querySelector("#recent-blocks-table tbody").innerHTML = `<tr><td colspan="3">${t("common_error_prefix")}: ${escapeHtml(e.message)}</td></tr>`;
+        // NAPRAWA: tylko przy PIERWSZYM ladowaniu pokazuje blad -
+        // pozniejsze niepowodzenia zostawiaja ostatnia dobra tabele,
+        // nie zamieniaja jej w komunikat o bledzie.
+        const tbody = document.querySelector("#recent-blocks-table tbody");
+        if (!tbody.dataset.everLoaded) {
+            tbody.innerHTML = `<tr><td colspan="3">${t("common_error_prefix")}: ${escapeHtml(e.message)}</td></tr>`;
+        }
     }
-
-    try {
-        const pool = await apiGet("/pool/status");
-        document.getElementById("pool-summary").innerHTML = `
-            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">${t("dashboard_share_diff")}</span><span class="mono">${fmtNumber(pool.shareDifficulty, 0)}</span></div>
-            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">${t("dashboard_shares_round")}</span><span class="mono">${fmtNumber(pool.totalSharesThisRound, 0)}</span></div>
-            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">${t("dashboard_pool_fee")}</span><span class="mono">${(pool.poolFee * 100).toFixed(0)}%</span></div>`;
-    } catch (e) {
-        document.getElementById("pool-summary").innerHTML = `<p style="color:var(--danger)">${t("common_pool_unavailable")}</p>`;
-    }
+    document.querySelector("#recent-blocks-table tbody").dataset.everLoaded = "1";
 }
 load();
 setInterval(load, 15000);
 document.addEventListener("bbc:langchange", load);
+
+// NAPRAWA (dzisiaj): gorne statystyki (wysokosc/trudnosc/podaz/...) i
+// podsumowanie puli byly osobnymi zapytaniami co 15s, kazde zamieniajace
+// swoja sekcje w komunikat bledu przy chwilowym zacieciu. Teraz jedno
+// wspolne zrodlo (BBCLiveState - to samo co odznaka na gorze i miner.html),
+// push na biezaco, ostatnie dobre dane zawsze widoczne.
+BBCLiveState.subscribe(({ state, live }) => {
+    if (!state) return; // jeszcze zaden odczyt - zostaw "ładowanie" ze szkieletu
+    const warn = live ? "" : " ⚠️";
+
+    unskeleton("s-height", "#" + fmtNumber(state.height, 0) + warn);
+    unskeleton("s-difficulty", fmtNumber(state.difficulty, 0));
+    unskeleton("s-supply", fmtNumber(state.circulatingSupply, 0) + " / " + fmtNumber(state.maxSupply, 0));
+    unskeleton("s-reward", fmtNumber(state.currentBlockReward) + " " + state.symbol);
+    unskeleton("s-halving", fmtNumber(state.blocksUntilHalving, 0) + " " + t("common_blocks_suffix"));
+    unskeleton("s-retarget", fmtNumber(state.blocksUntilRetarget, 0) + " " + t("common_blocks_suffix"));
+
+    if (state.isValid === false) {
+        document.getElementById("error-box").innerHTML = `<div class="error-banner">⚠ ${t("dashboard_invalid_chain")}</div>`;
+    } else {
+        document.getElementById("error-box").innerHTML = "";
+    }
+
+    if (state.pool) {
+        document.getElementById("pool-summary").innerHTML = `
+            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">${t("dashboard_share_diff")}</span><span class="mono">${fmtNumber(state.pool.shareDifficulty, 0)}</span></div>
+            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">${t("dashboard_shares_round")}</span><span class="mono">${fmtNumber(state.pool.totalSharesThisRound, 0)}${warn}</span></div>
+            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">${t("dashboard_pool_fee")}</span><span class="mono">${(state.pool.poolFee * 100).toFixed(0)}%</span></div>`;
+    }
+});
+BBCLiveState.init();
 
 // --- Znani górnicy: przewijane pudełko z licznikiem na górze, żeby rosnąca
 // lista nie wydłużała strony w nieskończoność. Już posortowane przez
@@ -161,19 +176,22 @@ async function loadKnownMiners() {
         const box = document.getElementById("minersListBox");
         if (miners.length === 0) {
             box.innerHTML = `<p style="color:var(--text-dim);">${t("common_only_you")}</p>`;
-            return;
+        } else {
+            const rows = miners.map(m => `<div class="list-row">
+                ${m.address.slice(0,14)}...${m.address.slice(-6)} · ${m.source === "pool" ? t("common_pool_label") : t("common_solo_label")} · ${fmtNumber(m.totalEarned)} BbC · ${t("common_last_block")} #${m.lastBlockHeight}
+            </div>`).join("");
+            box.innerHTML = `
+                <p class="list-count">${t("dashboard_miners_total")}: <strong>${miners.length}</strong></p>
+                <div class="scroll-list">${rows}</div>`;
         }
-        const rows = miners.map(m => `<div class="list-row">
-            ${m.address.slice(0,14)}...${m.address.slice(-6)} · ${m.source === "pool" ? t("common_pool_label") : t("common_solo_label")} · ${fmtNumber(m.totalEarned)} BbC · ${t("common_last_block")} #${m.lastBlockHeight}
-        </div>`).join("");
-        box.innerHTML = `
-            <p class="list-count">${t("dashboard_miners_total")}: <strong>${miners.length}</strong></p>
-            <div class="scroll-list">${rows}</div>`;
+        box.dataset.everLoaded = "1";
     } catch (e) {
-        document.getElementById("minersListBox").innerHTML = `<p style="color:var(--text-dim);">${t("common_unavailable")}</p>`;
+        const box = document.getElementById("minersListBox");
+        if (!box.dataset.everLoaded) box.innerHTML = `<p style="color:var(--text-dim);">${t("common_unavailable")}</p>`;
     }
 }
 loadKnownMiners();
+setInterval(loadKnownMiners, 30000); // NAPRAWA: wczesniej wolane raz i nigdy wiecej
 document.addEventListener("bbc:langchange", loadKnownMiners);
 
 // --- Adresy w sieci: whales/newest już ograniczone do 10 przez backend,
@@ -181,18 +199,22 @@ document.addEventListener("bbc:langchange", loadKnownMiners);
 async function loadAddressStats() {
     try {
         const data = await apiGet("/network/addresses");
-        document.getElementById("addrStatsBox").innerHTML = `
+        const box = document.getElementById("addrStatsBox");
+        box.innerHTML = `
             <p style="font-family:var(--font-mono);margin-bottom:14px;">${t("dashboard_total_addresses")}: <strong>${data.totalAddresses}</strong></p>
             <h4 style="color:var(--flame);margin-bottom:6px;">🐋 ${t("dashboard_whales_heading")}</h4>
             <div class="scroll-list">${data.whales.map(w => `<div class="list-row">${w.address.slice(0,14)}...${w.address.slice(-6)} · ${fmtNumber(w.balance)} BbC</div>`).join("")}</div>
             <h4 style="color:var(--leaf);margin:14px 0 6px;">🌱 ${t("dashboard_newest_heading")}</h4>
             <div class="scroll-list">${data.newest.map(n => `<div class="list-row">${n.address.slice(0,14)}...${n.address.slice(-6)} · ${t("dashboard_since_block")} #${n.firstSeenHeight}</div>`).join("")}</div>
         `;
+        box.dataset.everLoaded = "1";
     } catch (e) {
-        document.getElementById("addrStatsBox").innerHTML = `<p style="color:var(--text-dim);">${t("common_unavailable")}</p>`;
+        const box = document.getElementById("addrStatsBox");
+        if (!box.dataset.everLoaded) box.innerHTML = `<p style="color:var(--text-dim);">${t("common_unavailable")}</p>`;
     }
 }
 loadAddressStats();
+setInterval(loadAddressStats, 30000); // NAPRAWA: wczesniej wolane raz i nigdy wiecej
 document.addEventListener("bbc:langchange", loadAddressStats);
 </script>
 </body>
