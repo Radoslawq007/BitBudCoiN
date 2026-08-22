@@ -51,19 +51,35 @@ function fillList(id, items) {
     el.innerHTML = items.length ? items.map(p => `<li>${escapeHtml(p)}</li>`).join("") : `<li style="color:var(--text-dim); list-style:none; margin-left:-18px;">${t("peers_none")}</li>`;
 }
 
-async function load() {
-    try {
-        const p = await apiGet("/peers");
-        document.getElementById("peers-summary").innerHTML = `
-            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">${t("peers_port_label")}</span><span class="mono">${p.port}</span></div>
-            <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">${t("peers_connected_count_label")}</span><span class="mono">${p.connected.length}</span></div>`;
-        fillList("list-connected", p.connected);
-        fillList("list-configured", p.configured);
-        fillList("list-reconnecting", p.reconnecting);
-    } catch (e) {
-        document.getElementById("peers-summary").innerHTML = `<div class="error-banner">${escapeHtml(e.message)}</div>`;
-    }
+// vMax: dane peerów teraz z BBCLiveState (SSE + fallback /state) zamiast
+// własnego setInterval(load, 10000) - ten sam mechanizm co reszta stron,
+// jeden punkt prawdy, nie osobne odpytywanie z każdej strony osobno.
+function renderPeers(state) {
+    const p = state.p2p || {};
+    const connected = p.connected || [];
+    const configured = p.configured || [];
+    const reconnecting = p.reconnecting || [];
+    document.getElementById("peers-summary").innerHTML = `
+        <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">${t("peers_port_label")}</span><span class="mono">${p.port ?? "—"}</span></div>
+        <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:var(--text-dim)">${t("peers_connected_count_label")}</span><span class="mono">${connected.length}</span></div>`;
+    fillList("list-connected", connected);
+    fillList("list-configured", configured);
+    fillList("list-reconnecting", reconnecting);
 }
+
+BBCLiveState.subscribe(({ state, live }) => {
+    if (!state) return;
+    try {
+        renderPeers(state);
+        if (!live) {
+            document.getElementById("peers-summary").insertAdjacentHTML("afterbegin",
+                `<div class="error-banner" style="margin-bottom:8px;">⚠ ${t("network_no_node_connection")}</div>`);
+        }
+    } catch (e) {
+        console.error("renderPeers:", e);
+    }
+});
+BBCLiveState.init();
 
 document.getElementById("connect-btn").addEventListener("click", async () => {
     const addr = document.getElementById("peer-address").value.trim();
@@ -72,15 +88,19 @@ document.getElementById("connect-btn").addEventListener("click", async () => {
     try {
         await apiPost("/peers/connect", { address: addr });
         box.innerHTML = `<p style="color:var(--leaf)">${t("peers_connecting_to")} ${escapeHtml(addr)}...</p>`;
-        setTimeout(load, 1000);
+        // Akcja nie czeka na nastepny SSE - jeden bezposredni odczyt dla natychmiastowej informacji zwrotnej.
+        setTimeout(async () => {
+            try { renderPeers(await apiGet("/state")); } catch (e) {}
+        }, 1000);
     } catch (e) {
         box.innerHTML = `<div class="error-banner">${escapeHtml(e.message)}</div>`;
     }
 });
 
-load();
-setInterval(load, 10000);
-document.addEventListener("bbc:langchange", load);
+document.addEventListener("bbc:langchange", () => {
+    const s = BBCLiveState.getState();
+    if (s) renderPeers(s);
+});
 </script>
 </body>
 </html>
