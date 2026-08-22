@@ -500,16 +500,24 @@ document.getElementById("loadWalletBtn").addEventListener("click", async () => {
 
 async function refreshBalance() {
     if (!currentWallet) return;
-    document.getElementById("myBalance").textContent = "…";
+    const el = document.getElementById("myBalance");
+    if (!el.dataset.everLoaded) el.textContent = "…";
     try {
         const bal = await apiGet(`/balance/${currentWallet.address}`);
         const shown = bal.pendingAwareBalance ?? bal.balance;
-        document.getElementById("myBalance").textContent = fmtNumber(shown);
+        el.textContent = fmtNumber(shown);
+        el.dataset.everLoaded = "1";
     } catch (e) {
-        document.getElementById("myBalance").textContent = t("wallet_balance_error");
+        // NAPRAWA: przy chwilowym bledzie trzymaj ostatnie znane saldo,
+        // nie zamieniaj go w komunikat bledu - to Twoje prawdziwe pieniadze
+        // na ekranie, nie mozna dawac wrazenia ze "zniklo".
+        if (!el.dataset.everLoaded) el.textContent = t("wallet_balance_error");
     }
 }
 document.getElementById("refreshBalanceBtn").addEventListener("click", refreshBalance);
+// NAPRAWA: wczesniej TYLKO na klik - teraz dodatkowo co 20s w tle,
+// klik dalej dziala dla natychmiastowego odswiezenia na zadanie.
+setInterval(refreshBalance, 20000);
 
 document.getElementById("copyAddrBtn").addEventListener("click", async () => {
     await navigator.clipboard.writeText(currentWallet.address);
