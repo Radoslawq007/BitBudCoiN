@@ -134,84 +134,115 @@ function estimatePoolHashrate(minerDifficulties) {
     return Object.values(minerDifficulties || {}).reduce((sum, d) => sum + estimateMinerHashrate(d), 0);
 }
 
-async function refreshPoolStatus() {
+// NAPRAWA (dzisiaj): korzystala z apiGet("/pool/status") co 8s, i przy
+// KAZDYM chwilowym bledzie CZYSCILA wszystkie trzy tabele do banera
+// bledu - dokladnie "znika i pokazuje smieci" zamiast trzymac ostatnie
+// dobre dane. Teraz jedno zrodlo (BBCLiveState, ten sam co odznaka na
+// gorze), zero osobnego pollingu, i baner bledu tylko gdy NIGDY jeszcze
+// nie bylo zadnych danych - poza tym zawsze ostatni dobry stan +
+// dyskretne oznaczenie ⚠️ gdy dane nie sa live.
+function renderPoolStatus(status, live) {
     const poolStatusEl = document.getElementById("poolStatus");
     const soloListEl = document.getElementById("activeSoloList");
     const poolListEl = document.getElementById("activePoolList");
-    try {
-        const status = await apiGet("/pool/status");
-        const poolHashrate = estimatePoolHashrate(status.minerDifficulties);
 
-        poolStatusEl.classList.remove("skeleton");
-        poolStatusEl.style.height = "";
-        poolStatusEl.innerHTML = `
-            <div class="stat-grid">
-                <div><div class="stat-value leaf">#${fmtNumber(status.workingOnHeight, 0)}</div><div class="stat-label">${t("miner_working_on_block")}</div></div>
-                <div><div class="stat-value">${status.totalSharesThisRound}</div><div class="stat-label">${t("miner_shares_this_round")}</div></div>
-                <div><div class="stat-value">${(status.poolFee * 100).toFixed(0)}%</div><div class="stat-label">${t("miner_pool_fee_label")}</div></div>
-                <div><div class="stat-value">${fmtNumber(status.shareDifficulty)}</div><div class="stat-label">${t("miner_share_block_diff")}</div></div>
-                <div><div class="stat-value leaf">${formatHashrate(poolHashrate)}</div><div class="stat-label">${t("miner_pool_hashrate")}</div></div>
-                <div><div class="stat-value flame">${formatHashrate(status.soloHashrate)}</div><div class="stat-label">${t("miner_solo_hashrate")}</div></div>
-            </div>`;
+    const poolHashrate = estimatePoolHashrate(status.minerDifficulties);
+    const warn = live ? "" : ` <span style="opacity:.6;">⚠️</span>`;
 
-        const allMiners = status.activeMiners || [];
-        const soloMiners = allMiners.filter((m) => m.source === "solo");
-        const poolMiners = allMiners.filter((m) => m.source !== "solo");
-        const windowMin = Math.max(1, Math.round((status.activeMinersWindowSeconds || 300) / 60));
+    poolStatusEl.classList.remove("skeleton");
+    poolStatusEl.style.height = "";
+    poolStatusEl.innerHTML = `
+        <div class="stat-grid">
+            <div><div class="stat-value leaf">#${fmtNumber(status.workingOnHeight, 0)}${warn}</div><div class="stat-label">${t("miner_working_on_block")}</div></div>
+            <div><div class="stat-value">${status.totalSharesThisRound}</div><div class="stat-label">${t("miner_shares_this_round")}</div></div>
+            <div><div class="stat-value">${(status.poolFee * 100).toFixed(0)}%</div><div class="stat-label">${t("miner_pool_fee_label")}</div></div>
+            <div><div class="stat-value">${fmtNumber(status.shareDifficulty)}</div><div class="stat-label">${t("miner_share_block_diff")}</div></div>
+            <div><div class="stat-value leaf">${formatHashrate(poolHashrate)}</div><div class="stat-label">${t("miner_pool_hashrate")}</div></div>
+            <div><div class="stat-value flame">${formatHashrate(status.soloHashrate)}</div><div class="stat-label">${t("miner_solo_hashrate")}</div></div>
+        </div>`;
 
-        // --- Tabela solo: adres + hashrate wprost (to jedyna sensowna
-        // jednostka aktywności, którą solo w ogóle zgłasza) ---
-        soloListEl.classList.remove("skeleton");
-        soloListEl.style.height = "";
-        if (soloMiners.length === 0) {
-            soloListEl.innerHTML = `<div style="color:var(--text-dim);font-size:.88rem;">${t("miner_no_active_miners")} ${windowMin} min.</div>`;
-        } else {
-            const soloRows = soloMiners.map((m) => `
-                <tr>
-                    <td class="mono">${fmtAddress(m.minerAddress)}</td>
-                    <td class="num th-hashrate">${formatHashrate(m.hashrate)}</td>
-                </tr>`).join("");
-            soloListEl.innerHTML = `
-                <table>
-                    <thead><tr><th>${t("miner_th_address")}</th><th class="th-hashrate">~H/s</th></tr></thead>
-                    <tbody>${soloRows}</tbody>
-                </table>`;
-        }
+    const allMiners = status.activeMiners || [];
+    const soloMiners = allMiners.filter((m) => m.source === "solo");
+    const poolMiners = allMiners.filter((m) => m.source !== "solo");
+    const windowMin = Math.max(1, Math.round((status.activeMinersWindowSeconds || 300) / 60));
 
-        // --- Tabela puli: adres + shares tej rundy + szacunkowy hashrate
-        // (osobna kolumna, nie mieszana z "aktywnością" solo) ---
-        poolListEl.classList.remove("skeleton");
-        poolListEl.style.height = "";
-        if (poolMiners.length === 0) {
-            poolListEl.innerHTML = `<div style="color:var(--text-dim);font-size:.88rem;">Nikt jeszcze nie zgłosił share w tej rundzie.</div>`;
-        } else {
-            const poolRows = poolMiners.map((m) => {
-                const hashrateCol = formatHashrate(estimateMinerHashrate((status.minerDifficulties || {})[m.minerAddress]));
-                return `
-                <tr>
-                    <td class="mono">${fmtAddress(m.minerAddress)}</td>
-                    <td class="num" style="text-align:right;">${m.shares} shares</td>
-                    <td class="num th-hashrate" style="color:var(--text-dim);">${hashrateCol}</td>
-                </tr>`;
-            }).join("");
-            poolListEl.innerHTML = `
-                <table>
-                    <thead><tr><th>${t("miner_th_address")}</th><th style="text-align:right;">Shares (runda)</th><th class="th-hashrate">~H/s</th></tr></thead>
-                    <tbody>${poolRows}</tbody>
-                </table>`;
-        }
-    } catch (e) {
-        poolStatusEl.classList.remove("skeleton");
-        poolStatusEl.innerHTML = `<div class="error-banner">${t("common_pool_unavailable")}: ${e.message}</div>`;
-        soloListEl.classList.remove("skeleton");
-        soloListEl.innerHTML = "";
-        poolListEl.classList.remove("skeleton");
-        poolListEl.innerHTML = "";
+    soloListEl.classList.remove("skeleton");
+    soloListEl.style.height = "";
+    if (soloMiners.length === 0) {
+        soloListEl.innerHTML = `<div style="color:var(--text-dim);font-size:.88rem;">${t("miner_no_active_miners")} ${windowMin} min.</div>`;
+    } else {
+        const soloRows = soloMiners.map((m) => `
+            <tr>
+                <td class="mono">${fmtAddress(m.minerAddress)}</td>
+                <td class="num th-hashrate">${formatHashrate(m.hashrate)}</td>
+            </tr>`).join("");
+        soloListEl.innerHTML = `
+            <table>
+                <thead><tr><th>${t("miner_th_address")}</th><th class="th-hashrate">~H/s</th></tr></thead>
+                <tbody>${soloRows}</tbody>
+            </table>`;
+    }
+
+    poolListEl.classList.remove("skeleton");
+    poolListEl.style.height = "";
+    if (poolMiners.length === 0) {
+        poolListEl.innerHTML = `<div style="color:var(--text-dim);font-size:.88rem;">Nikt jeszcze nie zgłosił share w tej rundzie.</div>`;
+    } else {
+        const poolRows = poolMiners.map((m) => {
+            const hashrateCol = formatHashrate(estimateMinerHashrate((status.minerDifficulties || {})[m.minerAddress]));
+            return `
+            <tr>
+                <td class="mono">${fmtAddress(m.minerAddress)}</td>
+                <td class="num" style="text-align:right;">${m.shares} shares</td>
+                <td class="num th-hashrate" style="color:var(--text-dim);">${hashrateCol}</td>
+            </tr>`;
+        }).join("");
+        poolListEl.innerHTML = `
+            <table>
+                <thead><tr><th>${t("miner_th_address")}</th><th style="text-align:right;">Shares (runda)</th><th class="th-hashrate">~H/s</th></tr></thead>
+                <tbody>${poolRows}</tbody>
+            </table>`;
     }
 }
-refreshPoolStatus();
-setInterval(refreshPoolStatus, 8000);
-document.addEventListener("bbc:langchange", refreshPoolStatus);
+
+function showPoolStatusError(message) {
+    const poolStatusEl = document.getElementById("poolStatus");
+    const soloListEl = document.getElementById("activeSoloList");
+    const poolListEl = document.getElementById("activePoolList");
+    poolStatusEl.classList.remove("skeleton");
+    poolStatusEl.innerHTML = `<div class="error-banner">${t("common_pool_unavailable")}: ${message}</div>`;
+    soloListEl.classList.remove("skeleton");
+    soloListEl.innerHTML = "";
+    poolListEl.classList.remove("skeleton");
+    poolListEl.innerHTML = "";
+}
+
+BBCLiveState.subscribe(({ state, live }) => {
+    if (!state || !state.pool) {
+        // Baner bledu TYLKO gdy nigdy jeszcze nie bylo zadnych danych -
+        // nie przy kazdym chwilowym zaciecu polaczenia.
+        if (!BBCLiveState.getLastGoodAt()) showPoolStatusError(t("common_pool_unavailable"));
+        return;
+    }
+    renderPoolStatus({
+        workingOnHeight: state.pool.workingOnHeight,
+        totalSharesThisRound: state.pool.totalSharesThisRound,
+        poolFee: state.pool.poolFee,
+        shareDifficulty: state.pool.shareDifficulty,
+        minerDifficulties: state.pool.minerDifficulties,
+        soloHashrate: state.soloHashrate,
+        activeMiners: state.activeMiners
+    }, live);
+});
+BBCLiveState.init();
+document.addEventListener("bbc:langchange", () => {
+    const s = BBCLiveState.getState();
+    if (s && s.pool) renderPoolStatus({
+        workingOnHeight: s.pool.workingOnHeight, totalSharesThisRound: s.pool.totalSharesThisRound,
+        poolFee: s.pool.poolFee, shareDifficulty: s.pool.shareDifficulty, minerDifficulties: s.pool.minerDifficulties,
+        soloHashrate: s.soloHashrate, activeMiners: s.activeMiners
+    }, BBCLiveState.isLive());
+});
 
 async function benchmarkDevice(durationMs) {
     const start = performance.now();
