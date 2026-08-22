@@ -93,7 +93,7 @@ node backup.js           # backup bazy</pre>
 <script>
 setActiveNav("nav-docks");
 
-async function load() {
+async function load(isRetry = false) {
     try {
         const info = await apiGet("/info");
         document.querySelector("#params-table tbody").innerHTML = `
@@ -103,6 +103,12 @@ async function load() {
             <tr><td style="color:var(--text-dim)">${t("docks_base_reward")}</td><td>50 BbC (halving /210000 ${t("common_blocks_suffix")})</td></tr>
             <tr><td style="color:var(--text-dim)">${t("network_row_version")}</td><td>${info.version}</td></tr>`;
     } catch (e) {
+        // NAPRAWA (dzisiaj): te dane sa w praktyce stale (symbol/chainId/wersja
+        // sie nie zmieniaja) - nie potrzebuja ciaglego live-odswiezania jak
+        // reszta stron. Ale jedna proba i poddanie sie na zawsze tez nie ma
+        // sensu, jesli node akurat wlasnie wstawal przy pierwszym ladowaniu -
+        // jedno ponowienie po 5s, nie w nieskonczonosc.
+        if (!isRetry) { setTimeout(() => load(true), 5000); return; }
         document.querySelector("#params-table tbody").innerHTML = `<tr><td colspan="2">${t("docks_node_offline")}</td></tr>`;
     }
 }
