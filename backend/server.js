@@ -1,719 +1,2163 @@
 "use strict";
 
-// =====================================================
-// BitBudCoin — wspólna warstwa API
-// vMax LIVE
-// =====================================================
-//
-// Frontend:
-//   GitHub Pages
-//
-// Backend:
-//   BitBudCoin API
-//
-// WAŻNE:
-// API_BASE jest jednym źródłem adresu backendu.
-// SSE korzysta z tego samego backendu.
-//
-// Można nadpisać przed załadowaniem tego pliku:
-//
-//   window.BBC_API_BASE = "https://twoj-backend.example.com";
-//
-// =====================================================
+const express = require("express");
+const cors = require("cors");
+
+const CONFIG = require("./config");
+const Blockchain = require("./bbcblockchain");
+const Mempool = require("./mempool");
+const Pool = require("./pool");
+const P2P = require("./p2p");
+const SoloTracker = require("./solo-tracker");
+
+const {
+    rateLimiter,
+    strictLimiter
+} = require("./rate-limit");
+
+const {
+    difficultyToTargetHex
+} = require("./bbcblockchain");
+
+const bridgeTags = require("./bridge-tags");
+const swapOffers = require("./swap-offers");
+
+const {
+    verifyAcceptOfferSignature,
+    verifyRejectOfferSignature
+} = require("./swap-offer-auth");
+
+const {
+    verifyHtlcCreateSignature,
+    verifyHtlcClaimSignature,
+    verifyHtlcRefundSignature
+} = require("./htlc-wallet");
 
 
 /*
- * =====================================================
- * API BASE
- * =====================================================
+ * ============================================================
+ * BITBUDCOIN SERVER
+ * vMax FINAL
+ * ============================================================
+ *
+ * JEDNO ŹRÓDŁO LIVE:
+ *
+ *   blockchain.getInfo()
+ *          ↓
+ *   getLiveState()
+ *          ↓
+ *   /info
+ *   /state
+ *   /events
+ *
+ * Wszystkie strony mogą więc korzystać z tego samego stanu.
+ *
+ * SSE:
+ *   - natychmiastowy snapshot po połączeniu
+ *   - natychmiastowe eventy po zmianach
+ *   - heartbeat
+ *   - retry po zerwaniu
+ *   - ID eventów
+ *   - brak cache
+ *   - brak proxy buffering
+ *
+ * Blockchain pozostaje źródłem prawdy.
+ * server.js nie prowadzi drugiego mechanizmu difficulty/consensus.
  */
 
-const BBC_DEFAULT_API_BASE =
-    "https://141-147-98-57.sslip.io";
 
+/*
+ * ============================================================
+ * EXPRESS
+ * ============================================================
+ */
 
-function normalizeApiBase(url) {
+const app = express();
 
-    if (!url || typeof url !== "string") {
-        return BBC_DEFAULT_API_BASE;
-    }
+app.disable("x-powered-by");
 
-    return url
-        .trim()
-        .replace(/\/+$/, "");
-}
+app.use(cors());
 
-
-const API_BASE = normalizeApiBase(
-    window.BBC_API_BASE ||
-    BBC_DEFAULT_API_BASE
+app.use(
+    express.json({
+        limit: "1mb"
+    })
 );
 
-
-/*
- * Udostępniamy adres globalnie.
- *
- * index.html / explorer.html / miner.html itd.
- * mogą korzystać z tego samego backendu.
- */
-
-window.BBC_API_BASE = API_BASE;
+app.use(rateLimiter);
 
 
 /*
- * =====================================================
- * SSE BASE
- * =====================================================
- *
- * NIE używamy:
- *
- *     new EventSource("/events")
- *
- * ponieważ wtedy przeglądarka próbuje połączyć się
- * z GitHub Pages.
- *
- * Prawidłowo:
- *
- *     https://141-147-98-57.sslip.io/events
- *
+ * ============================================================
+ * CORE
+ * ============================================================
  */
 
-const BBC_EVENTS_URL =
-    `${API_BASE}/events`;
+const blockchain = new Blockchain();
 
+const mempool = new Mempool(
+    blockchain,
+    blockchain.storage
+);
 
-window.BBC_EVENTS_URL = BBC_EVENTS_URL;
-
-
-/*
- * =====================================================
- * FETCH OPTIONS
- * =====================================================
- */
-
-const API_FETCH_OPTIONS = {
-    credentials: "omit",
-    cache: "no-store"
-};
-
-
-/*
- * =====================================================
- * API GET
- * =====================================================
- */
-
-async function apiGet(path) {
-
-    const url =
-        API_BASE +
-        String(path || "");
-
-
-    const res =
-        await fetch(
-            url,
-            {
-                ...API_FETCH_OPTIONS,
-                method: "GET"
-            }
-        );
-
-
-    const data =
-        await res
-            .json()
-            .catch(() => ({}));
-
-
-    if (!res.ok) {
-
-        throw new Error(
-            data.error ||
-            data.reason ||
-            `Błąd serwera (${res.status})`
-        );
+const pool = new Pool(
+    blockchain,
+    {
+        mempool,
+        poolAddress: CONFIG.POOL_ADDRESS,
+        poolFee: CONFIG.POOL_FEE,
+        shareDifficulty: CONFIG.SHARE_DIFFICULTY
     }
+);
+
+const p2p = new P2P(
+    blockchain,
+    {
+        port: CONFIG.P2P_PORT,
+        peers: CONFIG.PEERS,
+        mempool
+    }
+);
+
+const soloTracker = new SoloTracker();
 
 
-    return data;
+/*
+ * ============================================================
+ * P2P START
+ * ============================================================
+ */
+
+p2p.start();
+
+
+/*
+ * ============================================================
+ * LIVE STATE
+ * ============================================================
+ *
+ * Jedna funkcja używana przez:
+ *
+ *   /info
+ *   /state
+ *   /events
+ *   /pool/status
+ *
+ * Dzięki temu frontend nie dostaje kilku różnych wersji
+ * aktualnego stanu sieci.
+ */
+
+function getLiveState() {
+
+    const info =
+        blockchain.getInfo();
+
+    const poolStatus =
+        pool.getStatus();
+
+    // NAPRAWA (dzisiaj): brakowalo tych pol, ktorych miner.html
+    // realnie potrzebuje (workingOnHeight, blockDifficulty,
+    // minerDifficulties) - strona musialaby robic OSOBNE zapytanie
+    // do /pool/status obok /state, co byloby dokladnie tym
+    // problemem "cztery zapytania zamiast jednego", ktory /state
+    // mial rozwiazac. getLiveState() zasila i SSE, i /state naraz -
+    // jedna poprawka, oba miejsca korzystaja.
+    const workingOnHeight =
+        poolStatus.workingOnHeight;
+
+    const blockDifficulty =
+        poolStatus.blockDifficulty;
+
+    const minerDifficulties =
+        poolStatus.minerDifficulties;
+
+    const poolMiners =
+        Object.entries(
+            poolStatus.sharesThisRound || {}
+        ).map(([address, shares]) => ({
+            minerAddress: address,
+            shares,
+            source: "pool"
+        }));
+
+    const soloMiners =
+        soloTracker
+            .getActiveMiners()
+            .map((m) => ({
+                ...m,
+                source: "solo"
+            }));
+
+    return {
+        ...info,
+
+        /*
+         * Jednolity numer wysokości.
+         * Nie nadpisujemy tego, co zwrócił blockchain.
+         */
+        height:
+            Number.isFinite(Number(info.height))
+                ? Number(info.height)
+                : info.height,
+
+        pool: {
+            poolAddress:
+                poolStatus.poolAddress,
+
+            poolFee:
+                poolStatus.poolFee,
+
+            shareDifficulty:
+                poolStatus.shareDifficulty,
+
+            totalSharesThisRound:
+                poolStatus.totalSharesThisRound,
+
+            workingOnHeight,
+            blockDifficulty,
+            minerDifficulties
+        },
+
+        activeMiners: [
+            ...poolMiners,
+            ...soloMiners
+        ],
+
+        soloHashrate:
+            soloTracker.getTotalHashrate(),
+
+        p2p:
+            p2p.getStatus(),
+
+        updatedAt:
+            Date.now()
+    };
 }
 
 
 /*
- * =====================================================
- * API POST
- * =====================================================
+ * ============================================================
+ * SSE — LIVE BITBUDCOIN
+ * ============================================================
  */
 
-async function apiPost(path, body) {
+const sseClients = new Set();
 
-    const url =
-        API_BASE +
-        String(path || "");
+let sseEventId = 0;
 
 
-    const res =
-        await fetch(
-            url,
-            {
-                ...API_FETCH_OPTIONS,
+function sendSSE(eventName, data) {
 
-                method: "POST",
+    const id =
+        ++sseEventId;
 
-                headers: {
-                    "Content-Type":
-                        "application/json"
-                },
+    const message =
+        `id: ${id}\n` +
+        `event: ${eventName}\n` +
+        `data: ${JSON.stringify(data)}\n\n`;
 
-                body:
-                    JSON.stringify(body)
-            }
-        );
+    for (const client of sseClients) {
 
+        const res = client.res;
 
-    const data =
-        await res
-            .json()
-            .catch(() => ({}));
-
-
-    if (!res.ok) {
-
-        throw new Error(
-            data.error ||
-            data.reason ||
-            `Błąd serwera (${res.status})`
-        );
-    }
-
-
-    return data;
-}
-
-
-/*
- * =====================================================
- * SSE
- * =====================================================
- *
- * Pomocnicza funkcja do tworzenia połączenia LIVE.
- *
- * Użycie:
- *
- * const events = createBBCEventSource();
- *
- * events.addEventListener("state", ...);
- *
- */
-
-function createBBCEventSource() {
-
-    if (!window.EventSource) {
-
-        throw new Error(
-            "Ta przeglądarka nie obsługuje SSE."
-        );
-    }
-
-
-    return new EventSource(
-        BBC_EVENTS_URL
-    );
-}
-
-
-/*
- * Udostępniamy również funkcję globalnie.
- */
-
-window.createBBCEventSource =
-    createBBCEventSource;
-
-
-/*
- * =====================================================
- * FORMATOWANIE LICZB
- * =====================================================
- */
-
-function fmtNumber(
-    n,
-    maxDecimals = 4
-) {
-
-    if (
-        n === null ||
-        n === undefined ||
-        Number.isNaN(Number(n))
-    ) {
-        return "—";
-    }
-
-
-    const locale =
-        (
-            typeof currentLang !== "undefined" &&
-            currentLang === "en"
-        )
-            ? "en-US"
-            : "pl-PL";
-
-
-    return Number(n).toLocaleString(
-        locale,
-        {
-            maximumFractionDigits:
-                maxDecimals
+        if (
+            res.writableEnded ||
+            res.destroyed
+        ) {
+            sseClients.delete(client);
+            continue;
         }
-    );
+
+        try {
+
+            res.write(message);
+
+        } catch (err) {
+
+            sseClients.delete(client);
+
+            try {
+                res.end();
+            } catch (_) {}
+        }
+    }
 }
 
 
 /*
- * =====================================================
- * FORMATOWANIE HASHY
- * =====================================================
- */
-
-function fmtHash(
-    h,
-    len = 10
-) {
-
-    if (!h) {
-        return "—";
-    }
-
-
-    if (
-        h.length <=
-        len * 2
-    ) {
-        return h;
-    }
-
-
-    return (
-        h.slice(0, len) +
-        "…" +
-        h.slice(-4)
-    );
-}
-
-
-/*
- * =====================================================
- * FORMATOWANIE ADRESU
- * =====================================================
- */
-
-function fmtAddress(
-    a,
-    len = 8
-) {
-
-    if (!a) {
-        return "—";
-    }
-
-
-    if (
-        a.length <=
-        len * 2
-    ) {
-        return a;
-    }
-
-
-    return (
-        a.slice(0, len) +
-        "…" +
-        a.slice(-4)
-    );
-}
-
-
-/*
- * =====================================================
- * FORMATOWANIE CZASU
- * =====================================================
- */
-
-function fmtTime(ts) {
-
-    if (!ts) {
-        return "—";
-    }
-
-
-    const locale =
-        (
-            typeof currentLang !== "undefined" &&
-            currentLang === "en"
-        )
-            ? "en-US"
-            : "pl-PL";
-
-
-    return new Date(ts)
-        .toLocaleString(locale);
-}
-
-
-/*
- * =====================================================
- * TIME AGO
- * =====================================================
- */
-
-function timeAgo(ts) {
-
-    const s =
-        Math.floor(
-            (
-                Date.now() -
-                Number(ts)
-            ) / 1000
-        );
-
-
-    const tr =
-        typeof t === "function"
-            ? t
-            : (k) => k;
-
-
-    if (s < 5) {
-
-        return tr(
-            "time_now"
-        );
-    }
-
-
-    if (s < 60) {
-
-        return (
-            `${s}` +
-            tr("time_s_ago")
-        );
-    }
-
-
-    if (s < 3600) {
-
-        return (
-            `${Math.floor(s / 60)}` +
-            tr("time_m_ago")
-        );
-    }
-
-
-    if (s < 86400) {
-
-        return (
-            `${Math.floor(s / 3600)}` +
-            tr("time_h_ago")
-        );
-    }
-
-
-    return (
-        `${Math.floor(s / 86400)}` +
-        tr("time_d_ago")
-    );
-}
-
-
-/*
- * =====================================================
- * HTML ESCAPE
- * =====================================================
- */
-
-function escapeHtml(s) {
-
-    return String(s)
-        .replace(
-            /[&<>"']/g,
-            (c) => ({
-                "&":
-                    "&amp;",
-
-                "<":
-                    "&lt;",
-
-                ">":
-                    "&gt;",
-
-                '"':
-                    "&quot;",
-
-                "'":
-                    "&#39;"
-            }[c])
-        );
-}
-
-
-/*
- * =====================================================
- * SMOKE FIELD
- * =====================================================
+ * Natychmiastowa aktualizacja wszystkich klientów.
  *
- * Wstawia pole dymu do tła strony.
- *
- * Wołane raz na starcie strony.
+ * Wywołujemy ją po zmianach stanu.
  */
 
-function mountSmokeField() {
+function broadcastLiveState() {
 
-    if (
-        document.querySelector(
-            ".smoke-field"
-        )
-    ) {
+    if (sseClients.size === 0) {
         return;
     }
 
-
-    const div =
-        document.createElement(
-            "div"
+    // NAPRAWA (dzisiaj): wolane bez ochrony w 14 miejscach w tym pliku,
+    // przy KAZDYM znalezionym bloku (solo, pula, P2P). Jesli cokolwiek
+    // wewnatrz (getLiveState/sendSSE) rzuci wyjatek, caly handler route'y
+    // (np. /solo/submit) padal Z BLEDEM 500 - MIMO ZE blok byl juz
+    // poprawnie zapisany do lancucha. Gornik widzial "Wewnetrzny blad
+    // serwera" dla bloku, ktory naprawde sie udal. To poboczny efekt
+    // (live-podglad dla polaczonych przegladarek) - nigdy nie powinien
+    // miec mozliwosci zepsuc glownej odpowiedzi o sukcesie.
+    try {
+        sendSSE(
+            "state",
+            getLiveState()
         );
-
-
-    div.className =
-        "smoke-field";
-
-
-    div.innerHTML =
-        "<span></span>" +
-        "<span></span>" +
-        "<span></span>";
-
-
-    document.body.prepend(
-        div
-    );
+    } catch (err) {
+        console.error("broadcastLiveState() zawiodlo (nie blokuje glownej operacji): " + err.message);
+    }
 }
 
 
 /*
- * =====================================================
- * GLOBAL EXPORTS
- * =====================================================
- *
- * Starsze strony mogą korzystać
- * z funkcji bez żadnych zmian.
+ * ============================================================
+ * SSE ENDPOINT
+ * ============================================================
  */
 
-window.apiGet =
-    apiGet;
+app.get(
+    "/events",
+    (req, res) => {
 
-window.apiPost =
-    apiPost;
+        res.statusCode = 200;
 
-window.fmtNumber =
-    fmtNumber;
+        res.setHeader(
+            "Content-Type",
+            "text/event-stream; charset=utf-8"
+        );
 
-window.fmtHash =
-    fmtHash;
+        res.setHeader(
+            "Cache-Control",
+            "no-cache, no-store, must-revalidate"
+        );
 
-window.fmtAddress =
-    fmtAddress;
+        res.setHeader(
+            "Connection",
+            "keep-alive"
+        );
 
-window.fmtTime =
-    fmtTime;
+        /*
+         * Ważne dla Nginx / reverse proxy.
+         */
+        res.setHeader(
+            "X-Accel-Buffering",
+            "no"
+        );
 
-window.timeAgo =
-    timeAgo;
+        res.setHeader(
+            "X-Content-Type-Options",
+            "nosniff"
+        );
 
-window.escapeHtml =
-    escapeHtml;
+        /*
+         * EventSource ma automatycznie próbować
+         * połączyć się ponownie po 3 sekundach.
+         */
+        res.write(
+            "retry: 3000\n\n"
+        );
 
-window.mountSmokeField =
-    mountSmokeField;
+        /*
+         * Wysyłamy nagłówki od razu.
+         */
+        if (typeof res.flushHeaders === "function") {
+            res.flushHeaders();
+        }
+
+        const client = {
+            res,
+            connectedAt: Date.now()
+        };
+
+        sseClients.add(client);
+
+        /*
+         * Natychmiastowy snapshot.
+         *
+         * Nie trzeba czekać sekundy na interval.
+         */
+        try {
+
+            const initialMessage =
+                `id: ${++sseEventId}\n` +
+                `event: state\n` +
+                `data: ${JSON.stringify(getLiveState())}\n\n`;
+
+            res.write(initialMessage);
+
+        } catch (err) {
+
+            sseClients.delete(client);
+
+            try {
+                res.end();
+            } catch (_) {}
+
+            return;
+        }
+
+
+        /*
+         * HEARTBEAT
+         *
+         * SSE comment zaczynający się od ":" nie jest
+         * przekazywany jako normalny event do EventSource,
+         * ale utrzymuje połączenie aktywne.
+         */
+        const heartbeat =
+            setInterval(() => {
+
+                if (
+                    res.writableEnded ||
+                    res.destroyed
+                ) {
+
+                    clearInterval(heartbeat);
+                    sseClients.delete(client);
+                    return;
+                }
+
+                try {
+
+                    res.write(
+                        `: heartbeat ${Date.now()}\n\n`
+                    );
+
+                } catch (err) {
+
+                    clearInterval(heartbeat);
+                    sseClients.delete(client);
+
+                    try {
+                        res.end();
+                    } catch (_) {}
+                }
+
+            }, 15000);
+
+        heartbeat.unref?.();
+
+
+        /*
+         * Ostatni event ID.
+         *
+         * Nie próbujemy tutaj odtwarzać historii,
+         * ponieważ /events jest streamem aktualnego stanu.
+         */
+        req.on(
+            "close",
+            () => {
+
+                clearInterval(heartbeat);
+
+                sseClients.delete(client);
+
+                try {
+
+                    if (!res.writableEnded) {
+                        res.end();
+                    }
+
+                } catch (_) {}
+            }
+        );
+    }
+);
 
 
 /*
- * =====================================================
- * DEBUG
- * =====================================================
+ * ============================================================
+ * PERIODIC LIVE SYNC
+ * ============================================================
+ *
+ * To jest dodatkowa warstwa bezpieczeństwa.
+ *
+ * Nawet jeśli jakaś zmiana została wykonana przez moduł,
+ * którego nie obsłużyliśmy bezpośrednim broadcastem,
+ * wszystkie podłączone strony dostaną świeży snapshot.
+ *
+ * 1 sekunda = maksymalnie około 1 s opóźnienia w takim przypadku.
  */
 
-console.log(
-    "BitBudCoin API:",
-    API_BASE
-);
+const liveSyncInterval =
+    setInterval(() => {
 
-console.log(
-    "BitBudCoin SSE:",
-    BBC_EVENTS_URL
-);
-
-
-// =====================================================
-// BitBudCoin — odporny klient stanu na żywo (BBCLiveState)
-// =====================================================
-//
-// Jeden, wspólny mechanizm dla WSZYSTKICH 16 stron (już ładują
-// api.js). Cel: strona nigdy nie pokazuje pustego ekranu ani
-// "Failed to fetch" — zawsze ostatni znany dobry stan, plus jasna
-// informacja czy dane są żywe czy z awaryjnego cache.
-//
-// Kolejność źródeł:
-//   1. SSE (/events)   - główne źródło, push w czasie rzeczywistym
-//   2. REST (/state)   - fallback co 10s, gdy SSE nie działa
-//   3. Ostatni znany dobry stan w pamięci - gdy oba wyżej zawiodą
-//
-// Zero peerów, zero górników to POPRAWNY stan danych (puste tablice,
-// zera), NIE błąd — nie jest tu w żaden sposób traktowany inaczej niż
-// każdy inny stan.
-//
-// Użycie na stronie:
-//
-//   BBCLiveState.init();
-//   BBCLiveState.subscribe(({ state, live, lastGoodAt }) => {
-//       document.querySelector("#height").textContent = state.height;
-//       document.querySelector("#status").textContent =
-//           live ? "🟢 na żywo" : "⚠️ ostatnia synchronizacja: " + new Date(lastGoodAt).toLocaleTimeString();
-//   });
-//
-// =====================================================
-
-const BBCLiveState = (() => {
-    let currentState = null;
-    let lastGoodAt = null;
-    let live = false;
-    const listeners = new Set();
-
-    let eventSource = null;
-    let pollTimer = null;
-    let reconnectTimer = null;
-    let pollIntervalMs = 10000;
-    let started = false;
-
-    function notify() {
-        const snapshot = { state: currentState, lastGoodAt, live };
-        for (const fn of listeners) {
-            try {
-                fn(snapshot);
-            } catch (err) {
-                // błąd w jednym subskrybencie nie może zepsuć reszty
-                console.error("BBCLiveState: błąd w subskrybencie:", err);
-            }
-        }
-    }
-
-    function applyGoodState(newState, isLive) {
-        currentState = newState;
-        lastGoodAt = Date.now();
-        live = isLive;
-        notify();
-    }
-
-    // Dostępne, nawet gdy nic świeżego nie przyszło - UI może pokazać
-    // baner "połączenie chwilowo niedostępne", nie czyścić ekranu.
-    function markDegraded() {
-        live = false;
-        notify();
-    }
-
-    async function pollOnce() {
-        try {
-            const data = await apiGet("/state");
-            applyGoodState(data, false); // false = to fallback REST, nie SSE push
-        } catch (err) {
-            markDegraded();
-        }
-    }
-
-    function startPolling() {
-        if (pollTimer) return;
-        pollOnce();
-        pollTimer = setInterval(pollOnce, pollIntervalMs);
-    }
-
-    function stopPolling() {
-        if (pollTimer) {
-            clearInterval(pollTimer);
-            pollTimer = null;
-        }
-    }
-
-    function scheduleReconnect() {
-        if (reconnectTimer) return;
-        reconnectTimer = setTimeout(() => {
-            reconnectTimer = null;
-            connectSSE();
-        }, 5000);
-    }
-
-    function connectSSE() {
-        if (!window.EventSource) {
-            startPolling();
+        if (sseClients.size === 0) {
             return;
         }
 
-        try {
-            eventSource = createBBCEventSource();
-        } catch (err) {
-            startPolling();
-            return;
+        broadcastLiveState();
+
+    }, 1000);
+
+liveSyncInterval.unref?.();
+
+
+/*
+ * ============================================================
+ * INFO / BLOCKCHAIN
+ * ============================================================
+ *
+ * /info zwraca TERAZ ten sam spójny snapshot co /state.
+ *
+ * Dzięki temu strona, która robi apiGet("/info"), nie zobaczy
+ * innego stanu niż strona korzystająca z SSE.
+ */
+
+app.get(
+    "/info",
+    (req, res) => {
+
+        res.json(
+            getLiveState()
+        );
+    }
+);
+
+
+app.get(
+    "/blocks",
+    (req, res) => {
+
+        let limit =
+            Number(req.query.limit);
+
+        if (
+            !Number.isFinite(limit) ||
+            limit <= 0
+        ) {
+            limit = 20;
         }
 
-        eventSource.addEventListener("state", (e) => {
-            try {
-                const data = JSON.parse(e.data);
-                stopPolling(); // SSE żyje - fallback nie jest już potrzebny
-                applyGoodState(data, true);
-            } catch (err) {
-                // pojedyncza zła ramka SSE - ignoruj, czekaj na następną
+        limit =
+            Math.min(
+                Math.floor(limit),
+                100
+            );
+
+        let before = null;
+
+        if (
+            req.query.before !== undefined
+        ) {
+
+            const parsed =
+                Number(req.query.before);
+
+            if (
+                Number.isInteger(parsed) &&
+                parsed >= 0
+            ) {
+                before = parsed;
             }
+        }
+
+        res.json(
+            blockchain.getRecentBlocks(
+                limit,
+                before
+            )
+        );
+    }
+);
+
+
+app.get(
+    "/blocks/:height",
+    (req, res) => {
+
+        const height =
+            Number(req.params.height);
+
+        if (
+            !Number.isInteger(height) ||
+            height < 0
+        ) {
+
+            return res.status(400).json({
+                error:
+                    "Nieprawidłowa wysokość bloku"
+            });
+        }
+
+        const block =
+            blockchain
+                .getChain()
+                .find(
+                    (b) =>
+                        b.height === height
+                );
+
+        if (!block) {
+
+            return res.status(404).json({
+                error:
+                    "Blok nie znaleziony"
+            });
+        }
+
+        res.json(block);
+    }
+);
+
+
+/*
+ * ============================================================
+ * BALANCE
+ * ============================================================
+ */
+
+app.get(
+    "/balance/:address",
+    (req, res) => {
+
+        const address =
+            req.params.address;
+
+        const confirmed =
+            blockchain.getBalance(address);
+
+        const pending =
+            mempool.getPendingDelta
+                ? mempool.getPendingDelta(address)
+                : 0;
+
+        res.json({
+
+            address,
+
+            balance:
+                confirmed,
+
+            pendingAwareBalance:
+                confirmed + pending
         });
-
-        eventSource.onopen = () => {
-            stopPolling();
-        };
-
-        eventSource.onerror = () => {
-            // SSE padło - awaryjnie REST, ale połączenie samo próbuje
-            // się odbudować (natywne zachowanie EventSource), więc nie
-            // tworzymy tu duplikatu przez ręczne reconnect w kółko.
-            markDegraded();
-            startPolling();
-        };
     }
+);
 
-    function init(options = {}) {
-        if (started) return; // bezpieczne przy wielokrotnym wywołaniu z tej samej strony
-        started = true;
-        if (options.pollIntervalMs) pollIntervalMs = options.pollIntervalMs;
 
-        // Natychmiastowy pierwszy odczyt przez REST - nie czekamy na
-        // pierwszy event SSE, żeby strona miała dane od razu przy starcie.
-        pollOnce().then(() => connectSSE());
-    }
+/*
+ * ============================================================
+ * NORMAL TRANSACTIONS
+ * ============================================================
+ */
 
-    function subscribe(fn) {
-        listeners.add(fn);
-        if (currentState) {
-            try {
-                fn({ state: currentState, lastGoodAt, live });
-            } catch (err) {}
+app.post(
+    "/transactions/send",
+    strictLimiter,
+    (req, res) => {
+
+        const result =
+            mempool.addTransaction(
+                req.body
+            );
+
+        if (!result.accepted) {
+
+            return res
+                .status(400)
+                .json(result);
         }
-        return () => listeners.delete(fn);
+
+        /*
+         * Mempool zmienił stan.
+         * Informujemy frontend natychmiast.
+         */
+        broadcastLiveState();
+
+        res.json(result);
+    }
+);
+
+
+/*
+ * ============================================================
+ * POOL STATUS
+ * ============================================================
+ */
+
+app.get(
+    "/pool/status",
+    (req, res) => {
+
+        const status =
+            pool.getStatus();
+
+        const poolMiners =
+            Object.entries(
+                status.sharesThisRound || {}
+            ).map(([address, shares]) => ({
+                minerAddress:
+                    address,
+
+                shares,
+
+                source:
+                    "pool"
+            }));
+
+        const soloMiners =
+            soloTracker
+                .getActiveMiners()
+                .map((m) => ({
+                    ...m,
+                    source:
+                        "solo"
+                }));
+
+        res.json({
+
+            ...status,
+
+            activeMiners: [
+                ...poolMiners,
+                ...soloMiners
+            ],
+
+            soloHashrate:
+                soloTracker.getTotalHashrate()
+        });
+    }
+);
+
+
+/*
+ * ============================================================
+ * NETWORK MINERS
+ * ============================================================
+ */
+
+app.get(
+    "/network/miners",
+    (req, res) => {
+
+        const poolMiners =
+            blockchain
+                .storage
+                .getKnownPoolMiners()
+                .map((m) => ({
+
+                    address:
+                        m.minerAddress,
+
+                    source:
+                        "pool",
+
+                    totalEarned:
+                        m.totalCredits,
+
+                    lastBlockHeight:
+                        m.lastBlockHeight,
+
+                    roundsParticipated:
+                        m.roundsParticipated
+                }));
+
+        const soloMiners =
+            blockchain
+                .getSoloMiners()
+                .map((m) => ({
+
+                    address:
+                        m.address,
+
+                    source:
+                        "solo",
+
+                    totalEarned:
+                        m.totalEarned,
+
+                    lastBlockHeight:
+                        m.lastBlockHeight,
+
+                    blocksFound:
+                        m.blocksFound
+                }));
+
+        const all = [
+            ...poolMiners,
+            ...soloMiners
+        ].sort(
+            (a, b) =>
+                b.lastBlockHeight -
+                a.lastBlockHeight
+        );
+
+        res.json(all);
+    }
+);
+
+
+/*
+ * ============================================================
+ * NETWORK ADDRESSES
+ * ============================================================
+ */
+
+app.get(
+    "/network/addresses",
+    (req, res) => {
+
+        res.json(
+            blockchain.getAddressStats()
+        );
+    }
+);
+
+
+app.get(
+    "/stats/new-addresses",
+    (req, res) => {
+
+        let days =
+            Number(req.query.days);
+
+        if (
+            !Number.isFinite(days) ||
+            days <= 0
+        ) {
+            days = 30;
+        }
+
+        days =
+            Math.min(
+                Math.floor(days),
+                90
+            );
+
+        res.json(
+            blockchain
+                .storage
+                .getNewAddressesPerDay(days)
+        );
+    }
+);
+
+
+app.get(
+    "/stats/active-addresses",
+    (req, res) => {
+
+        res.json(
+            blockchain
+                .storage
+                .getActiveAddresses24h()
+        );
+    }
+);
+
+
+/*
+ * ============================================================
+ * PEERS
+ * ============================================================
+ */
+
+app.get(
+    "/peers",
+    (req, res) => {
+
+        res.json(
+            p2p.getStatus()
+        );
+    }
+);
+
+
+/*
+ * ============================================================
+ * JEDEN SPÓJNY SNAPSHOT
+ * ============================================================
+ */
+
+app.get(
+    "/state",
+    (req, res) => {
+
+        res.json(
+            getLiveState()
+        );
+    }
+);
+
+
+/*
+ * ============================================================
+ * ADMIN — PEERS CONNECT
+ * ============================================================
+ */
+
+app.post(
+    "/peers/connect",
+    strictLimiter,
+    (req, res) => {
+
+        const {
+            address,
+            secret
+        } = req.body || {};
+
+        if (
+            secret !==
+            bridgeTags.ADMIN_SECRET
+        ) {
+
+            return res.status(403).json({
+                error:
+                    "Zły sekret"
+            });
+        }
+
+        if (
+            !address ||
+            typeof address !== "string" ||
+            !address.includes(":")
+        ) {
+
+            return res.status(400).json({
+                error:
+                    "Nieprawidłowy adres - oczekiwano formatu host:port"
+            });
+        }
+
+        p2p.connectToPeer(address);
+
+        broadcastLiveState();
+
+        res.json({
+
+            ok:
+                true,
+
+            message:
+                `Próba połączenia z ${address} rozpoczęta`
+        });
+    }
+);
+
+
+/*
+ * ============================================================
+ * BRIDGE ANNOTATIONS
+ * ============================================================
+ */
+
+app.get(
+    "/bridge/annotations",
+    (req, res) => {
+
+        res.json(
+            bridgeTags.getAll()
+        );
+    }
+);
+
+
+app.post(
+    "/bridge/annotations",
+    strictLimiter,
+    (req, res) => {
+
+        const {
+            secret,
+            signature,
+            blockHash,
+            to,
+            amount,
+            chain,
+            note
+        } = req.body || {};
+
+        if (
+            secret !==
+            bridgeTags.ADMIN_SECRET
+        ) {
+
+            return res.status(403).json({
+                error:
+                    "Zły sekret"
+            });
+        }
+
+        try {
+
+            const tag =
+                bridgeTags.addTag({
+                    signature,
+                    blockHash,
+                    to,
+                    amount,
+                    chain,
+                    note
+                });
+
+            broadcastLiveState();
+
+            res.json({
+
+                ok:
+                    true,
+
+                tag
+            });
+
+        } catch (err) {
+
+            res.status(400).json({
+                error:
+                    err.message
+            });
+        }
+    }
+);
+
+
+/*
+ * ============================================================
+ * SWAP OFFERS
+ * ============================================================
+ */
+
+app.get(
+    "/swap/offers",
+    (req, res) => {
+
+        res.json(
+            swapOffers.getAll()
+        );
+    }
+);
+
+
+app.get(
+    "/swap/offers/:id",
+    (req, res) => {
+
+        const offer =
+            swapOffers.getOffer(
+                req.params.id
+            );
+
+        if (!offer) {
+
+            return res.status(404).json({
+                error:
+                    "Oferta nie znaleziona"
+            });
+        }
+
+        res.json(offer);
+    }
+);
+
+
+app.post(
+    "/swap/offers",
+    strictLimiter,
+    (req, res) => {
+
+        const {
+            chain,
+            bbcAmount,
+            expectedAmount,
+            timeoutHours,
+            note,
+            targetSellerAddress
+        } = req.body || {};
+
+        try {
+
+            const offer =
+                swapOffers.createOffer({
+                    chain,
+                    bbcAmount,
+                    expectedAmount,
+                    timeoutHours,
+                    note,
+                    targetSellerAddress
+                });
+
+            broadcastLiveState();
+
+            res.json({
+
+                ok:
+                    true,
+
+                offer
+            });
+
+        } catch (err) {
+
+            res.status(400).json({
+                error:
+                    err.message
+            });
+        }
+    }
+);
+
+
+app.post(
+    "/swap/offers/:id/accept",
+    strictLimiter,
+    (req, res) => {
+
+        const offer =
+            swapOffers.getOffer(
+                req.params.id
+            );
+
+        if (!offer) {
+
+            return res.status(404).json({
+                error:
+                    "Oferta nie znaleziona"
+            });
+        }
+
+        if (
+            !verifyAcceptOfferSignature(
+                req.body,
+                offer.targetSellerAddress
+            )
+        ) {
+
+            return res.status(403).json({
+                error:
+                    "Nieprawidłowy podpis - tylko właściciel adresu docelowego może zaakceptować tę ofertę"
+            });
+        }
+
+        try {
+
+            const updated =
+                swapOffers.acceptOffer(
+                    req.params.id,
+                    {
+                        sellerPubKeyHash:
+                            req.body.sellerPubKeyHash,
+
+                        sellerBbcAddress:
+                            offer.targetSellerAddress
+                    }
+                );
+
+            broadcastLiveState();
+
+            res.json({
+
+                ok:
+                    true,
+
+                offer:
+                    updated
+            });
+
+        } catch (err) {
+
+            res.status(400).json({
+                error:
+                    err.message
+            });
+        }
+    }
+);
+
+
+app.post(
+    "/swap/offers/:id/reject",
+    strictLimiter,
+    (req, res) => {
+
+        const offer =
+            swapOffers.getOffer(
+                req.params.id
+            );
+
+        if (!offer) {
+
+            return res.status(404).json({
+                error:
+                    "Oferta nie znaleziona"
+            });
+        }
+
+        if (
+            !verifyRejectOfferSignature(
+                req.body,
+                offer.targetSellerAddress
+            )
+        ) {
+
+            return res.status(403).json({
+                error:
+                    "Nieprawidłowy podpis - tylko właściciel adresu docelowego może odrzucić tę ofertę"
+            });
+        }
+
+        try {
+
+            const updated =
+                swapOffers.rejectOffer(
+                    req.params.id,
+                    offer.targetSellerAddress
+                );
+
+            broadcastLiveState();
+
+            res.json({
+
+                ok:
+                    true,
+
+                offer:
+                    updated
+            });
+
+        } catch (err) {
+
+            res.status(400).json({
+                error:
+                    err.message
+            });
+        }
+    }
+);
+
+
+/*
+ * ============================================================
+ * ADDRESS TRANSACTIONS
+ * ============================================================
+ */
+
+app.get(
+    "/transactions/address/:address",
+    (req, res) => {
+
+        let limit =
+            Number(req.query.limit);
+
+        if (
+            !Number.isFinite(limit) ||
+            limit <= 0
+        ) {
+            limit = 50;
+        }
+
+        limit =
+            Math.min(
+                Math.floor(limit),
+                200
+            );
+
+        res.json(
+            blockchain
+                .getTransactionsForAddress(
+                    req.params.address,
+                    limit
+                )
+        );
+    }
+);
+
+
+/*
+ * ============================================================
+ * HTLC
+ * ============================================================
+ */
+
+app.post(
+    "/htlc/submit",
+    strictLimiter,
+    (req, res) => {
+
+        const tx =
+            req.body;
+
+        if (
+            !tx ||
+            !tx.type
+        ) {
+
+            return res.status(400).json({
+                error:
+                    "Brak typu transakcji"
+            });
+        }
+
+
+        /*
+         * ----------------------------------------------------
+         * HTLC_CREATE
+         * ----------------------------------------------------
+         */
+
+        if (
+            tx.type ===
+            "HTLC_CREATE"
+        ) {
+
+            if (
+                typeof tx.amount !== "number" ||
+                !Number.isFinite(tx.amount) ||
+                !(tx.amount > 0)
+            ) {
+
+                return res.status(400).json({
+                    error:
+                        "Nieprawidłowa kwota"
+                });
+            }
+
+            if (
+                !verifyHtlcCreateSignature(
+                    tx
+                )
+            ) {
+
+                return res.status(400).json({
+                    error:
+                        "Nieprawidłowy podpis - transakcja odrzucona"
+                });
+            }
+
+            if (
+                blockchain.findHTLC(
+                    tx.htlcId
+                )
+            ) {
+
+                return res.status(400).json({
+                    error:
+                        "HTLC o tym ID już istnieje"
+                });
+            }
+
+            const fee =
+                typeof tx.fee === "number" &&
+                Number.isFinite(tx.fee)
+                    ? tx.fee
+                    : 0;
+
+            const available =
+                mempool.getPendingAwareBalance(
+                    tx.from
+                );
+
+            if (
+                available <
+                tx.amount + fee
+            ) {
+
+                return res.status(400).json({
+                    error:
+                        `Niewystarczające saldo (dostępne: ${available})`
+                });
+            }
+
+            const result =
+                mempool.addHtlcTransaction(
+                    tx
+                );
+
+            if (
+                result &&
+                result.accepted === false
+            ) {
+
+                return res
+                    .status(400)
+                    .json(result);
+            }
+
+            broadcastLiveState();
+
+            return res.json({
+                accepted:
+                    true
+            });
+        }
+
+
+        /*
+         * ----------------------------------------------------
+         * HTLC_CLAIM
+         * ----------------------------------------------------
+         */
+
+        if (
+            tx.type ===
+            "HTLC_CLAIM"
+        ) {
+
+            if (
+                !verifyHtlcClaimSignature(
+                    tx
+                )
+            ) {
+
+                return res.status(400).json({
+                    error:
+                        "Nieprawidłowy podpis - transakcja odrzucona"
+                });
+            }
+
+            const validation =
+                blockchain.validateHTLCClaim({
+                    htlcId:
+                        tx.htlcId,
+
+                    secret:
+                        tx.secret,
+
+                    claimant:
+                        tx.claimant
+                });
+
+            if (
+                !validation.valid
+            ) {
+
+                return res.status(400).json({
+                    error:
+                        validation.reason
+                });
+            }
+
+            const result =
+                mempool.addHtlcTransaction({
+                    ...tx,
+
+                    amount:
+                        validation.amount,
+
+                    to:
+                        validation.to
+                });
+
+            if (
+                result &&
+                result.accepted === false
+            ) {
+
+                return res
+                    .status(400)
+                    .json(result);
+            }
+
+            broadcastLiveState();
+
+            return res.json({
+                accepted:
+                    true
+            });
+        }
+
+
+        /*
+         * ----------------------------------------------------
+         * HTLC_REFUND
+         * ----------------------------------------------------
+         */
+
+        if (
+            tx.type ===
+            "HTLC_REFUND"
+        ) {
+
+            if (
+                !verifyHtlcRefundSignature(
+                    tx
+                )
+            ) {
+
+                return res.status(400).json({
+                    error:
+                        "Nieprawidłowy podpis - transakcja odrzucona"
+                });
+            }
+
+            const validation =
+                blockchain.validateHTLCRefund({
+                    htlcId:
+                        tx.htlcId,
+
+                    refundee:
+                        tx.refundee
+                });
+
+            if (
+                !validation.valid
+            ) {
+
+                return res.status(400).json({
+                    error:
+                        validation.reason
+                });
+            }
+
+            const result =
+                mempool.addHtlcTransaction({
+                    ...tx,
+
+                    amount:
+                        validation.amount,
+
+                    to:
+                        validation.to
+                });
+
+            if (
+                result &&
+                result.accepted === false
+            ) {
+
+                return res
+                    .status(400)
+                    .json(result);
+            }
+
+            broadcastLiveState();
+
+            return res.json({
+                accepted:
+                    true
+            });
+        }
+
+
+        return res.status(400).json({
+            error:
+                `Nieznany typ transakcji "${tx.type}"`
+        });
+    }
+);
+
+
+app.get(
+    "/htlc/:id",
+    (req, res) => {
+
+        const htlc =
+            blockchain.findHTLC(
+                req.params.id
+            );
+
+        if (!htlc) {
+
+            return res.status(404).json({
+                error:
+                    "HTLC nie znaleziony"
+            });
+        }
+
+        res.json(htlc);
+    }
+);
+
+
+/*
+ * ============================================================
+ * POOL WORK
+ * ============================================================
+ */
+
+app.get(
+    "/pool/work",
+    (req, res) => {
+
+        const minerAddress =
+            req.query.minerAddress;
+
+        if (!minerAddress) {
+
+            return res.status(400).json({
+                error:
+                    "Brak adresu"
+            });
+        }
+
+        res.json(
+            pool.getWork(
+                minerAddress
+            )
+        );
+    }
+);
+
+
+/*
+ * ============================================================
+ * POOL SHARE SUBMISSION
+ * ============================================================
+ */
+
+app.post(
+    "/pool/submit",
+    (req, res) => {
+
+        const minerAddress =
+            req.body &&
+            req.body.minerAddress;
+
+        const candidate =
+            req.body &&
+            req.body.candidate;
+
+        if (
+            typeof minerAddress !== "string" ||
+            !minerAddress
+        ) {
+
+            return res.status(400).json({
+                error:
+                    "Brak adresu minera"
+            });
+        }
+
+        if (
+            !candidate ||
+            typeof candidate !== "object"
+        ) {
+
+            return res.status(400).json({
+                error:
+                    "Brak candidate"
+            });
+        }
+
+        const result =
+            pool.submitShare(
+                minerAddress,
+                candidate
+            );
+
+        if (!result.accepted) {
+
+            return res
+                .status(400)
+                .json(result);
+        }
+
+        /*
+         * Share zaakceptowany.
+         * Live powinien zobaczyć go natychmiast.
+         */
+        broadcastLiveState();
+
+
+        /*
+         * Jeżeli share znalazł prawdziwy blok,
+         * Pool powinien już przeprowadzić właściwe
+         * receiveBlock() zgodnie ze swoją logiką.
+         *
+         * Tutaj tylko rozsyłamy zaakceptowany blok P2P.
+         */
+
+        if (
+            result.blockFound &&
+            result.block
+        ) {
+
+            p2p.broadcastNewBlock(
+                result.block
+            );
+
+            broadcastLiveState();
+        }
+
+        res.json(result);
+    }
+);
+
+
+/*
+ * ============================================================
+ * SOLO WORK
+ * ============================================================
+ */
+
+app.get(
+    "/solo/work",
+    (req, res) => {
+
+        const minerAddress =
+            req.query.minerAddress;
+
+        if (!minerAddress) {
+
+            return res.status(400).json({
+                error:
+                    "Brak adresu"
+            });
+        }
+
+        const latest =
+            blockchain.getLatestBlock();
+
+        const pendingTxs =
+            mempool.selectForBlock();
+
+        const difficulty =
+            blockchain.difficulty;
+
+        res.json({
+
+            height:
+                latest.height + 1,
+
+            previousHash:
+                latest.hash,
+
+            timestamp:
+                Date.now(),
+
+            transactions:
+                blockchain.buildBlockTransactions(
+                    minerAddress,
+                    pendingTxs
+                ),
+
+            difficulty,
+
+            blockTarget:
+                difficultyToTargetHex(
+                    difficulty
+                )
+        });
+    }
+);
+
+
+/*
+ * ============================================================
+ * SOLO BLOCK SUBMISSION
+ * ============================================================
+ */
+
+app.post(
+    "/solo/submit",
+    (req, res) => {
+
+        const {
+            candidate
+        } = req.body || {};
+
+        if (
+            !candidate ||
+            typeof candidate !== "object"
+        ) {
+
+            return res.status(400).json({
+                error:
+                    "Brak candidate"
+            });
+        }
+
+        const result =
+            blockchain.receiveBlock(
+                candidate
+            );
+
+        if (
+            !result.accepted
+        ) {
+
+            return res
+                .status(400)
+                .json(result);
+        }
+
+        mempool.pruneConfirmed(
+            result.block
+        );
+
+        p2p.broadcastNewBlock(
+            result.block
+        );
+
+        /*
+         * Blok wszedł do chaina.
+         * Live dostaje go natychmiast.
+         */
+        broadcastLiveState();
+
+        res.json({
+
+            status:
+                "mined",
+
+            blockHeight:
+                result.block.height,
+
+            hash:
+                result.block.hash,
+
+            reward:
+                result.block
+                    .transactions[0]
+                    .amount
+        });
+    }
+);
+
+
+/*
+ * ============================================================
+ * SOLO HEARTBEAT
+ * ============================================================
+ */
+
+app.post(
+    "/solo/heartbeat",
+    (req, res) => {
+
+        const {
+            minerAddress,
+            attempts,
+            intervalSeconds
+        } = req.body || {};
+
+        if (!minerAddress) {
+
+            return res.status(400).json({
+                error:
+                    "Brak adresu"
+            });
+        }
+
+        soloTracker.heartbeat(
+            minerAddress,
+            attempts,
+            intervalSeconds
+        );
+
+        /*
+         * Hashrate/miner status zmienił się.
+         */
+        broadcastLiveState();
+
+        res.json({
+            ok:
+                true
+        });
+    }
+);
+
+
+/*
+ * ============================================================
+ * LEGACY MINE START
+ * ============================================================
+ */
+
+app.post(
+    "/mine/start",
+    strictLimiter,
+    (req, res) => {
+
+        res.status(410).json({
+            error:
+                "Solo mining wyłączone przy tej trudności - użyj kopania przez pulę lub /solo/work (miner.html)"
+        });
+    }
+);
+
+
+/*
+ * ============================================================
+ * MINER MODELS
+ * ============================================================
+ */
+
+app.get(
+    "/miners/models",
+    (req, res) => {
+
+        res.json([]);
+    }
+);
+
+
+/*
+ * ============================================================
+ * 404
+ * ============================================================
+ */
+
+app.use(
+    (req, res) => {
+
+        res.status(404).json({
+            error:
+                "Nieznany endpoint"
+        });
+    }
+);
+
+
+/*
+ * ============================================================
+ * GLOBAL ERROR HANDLER
+ * ============================================================
+ */
+
+app.use(
+    (err, req, res, next) => {
+
+        console.error(
+            "Nieobsłużony błąd:",
+            err
+        );
+
+        if (res.headersSent) {
+            return next(err);
+        }
+
+        res.status(500).json({
+            error:
+                "Wewnętrzny błąd serwera"
+        });
+    }
+);
+
+
+/*
+ * ============================================================
+ * API START
+ * ============================================================
+ */
+
+const server =
+    app.listen(
+        CONFIG.API_PORT,
+        "127.0.0.1",
+        () => {
+
+            console.log(
+                `BitBudCoin API nasłuchuje na porcie ${CONFIG.API_PORT}`
+            );
+
+            console.log(
+                `P2P: ${CONFIG.P2P_PORT}`
+            );
+
+            console.log(
+                `Sieć: ${CONFIG.NETWORK_NAME}`
+            );
+
+            console.log(
+                `Symbol: ${CONFIG.SYMBOL}`
+            );
+
+            console.log(
+                `ASERT activation: ${CONFIG.ASERT_ACTIVATION_HEIGHT}`
+            );
+
+            console.log(
+                `ASERT halflife: ${CONFIG.ASERT_HALFLIFE_SECONDS}s`
+            );
+
+            console.log(
+                `SSE: /events`
+            );
+        }
+    );
+
+
+/*
+ * ============================================================
+ * HTTP / SSE TIMEOUTS
+ * ============================================================
+ *
+ * SSE jest połączeniem długotrwałym.
+ *
+ * Nie chcemy, żeby Node zamykał stream zanim klient
+ * zdąży dostać kolejne heartbeat/eventy.
+ */
+
+server.requestTimeout = 0;
+
+server.timeout = 0;
+
+server.keepAliveTimeout =
+    300000;
+
+server.headersTimeout =
+    305000;
+
+
+/*
+ * ============================================================
+ * SOCKET KEEPALIVE
+ * ============================================================
+ */
+
+server.on(
+    "connection",
+    (socket) => {
+
+        try {
+
+            socket.setKeepAlive(
+                true,
+                10000
+            );
+
+        } catch (err) {
+
+            console.warn(
+                "Nie można ustawić TCP keepalive:",
+                err.message
+            );
+        }
+    }
+);
+
+
+/*
+ * ============================================================
+ * GRACEFUL SHUTDOWN
+ * ============================================================
+ */
+
+let shuttingDown = false;
+
+
+function shutdown(signal) {
+
+    if (shuttingDown) {
+        return;
     }
 
-    return {
-        init,
-        subscribe,
-        getState: () => currentState,
-        getLastGoodAt: () => lastGoodAt,
-        isLive: () => live,
-    };
-})();
+    shuttingDown = true;
 
-window.BBCLiveState = BBCLiveState;
+    console.log(
+        `Otrzymano ${signal} - zamykanie BitBudCoin...`
+    );
+
+
+    /*
+     * Stop Live sync.
+     */
+    clearInterval(
+        liveSyncInterval
+    );
+
+
+    /*
+     * Zamknij wszystkie SSE.
+     */
+    for (const client of sseClients) {
+
+        try {
+
+            client.res.end();
+
+        } catch (err) {}
+    }
+
+    sseClients.clear();
+
+
+    /*
+     * P2P.
+     */
+    try {
+
+        p2p.close();
+
+    } catch (err) {
+
+        console.error(
+            "Błąd zamykania P2P:",
+            err.message
+        );
+    }
+
+
+    /*
+     * Blockchain.
+     */
+    try {
+
+        blockchain.close();
+
+    } catch (err) {
+
+        console.error(
+            "Błąd zamykania blockchain:",
+            err.message
+        );
+    }
+
+
+    /*
+     * HTTP server.
+     */
+    server.close(
+        () => {
+
+            console.log(
+                "BitBudCoin API zamknięte."
+            );
+
+            process.exit(0);
+        }
+    );
+
+
+    /*
+     * Awaryjne zamknięcie.
+     */
+    setTimeout(
+        () => {
+
+            console.error(
+                "Wymuszone zamknięcie serwera."
+            );
+
+            process.exit(1);
+
+        },
+        10000
+    ).unref();
+}
+
+
+process.on(
+    "SIGINT",
+    () => shutdown("SIGINT")
+);
+
+process.on(
+    "SIGTERM",
+    () => shutdown("SIGTERM")
+);
+
+
+/*
+ * ============================================================
+ * EXPORTS
+ * ============================================================
+ */
+
+module.exports = {
+    app,
+    server,
+    blockchain,
+    mempool,
+    pool,
+    p2p,
+    getLiveState,
+    broadcastLiveState
+};
