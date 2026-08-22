@@ -25,6 +25,11 @@
             </tbody>
         </table>
     </div>
+
+    <div class="card" style="margin-top:20px;">
+        <h3 data-i18n="common_known_miners">Znani górnicy</h3>
+        <div id="minersListBox"><p class="skeleton">ładowanie ładowanie ładowanie</p></div>
+    </div>
 </div>
 
 <footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span> · <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a></footer>
@@ -40,52 +45,84 @@ function row(label, value) {
     return `<tr><td style="color:var(--text-dim); width:45%;">${label}</td><td>${value}</td></tr>`;
 }
 
-async function load() {
-    try {
-        const info = await apiGet("/info");
-        document.getElementById("validity-row").innerHTML = info.isValid
-            ? `<span class="flame-pill lit"><span class="flame-dot"></span></span> <strong style="color:var(--leaf)">${t("network_chain_valid")}</strong>`
-            : `<span style="color:var(--danger)">⚠ ${t("network_chain_invalid")}</span>`;
+// vMax: dane ogólne sieci (wysokość, trudność, itd.) pochodzą teraz z
+// BBCLiveState - SSE na żywo z automatycznym fallbackiem na /state, zawsze
+// pokazuje ostatni znany dobry stan zamiast czyścić ekran przy przerwie.
+function renderNetworkInfo(info) {
+    document.getElementById("validity-row").innerHTML = info.isValid
+        ? `<span class="flame-pill lit"><span class="flame-dot"></span></span> <strong style="color:var(--leaf)">${t("network_chain_valid")}</strong>`
+        : `<span style="color:var(--danger)">⚠ ${t("network_chain_invalid")}</span>`;
 
-        document.getElementById("params-tbody").innerHTML = [
-            row(t("network_row_network"), `${info.network} (${info.symbol})`),
-            row("Chain ID", info.chainId),
-            row(t("network_row_version"), info.version),
-            row(t("dashboard_height"), "#" + fmtNumber(info.height, 0)),
-            row(t("network_row_current_difficulty"), fmtNumber(info.difficulty, 0)),
-            row(t("network_row_blocks_to_retarget"), fmtNumber(info.blocksUntilRetarget, 0)),
-            row(t("network_row_blocks_to_halving"), fmtNumber(info.blocksUntilHalving, 0)),
-            row(t("index_stat_supply"), fmtNumber(info.circulatingSupply) + " BbC"),
-            row(t("network_row_supply_cap"), fmtNumber(info.maxSupply) + " BbC"),
-            row(t("network_row_premine"), fmtNumber(info.premine) + " BbC"),
-        ].join("");
-    } catch (e) {
-        document.getElementById("validity-row").innerHTML = `<div class="error-banner">${t("network_no_node_connection")}: ${escapeHtml(e.message)}</div>`;
-        document.getElementById("params-tbody").innerHTML = "";
+    document.getElementById("params-tbody").innerHTML = [
+        row(t("network_row_network"), `${info.network} (${info.symbol})`),
+        row("Chain ID", info.chainId),
+        row(t("network_row_version"), info.version),
+        row(t("dashboard_height"), "#" + fmtNumber(info.height, 0)),
+        row(t("network_row_current_difficulty"), fmtNumber(info.difficulty, 0)),
+        row(t("network_row_blocks_to_retarget"), fmtNumber(info.blocksUntilRetarget, 0)),
+        row(t("network_row_blocks_to_halving"), fmtNumber(info.blocksUntilHalving, 0)),
+        row(t("index_stat_supply"), fmtNumber(info.circulatingSupply) + " BbC"),
+        row(t("network_row_supply_cap"), fmtNumber(info.maxSupply) + " BbC"),
+        row(t("network_row_premine"), fmtNumber(info.premine) + " BbC"),
+    ].join("");
+}
+
+function renderConnectionBanner(live, lastGoodAt) {
+    let el = document.getElementById("bbc-live-banner");
+    if (!el) {
+        el = document.createElement("div");
+        el.id = "bbc-live-banner";
+        el.className = "error-banner";
+        el.style.display = "none";
+        document.getElementById("validity-row").insertAdjacentElement("beforebegin", el);
+    }
+    if (live) {
+        el.style.display = "none";
+    } else {
+        el.style.display = "block";
+        el.textContent = lastGoodAt
+            ? `⚠ ${t("network_no_node_connection")} — ${new Date(lastGoodAt).toLocaleTimeString()}`
+            : `⚠ ${t("network_no_node_connection")}`;
     }
 }
-load();
-document.addEventListener("bbc:langchange", load);
+
+BBCLiveState.subscribe(({ state, live, lastGoodAt }) => {
+    if (!state) return; // nic jeszcze nie przyszło - poczekaj na pierwszy odczyt
+    try {
+        renderNetworkInfo(state);
+        renderConnectionBanner(live, lastGoodAt);
+    } catch (e) {
+        // renderowanie nie może wywrócić subskrypcji dla przyszłych aktualizacji
+        console.error("renderNetworkInfo:", e);
+    }
+});
+BBCLiveState.init();
+document.addEventListener("bbc:langchange", () => {
+    const s = BBCLiveState.getState();
+    if (s) renderNetworkInfo(s);
+});
+
+// NAPRAWA (dzisiaj): sekcja "znani górnicy" byla wczesniej poza </html> -
+// nieprawidlowy dokument, przegladarki to tolerowaly ale nie powinienem
+// tego tak zostawiac. Przy okazji: ladowala sie raz i nigdy wiecej, i przy
+// bledzie czyscila sie do komunikatu - to samo naprawiam co na innych stronach.
+async function loadKnownMiners() {
+    const box = document.getElementById("minersListBox");
+    try {
+        const miners = await apiGet("/network/miners");
+        box.innerHTML = miners.length === 0
+            ? `<p style="color:var(--text-dim);">${t("common_only_you")}</p>`
+            : miners.map(m => `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:.85rem;">
+                ${m.address.slice(0,14)}...${m.address.slice(-6)} · ${m.source === "pool" ? t("common_pool_label") : t("common_solo_label")} · ${fmtNumber(m.totalEarned)} BbC · ${t("common_last_block")} #${m.lastBlockHeight}
+              </div>`).join("");
+        box.dataset.everLoaded = "1";
+    } catch (e) {
+        if (!box.dataset.everLoaded) box.innerHTML = `<p style="color:var(--text-dim);">${t("common_unavailable")}</p>`;
+    }
+}
+loadKnownMiners();
+setInterval(loadKnownMiners, 30000);
+document.addEventListener("bbc:langchange", loadKnownMiners);
 </script>
 </body>
 </html>
-<div class="card">
-  <h3 data-i18n="common_known_miners">Znani górnicy</h3>
-  <div id="minersListBox"></div>
-</div>
-<script>
-async function loadKnownMiners() {
-  try {
-    const miners = await apiGet("/network/miners");
-    document.getElementById("minersListBox").innerHTML = miners.length === 0
-      ? `<p style="color:var(--text-dim);">${t("common_only_you")}</p>`
-      : miners.map(m => `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:.85rem;">
-          ${m.address.slice(0,14)}...${m.address.slice(-6)} · ${m.source === "pool" ? t("common_pool_label") : t("common_solo_label")} · ${fmtNumber(m.totalEarned)} BbC · ${t("common_last_block")} #${m.lastBlockHeight}
-        </div>`).join("");
-  } catch (e) {
-    document.getElementById("minersListBox").innerHTML = `<p style="color:var(--text-dim);">${t("common_unavailable")}</p>`;
-  }
-}
-loadKnownMiners();
-document.addEventListener("bbc:langchange", loadKnownMiners);
-</script>
