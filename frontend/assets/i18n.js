@@ -796,3 +796,599 @@ if (document.readyState === "loading") {
 } else {
     initI18n();
 }
+/* ============================================================
+   BBC AUTO TRANSLATOR
+   Automatyczne tłumaczenie tekstów, których nie ma w translations.
+   Nie zastępuje ręcznych tłumaczeń. Jest inteligentnym fallbackiem.
+   ============================================================ */
+
+(() => {
+    "use strict";
+
+    const BBC_AUTO_I18N = {
+        enabled: true,
+
+        // Języki obsługiwane przez automatyczny translator.
+        languages: {
+            pl: "pl",
+            en: "en"
+        },
+
+        // Nie tłumacz bardzo krótkich rzeczy typu "BTC", "Tx", "BbC".
+        minLength: 3,
+
+        // Maksymalna długość pojedynczego tekstu wysyłanego do translatora.
+        maxLength: 1200,
+
+        // Maksymalna liczba równoległych tłumaczeń.
+        concurrency: 2,
+
+        // Cache tłumaczeń.
+        cacheKey: "bbc_auto_translation_cache_v1",
+
+        // Atrybut używany do zapamiętania oryginalnego tekstu.
+        originalAttr: "data-bbc-auto-original"
+    };
+
+    let translationCache = {};
+    let activeTranslations = 0;
+    const translationQueue = [];
+
+    // ------------------------------------------------------------
+    // CACHE
+    // ------------------------------------------------------------
+
+    try {
+        const saved = localStorage.getItem(BBC_AUTO_I18N.cacheKey);
+        if (saved) {
+            translationCache = JSON.parse(saved) || {};
+        }
+    } catch (_) {
+        translationCache = {};
+    }
+
+    function saveCache() {
+        try {
+            localStorage.setItem(
+                BBC_AUTO_I18N.cacheKey,
+                JSON.stringify(translationCache)
+            );
+        } catch (_) {
+            // Brak miejsca / prywatny tryb itd.
+        }
+    }
+
+    function cacheKey(source, target, text) {
+        return `${source}|${target}|${text}`;
+    }
+
+    // ------------------------------------------------------------
+    // NORMALIZACJA
+    // ------------------------------------------------------------
+
+    function normalizeText(text) {
+        return String(text || "")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    function looksTranslatable(text) {
+        const value = normalizeText(text);
+
+        if (!value) return false;
+        if (value.length < BBC_AUTO_I18N.minLength) return false;
+        if (value.length > BBC_AUTO_I18N.maxLength) return false;
+
+        // Nie ruszamy samych cyfr.
+        if (/^[\d\s.,:%+\-*/=<>()[\]{}#]+$/.test(value)) {
+            return false;
+        }
+
+        // Nie ruszamy hashy.
+        if (/^[a-f0-9]{32,}$/i.test(value)) {
+            return false;
+        }
+
+        // Nie ruszamy adresów BTC/BbC.
+        if (/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{20,}$/i.test(value)) {
+            return false;
+        }
+
+        // Nie ruszamy URL-i.
+        if (/^(https?:\/\/|www\.)/i.test(value)) {
+            return false;
+        }
+
+        // Nie ruszamy emaili.
+        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+            return false;
+        }
+
+        // Nie ruszamy kodu.
+        if (
+            value.includes("=>") ||
+            value.includes("function ") ||
+            value.includes("const ") ||
+            value.includes("let ") ||
+            value.includes("SELECT ") ||
+            value.includes("INSERT ")
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // ------------------------------------------------------------
+    // ELEMENTY, KTÓRYCH NIE WOLNO AUTOMATYCZNIE TŁUMACZYĆ
+    // ------------------------------------------------------------
+
+    function shouldIgnoreElement(el) {
+        if (!el || el.nodeType !== Node.ELEMENT_NODE) return true;
+
+        const tag = el.tagName.toLowerCase();
+
+        const ignoredTags = [
+            "script",
+            "style",
+            "noscript",
+            "code",
+            "pre",
+            "textarea",
+            "input",
+            "select",
+            "option"
+        ];
+
+        if (ignoredTags.includes(tag)) return true;
+
+        if (el.closest("[data-no-auto-i18n]")) return true;
+
+        // Element już ma ręczne tłumaczenie.
+        if (el.hasAttribute("data-i18n")) return true;
+
+        return false;
+    }
+
+    function shouldIgnoreTextNode(node) {
+        if (!node || node.nodeType !== Node.TEXT_NODE) return true;
+
+        const parent = node.parentElement;
+        if (!parent) return true;
+
+        if (shouldIgnoreElement(parent)) return true;
+
+        const text = normalizeText(node.nodeValue);
+
+        if (!looksTranslatable(text)) return true;
+
+        return false;
+    }
+
+    // ------------------------------------------------------------
+    // WYKRYWANIE JĘZYKA
+    // ------------------------------------------------------------
+
+    function getCurrentTargetLanguage() {
+        return (
+            window.currentLang ||
+            localStorage.getItem("bbc_lang") ||
+            "pl"
+        );
+    }
+
+    function guessSourceLanguage(text) {
+        // Najpierw korzystamy z prostych charakterystycznych znaków.
+        if (
+            /[ąćęłńóśźż]/i.test(text) ||
+            /\b(że|jest|nie|dla|oraz|lub|zobacz|sprawdź|adres|blok|sieć|portfel)\b/i.test(text)
+        ) {
+            return "pl";
+        }
+
+        if (
+            /\b(the|and|or|your|you|this|that|with|from|to|network|wallet|block)\b/i.test(text)
+        ) {
+            return "en";
+        }
+
+        // Jeśli nie wiemy, zakładamy odwrotny język względem wybranego.
+        return getCurrentTargetLanguage() === "pl" ? "en" : "pl";
+    }
+
+    // ------------------------------------------------------------
+    // BROWSER TRANSLATOR API
+    // ------------------------------------------------------------
+
+    async function browserTranslate(text, source, target) {
+        if (!window.Translator) {
+            return null;
+        }
+
+        if (source === target) {
+            return text;
+        }
+
+        try {
+            if (typeof Translator.availability === "function") {
+                const availability = await Translator.availability({
+                    sourceLanguage: source,
+                    targetLanguage: target
+                });
+
+                if (availability === "unavailable") {
+                    return null;
+                }
+            }
+
+            const translator = await Translator.create({
+                sourceLanguage: source,
+                targetLanguage: target
+            });
+
+            try {
+                return await translator.translate(text);
+            } finally {
+                if (typeof translator.destroy === "function") {
+                    translator.destroy();
+                }
+            }
+        } catch (err) {
+            console.debug(
+                "[BbC AutoTranslate] Browser translator unavailable:",
+                err
+            );
+
+            return null;
+        }
+    }
+
+    // ------------------------------------------------------------
+    // TŁUMACZENIE JEDNEGO TEKSTU
+    // ------------------------------------------------------------
+
+    async function translateText(text, targetLanguage) {
+        const normalized = normalizeText(text);
+
+        if (!looksTranslatable(normalized)) {
+            return null;
+        }
+
+        const sourceLanguage = guessSourceLanguage(normalized);
+
+        if (sourceLanguage === targetLanguage) {
+            return null;
+        }
+
+        const key = cacheKey(
+            sourceLanguage,
+            targetLanguage,
+            normalized
+        );
+
+        if (translationCache[key]) {
+            return translationCache[key];
+        }
+
+        const result = await browserTranslate(
+            normalized,
+            sourceLanguage,
+            targetLanguage
+        );
+
+        if (!result || !normalizeText(result)) {
+            return null;
+        }
+
+        translationCache[key] = result;
+        saveCache();
+
+        return result;
+    }
+
+    // ------------------------------------------------------------
+    // KOLEJKA
+    // ------------------------------------------------------------
+
+    function queueTranslation(job) {
+        translationQueue.push(job);
+        processQueue();
+    }
+
+    async function processQueue() {
+        if (activeTranslations >= BBC_AUTO_I18N.concurrency) {
+            return;
+        }
+
+        const job = translationQueue.shift();
+
+        if (!job) {
+            return;
+        }
+
+        activeTranslations++;
+
+        try {
+            await job();
+        } catch (err) {
+            console.debug("[BbC AutoTranslate] Job error:", err);
+        } finally {
+            activeTranslations--;
+
+            if (translationQueue.length) {
+                processQueue();
+            }
+        }
+    }
+
+    // ------------------------------------------------------------
+    // TŁUMACZENIE TEXT NODE
+    // ------------------------------------------------------------
+
+    function translateTextNode(node, targetLanguage) {
+        if (!shouldIgnoreTextNode(node)) {
+            return;
+        }
+
+        const original = normalizeText(node.nodeValue);
+
+        if (!original) return;
+
+        // Nie tłumacz ponownie już przetłumaczonego elementu.
+        if (node.parentElement?.hasAttribute(BBC_AUTO_I18N.originalAttr)) {
+            return;
+        }
+
+        queueTranslation(async () => {
+            const translated = await translateText(
+                original,
+                targetLanguage
+            );
+
+            if (!translated) return;
+
+            // Tekst mógł się zmienić podczas oczekiwania.
+            if (
+                normalizeText(node.nodeValue) !== original
+            ) {
+                return;
+            }
+
+            node.parentElement?.setAttribute(
+                BBC_AUTO_I18N.originalAttr,
+                original
+            );
+
+            node.nodeValue = node.nodeValue.replace(
+                original,
+                translated
+            );
+        });
+    }
+
+    // ------------------------------------------------------------
+    // SKANOWANIE DOM
+    // ------------------------------------------------------------
+
+    function scanElement(root, targetLanguage) {
+        if (!BBC_AUTO_I18N.enabled) return;
+        if (!root) return;
+
+        if (root.nodeType === Node.TEXT_NODE) {
+            translateTextNode(root, targetLanguage);
+            return;
+        }
+
+        if (root.nodeType !== Node.ELEMENT_NODE) return;
+
+        if (shouldIgnoreElement(root)) return;
+
+        const walker = document.createTreeWalker(
+            root,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode(node) {
+                    return shouldIgnoreTextNode(node)
+                        ? NodeFilter.FILTER_ACCEPT
+                        : NodeFilter.FILTER_REJECT;
+                }
+            }
+        );
+
+        const nodes = [];
+
+        let node;
+
+        while ((node = walker.nextNode())) {
+            nodes.push(node);
+        }
+
+        for (const textNode of nodes) {
+            translateTextNode(textNode, targetLanguage);
+        }
+    }
+
+    // ------------------------------------------------------------
+    // PRZYWRACANIE ORYGINAŁÓW
+    // ------------------------------------------------------------
+
+    function restoreAutoTranslations() {
+        document
+            .querySelectorAll(
+                `[${BBC_AUTO_I18N.originalAttr}]`
+            )
+            .forEach((el) => {
+                const original = el.getAttribute(
+                    BBC_AUTO_I18N.originalAttr
+                );
+
+                if (!original) return;
+
+                el.textContent = original;
+
+                el.removeAttribute(
+                    BBC_AUTO_I18N.originalAttr
+                );
+            });
+    }
+
+    // ------------------------------------------------------------
+    // OBSŁUGA ZMIANY JĘZYKA
+    // ------------------------------------------------------------
+
+    async function handleLanguageChange() {
+        restoreAutoTranslations();
+
+        // Daj ręcznemu i18n chwilę na wykonanie swojej pracy.
+        setTimeout(() => {
+            scanElement(
+                document.body,
+                getCurrentTargetLanguage()
+            );
+        }, 50);
+    }
+
+    // ------------------------------------------------------------
+    // MUTATION OBSERVER
+    // ------------------------------------------------------------
+
+    let observer = null;
+
+    function startObserver() {
+        if (observer) return;
+
+        observer = new MutationObserver((mutations) => {
+            if (!BBC_AUTO_I18N.enabled) return;
+
+            const targetLanguage =
+                getCurrentTargetLanguage();
+
+            for (const mutation of mutations) {
+                if (mutation.type === "childList") {
+                    mutation.addedNodes.forEach((node) => {
+                        if (
+                            node.nodeType === Node.TEXT_NODE ||
+                            node.nodeType === Node.ELEMENT_NODE
+                        ) {
+                            scanElement(
+                                node,
+                                targetLanguage
+                            );
+                        }
+                    });
+                }
+            }
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    // ------------------------------------------------------------
+    // STATUS
+    // ------------------------------------------------------------
+
+    function createStatusIndicator() {
+        if (document.getElementById("bbc-auto-i18n-status")) {
+            return;
+        }
+
+        const status = document.createElement("span");
+
+        status.id = "bbc-auto-i18n-status";
+
+        status.textContent = "AUTO";
+
+        status.title =
+            "BitBudCoin automatic translation";
+
+        status.style.cssText = `
+            display:inline-flex;
+            align-items:center;
+            margin-left:6px;
+            padding:2px 5px;
+            border:1px solid var(--border,#444);
+            border-radius:4px;
+            font-size:.62rem;
+            font-family:var(--font-mono,monospace);
+            opacity:.55;
+            user-select:none;
+        `;
+
+        const nav = document.querySelector(".nav");
+
+        if (nav) {
+            nav.appendChild(status);
+        }
+    }
+
+    // ------------------------------------------------------------
+    // PUBLIC API
+    // ------------------------------------------------------------
+
+    window.BbCAutoTranslator = {
+        enable() {
+            BBC_AUTO_I18N.enabled = true;
+            scanElement(
+                document.body,
+                getCurrentTargetLanguage()
+            );
+        },
+
+        disable() {
+            BBC_AUTO_I18N.enabled = false;
+        },
+
+        clearCache() {
+            translationCache = {};
+
+            try {
+                localStorage.removeItem(
+                    BBC_AUTO_I18N.cacheKey
+                );
+            } catch (_) {}
+        },
+
+        rescan() {
+            scanElement(
+                document.body,
+                getCurrentTargetLanguage()
+            );
+        }
+    };
+
+    // ------------------------------------------------------------
+    // START
+    // ------------------------------------------------------------
+
+    function startAutoTranslator() {
+        if (!document.body) return;
+
+        createStatusIndicator();
+        startObserver();
+
+        // Ręczne i18n musi wykonać się pierwsze.
+        setTimeout(() => {
+            scanElement(
+                document.body,
+                getCurrentTargetLanguage()
+            );
+        }, 250);
+    }
+
+    document.addEventListener(
+        "bbc:langchange",
+        handleLanguageChange
+    );
+
+    if (document.readyState === "loading") {
+        document.addEventListener(
+            "DOMContentLoaded",
+            startAutoTranslator
+        );
+    } else {
+        startAutoTranslator();
+    }
+})();
