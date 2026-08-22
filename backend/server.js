@@ -68,11 +68,6 @@ app.disable("x-powered-by");
 
 app.use(cors());
 
-/*
- * Ograniczenie rozmiaru JSON.
- * Domyślne Expressowe limity są małe, ale jawna wartość
- * utrudnia przypadkowe wrzucenie ogromnego payloadu.
- */
 app.use(express.json({
     limit: "1mb"
 }));
@@ -135,16 +130,20 @@ const sseClients = new Set();
 
 function getLiveState() {
 
-    const info = blockchain.getInfo();
-    const poolStatus = pool.getStatus();
+    const info =
+        blockchain.getInfo();
 
-    const poolMiners = Object.entries(
-        poolStatus.sharesThisRound || {}
-    ).map(([address, shares]) => ({
-        minerAddress: address,
-        shares,
-        source: "pool"
-    }));
+    const poolStatus =
+        pool.getStatus();
+
+    const poolMiners =
+        Object.entries(
+            poolStatus.sharesThisRound || {}
+        ).map(([address, shares]) => ({
+            minerAddress: address,
+            shares,
+            source: "pool"
+        }));
 
     const soloMiners =
         soloTracker
@@ -197,13 +196,9 @@ function sendSSE(eventName, data) {
     for (const res of sseClients) {
 
         try {
-
             res.write(message);
-
         } catch (err) {
-
             sseClients.delete(res);
-
         }
     }
 }
@@ -277,9 +272,6 @@ app.get("/events", (req, res) => {
 });
 
 
-/*
- * Jeden wspólny snapshot na sekundę.
- */
 const sseInterval =
     setInterval(() => {
 
@@ -989,13 +981,6 @@ app.post(
             });
         }
 
-
-        /*
-         * ------------------------------------------------------
-         * HTLC CREATE
-         * ------------------------------------------------------
-         */
-
         if (
             tx.type ===
             "HTLC_CREATE"
@@ -1013,7 +998,6 @@ app.post(
                 });
             }
 
-
             if (
                 !verifyHtlcCreateSignature(
                     tx
@@ -1025,7 +1009,6 @@ app.post(
                         "Nieprawidłowy podpis - transakcja odrzucona"
                 });
             }
-
 
             if (
                 blockchain.findHTLC(
@@ -1039,19 +1022,16 @@ app.post(
                 });
             }
 
-
             const fee =
                 typeof tx.fee === "number" &&
                 Number.isFinite(tx.fee)
                     ? tx.fee
                     : 0;
 
-
             const available =
                 mempool.getPendingAwareBalance(
                     tx.from
                 );
-
 
             if (
                 available <
@@ -1063,7 +1043,6 @@ app.post(
                         `Niewystarczające saldo (dostępne: ${available})`
                 });
             }
-
 
             const result =
                 mempool.addHtlcTransaction(
@@ -1079,18 +1058,11 @@ app.post(
                     .json(result);
             }
 
-
             return res.json({
                 accepted: true
             });
         }
 
-
-        /*
-         * ------------------------------------------------------
-         * HTLC CLAIM
-         * ------------------------------------------------------
-         */
 
         if (
             tx.type ===
@@ -1109,7 +1081,6 @@ app.post(
                 });
             }
 
-
             const validation =
                 blockchain.validateHTLCClaim({
                     htlcId:
@@ -1122,7 +1093,6 @@ app.post(
                         tx.claimant
                 });
 
-
             if (
                 !validation.valid
             ) {
@@ -1132,7 +1102,6 @@ app.post(
                         validation.reason
                 });
             }
-
 
             const result =
                 mempool.addHtlcTransaction({
@@ -1145,7 +1114,6 @@ app.post(
                         validation.to
                 });
 
-
             if (
                 result &&
                 result.accepted === false
@@ -1155,18 +1123,11 @@ app.post(
                     .json(result);
             }
 
-
             return res.json({
                 accepted: true
             });
         }
 
-
-        /*
-         * ------------------------------------------------------
-         * HTLC REFUND
-         * ------------------------------------------------------
-         */
 
         if (
             tx.type ===
@@ -1185,7 +1146,6 @@ app.post(
                 });
             }
 
-
             const validation =
                 blockchain.validateHTLCRefund({
                     htlcId:
@@ -1194,7 +1154,6 @@ app.post(
                     refundee:
                         tx.refundee
                 });
-
 
             if (
                 !validation.valid
@@ -1205,7 +1164,6 @@ app.post(
                         validation.reason
                 });
             }
-
 
             const result =
                 mempool.addHtlcTransaction({
@@ -1218,7 +1176,6 @@ app.post(
                         validation.to
                 });
 
-
             if (
                 result &&
                 result.accepted === false
@@ -1227,7 +1184,6 @@ app.post(
                     .status(400)
                     .json(result);
             }
-
 
             return res.json({
                 accepted: true
@@ -1335,13 +1291,11 @@ app.post(
             });
         }
 
-
         const result =
             pool.submitShare(
                 minerAddress,
                 candidate
             );
-
 
         if (!result.accepted) {
 
@@ -1350,11 +1304,6 @@ app.post(
                 .json(result);
         }
 
-
-        /*
-         * Jeżeli pool znalazł prawdziwy blok,
-         * blok przechodzi dalej przez P2P.
-         */
         if (
             result.blockFound &&
             result.block
@@ -1364,7 +1313,6 @@ app.post(
                 result.block
             );
         }
-
 
         res.json(result);
     }
@@ -1392,18 +1340,14 @@ app.get(
             });
         }
 
-
         const latest =
             blockchain.getLatestBlock();
-
 
         const pendingTxs =
             mempool.selectForBlock();
 
-
         const difficulty =
             blockchain.difficulty;
-
 
         res.json({
 
@@ -1447,7 +1391,6 @@ app.post(
             candidate
         } = req.body || {};
 
-
         if (
             !candidate ||
             typeof candidate !== "object"
@@ -1459,23 +1402,10 @@ app.post(
             });
         }
 
-
-        /*
-         * KRYTYCZNE:
-         *
-         * Nie sprawdzamy difficulty tutaj ręcznie.
-         * receiveBlock() jest jedynym miejscem,
-         * które decyduje o konsensusie.
-         *
-         * Dzięki temu solo, pool i P2P używają
-         * dokładnie tej samej walidacji.
-         */
-
         const result =
             blockchain.receiveBlock(
                 candidate
             );
-
 
         if (
             !result.accepted
@@ -1486,24 +1416,13 @@ app.post(
                 .json(result);
         }
 
-
-        /*
-         * Blok został już zapisany do blockchaina.
-         */
-
         mempool.pruneConfirmed(
             result.block
         );
 
-
-        /*
-         * Rozgłoszenie dopiero po akceptacji.
-         */
-
         p2p.broadcastNewBlock(
             result.block
         );
-
 
         res.json({
 
@@ -1541,7 +1460,6 @@ app.post(
             intervalSeconds
         } = req.body || {};
 
-
         if (!minerAddress) {
 
             return res.status(400).json({
@@ -1550,13 +1468,11 @@ app.post(
             });
         }
 
-
         soloTracker.heartbeat(
             minerAddress,
             attempts,
             intervalSeconds
         );
-
 
         res.json({
             ok: true
@@ -1702,11 +1618,9 @@ function shutdown(signal) {
         `Otrzymano ${signal} - zamykanie BitBudCoin...`
     );
 
-
     clearInterval(
         sseInterval
     );
-
 
     for (const res of sseClients) {
 
@@ -1717,7 +1631,6 @@ function shutdown(signal) {
 
     sseClients.clear();
 
-
     try {
         p2p.close();
     } catch (err) {
@@ -1726,7 +1639,6 @@ function shutdown(signal) {
             err.message
         );
     }
-
 
     try {
         blockchain.close();
@@ -1737,7 +1649,6 @@ function shutdown(signal) {
         );
     }
 
-
     server.close(() => {
 
         console.log(
@@ -1746,7 +1657,6 @@ function shutdown(signal) {
 
         process.exit(0);
     });
-
 
     setTimeout(() => {
 
