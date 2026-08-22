@@ -3,291 +3,1708 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#07130d">
+
 <title>BitBudCoin — sieć BbC</title>
+
 <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
 <link rel="stylesheet" href="assets/theme.css">
+
 <style>
-  .status-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
-  .status-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px; border-radius: 8px;
-    background: var(--surface-2); border-left: 3px solid transparent;
-    font-family: var(--font-mono); font-size: .92rem;
-  }
-  .status-item.done { border-left-color: var(--leaf); }
-  .status-item.testing { border-left-color: var(--flame); }
-  .status-item.upcoming { border-left-color: var(--text-dim); color: var(--text-dim); }
-  .status-icon { font-size: 1.05rem; flex-shrink: 0; }
-  .milestone-list { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
-  .milestone-item { padding: 12px 14px; background: var(--surface-2); border-left: 3px solid var(--leaf); border-radius: 8px; }
-  .milestone-date { font-family: var(--font-mono); font-size: .72rem; color: var(--leaf); text-transform: uppercase; letter-spacing: .04em; }
-  .milestone-desc { margin-top: 4px; font-size: .92rem; }
-  .milestone-links { margin-top: 8px; font-family: var(--font-mono); font-size: .78rem; }
-  .milestone-links a { color: var(--leaf); margin-right: 12px; }
+
+/* =====================================================
+   BitBudCoin vMax INDEX
+   ===================================================== */
+
+:root {
+    --bbl-green: #39ff88;
+    --bbl-green-soft: rgba(57,255,136,.12);
+    --bbl-green-glow: rgba(57,255,136,.22);
+    --bbl-dark: #07130d;
+}
+
+/* -----------------------------------------------------
+   TŁO KONOPNE
+   ----------------------------------------------------- */
+
+body {
+    position: relative;
+    overflow-x: hidden;
+    background:
+        radial-gradient(
+            circle at 50% 15%,
+            rgba(57,255,136,.055),
+            transparent 32%
+        ),
+        var(--bg, #07130d);
+}
+
+body::before,
+body::after {
+    content: "";
+    position: fixed;
+    z-index: -1;
+    pointer-events: none;
+
+    width: 420px;
+    height: 420px;
+
+    opacity: .035;
+
+    background-repeat: no-repeat;
+    background-size: contain;
+}
+
+/*
+ * Prosty liść CSS.
+ * Nie wymaga dodatkowych obrazków ani bibliotek.
+ */
+
+body::before {
+    top: 8%;
+    left: -130px;
+
+    transform: rotate(-18deg);
+
+    background-image:
+        radial-gradient(
+            ellipse at center,
+            transparent 0 25%,
+            var(--bbl-green) 26% 27%,
+            transparent 28%
+        ),
+        linear-gradient(
+            45deg,
+            transparent 45%,
+            var(--bbl-green) 46% 48%,
+            transparent 49%
+        ),
+        linear-gradient(
+            -45deg,
+            transparent 45%,
+            var(--bbl-green) 46% 48%,
+            transparent 49%
+        );
+}
+
+body::after {
+    right: -140px;
+    bottom: 5%;
+
+    transform: rotate(22deg) scale(.9);
+
+    background-image:
+        radial-gradient(
+            ellipse at center,
+            transparent 0 25%,
+            var(--bbl-green) 26% 27%,
+            transparent 28%
+        ),
+        linear-gradient(
+            45deg,
+            transparent 45%,
+            var(--bbl-green) 46% 48%,
+            transparent 49%
+        ),
+        linear-gradient(
+            -45deg,
+            transparent 45%,
+            var(--bbl-green) 46% 48%,
+            transparent 49%
+        );
+}
+
+/* -----------------------------------------------------
+   LIVE STATUS
+   ----------------------------------------------------- */
+
+.live-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    margin-top: 14px;
+    padding: 6px 12px;
+
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 999px;
+
+    background: rgba(0,0,0,.22);
+
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+
+    color: var(--text-dim);
+}
+
+.live-dot {
+    width: 8px;
+    height: 8px;
+
+    border-radius: 50%;
+
+    background: #777;
+
+    transition:
+        background .2s ease,
+        box-shadow .2s ease;
+}
+
+.live-status.live {
+    color: var(--bbl-green);
+    border-color: rgba(57,255,136,.25);
+}
+
+.live-status.live .live-dot {
+    background: var(--bbl-green);
+    box-shadow:
+        0 0 0 4px rgba(57,255,136,.08),
+        0 0 14px rgba(57,255,136,.65);
+
+    animation: livePulse 1.7s infinite;
+}
+
+.live-status.offline .live-dot {
+    background: #ff5b5b;
+}
+
+@keyframes livePulse {
+    0%,100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: .45;
+    }
+}
+
+/* -----------------------------------------------------
+   HERO HEIGHT
+   ----------------------------------------------------- */
+
+#hero-height {
+    transition:
+        transform .18s ease,
+        text-shadow .18s ease;
+}
+
+#hero-height.block-update {
+    transform: scale(1.07);
+
+    text-shadow:
+        0 0 18px rgba(57,255,136,.35),
+        0 0 45px rgba(57,255,136,.12);
+}
+
+/* -----------------------------------------------------
+   100K MILESTONE
+   ----------------------------------------------------- */
+
+.vmax-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.vmax-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.vmax-title {
+    margin: 0;
+}
+
+.vmax-number {
+    font-family: var(--font-mono);
+    color: var(--bbl-green);
+    font-size: .85rem;
+    white-space: nowrap;
+}
+
+.vmax-progress {
+    height: 10px;
+
+    margin-top: 16px;
+
+    overflow: hidden;
+
+    border-radius: 999px;
+
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.05);
+}
+
+.vmax-progress-bar {
+    width: 0%;
+    height: 100%;
+
+    border-radius: inherit;
+
+    background:
+        linear-gradient(
+            90deg,
+            var(--leaf, #39ff88),
+            #a8ffca
+        );
+
+    box-shadow:
+        0 0 18px rgba(57,255,136,.35);
+
+    transition:
+        width .45s ease;
+}
+
+.vmax-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+
+    margin-top: 9px;
+
+    font-family: var(--font-mono);
+    font-size: .72rem;
+
+    color: var(--text-dim);
+}
+
+.vmax-near {
+    margin-top: 12px;
+
+    color: var(--bbl-green);
+
+    font-family: var(--font-mono);
+    font-size: .78rem;
+}
+
+/* -----------------------------------------------------
+   STATS
+   ----------------------------------------------------- */
+
+.stat-live-value {
+    transition:
+        opacity .15s ease,
+        transform .15s ease;
+}
+
+.stat-live-value.flash {
+    transform: scale(1.035);
+}
+
+/* -----------------------------------------------------
+   STATUS
+   ----------------------------------------------------- */
+
+.status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 10px 14px;
+
+    border-radius: 8px;
+
+    background: var(--surface-2);
+
+    border-left: 3px solid transparent;
+
+    font-family: var(--font-mono);
+    font-size: .92rem;
+}
+
+.status-item.done {
+    border-left-color: var(--leaf);
+}
+
+.status-item.testing {
+    border-left-color: var(--flame);
+}
+
+.status-item.upcoming {
+    border-left-color: var(--text-dim);
+    color: var(--text-dim);
+}
+
+.status-icon {
+    font-size: 1.05rem;
+    flex-shrink: 0;
+}
+
+/* -----------------------------------------------------
+   MILESTONES
+   ----------------------------------------------------- */
+
+.milestone-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 14px;
+}
+
+.milestone-item {
+    padding: 12px 14px;
+
+    background: var(--surface-2);
+
+    border-left: 3px solid var(--leaf);
+    border-radius: 8px;
+}
+
+.milestone-date {
+    font-family: var(--font-mono);
+    font-size: .72rem;
+
+    color: var(--leaf);
+
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.milestone-desc {
+    margin-top: 4px;
+    font-size: .92rem;
+}
+
+.milestone-links {
+    margin-top: 8px;
+
+    font-family: var(--font-mono);
+    font-size: .78rem;
+}
+
+.milestone-links a {
+    color: var(--leaf);
+    margin-right: 12px;
+}
+
+/* -----------------------------------------------------
+   MOBILE
+   ----------------------------------------------------- */
+
+@media (max-width: 600px) {
+
+    body::before,
+    body::after {
+        width: 300px;
+        height: 300px;
+        opacity: .025;
+    }
+
+    .vmax-meta {
+        font-size: .68rem;
+    }
+
+}
+
 </style>
 </head>
+
 <body>
 
 <div class="page">
+
+    <!-- =================================================
+         HERO
+         ================================================= -->
+
     <section class="hero">
-        <img src="assets/coin-hero.jpg" alt="Moneta BitBudCoin" style="width:200px;height:200px;border-radius:50%;box-shadow:0 0 50px rgba(90,126,246,.3);margin-bottom:12px;">
-        <div class="kicker" data-i18n="index_kicker">proof-of-work · sieć BbC</div>
-        <div class="big-number" id="hero-height">—</div>
-        <div class="sub" data-i18n="index_sub">bloków wykopanych od genesis</div>
-        <div style="margin-top:28px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-            <a class="btn" href="miner.html" data-i18n="miner_start_btn">Zacznij kopać</a>
-            <a class="btn secondary" href="explorer.html" data-i18n="index_view_explorer_btn">Zobacz explorer</a>
+
+        <img
+            src="assets/coin-hero.jpg"
+            alt="Moneta BitBudCoin"
+            style="
+                width:200px;
+                height:200px;
+                border-radius:50%;
+                box-shadow:
+                    0 0 50px rgba(57,255,136,.18);
+                margin-bottom:12px;
+            "
+        >
+
+        <div
+            class="kicker"
+            data-i18n="index_kicker"
+        >
+            proof-of-work · sieć BbC
         </div>
+
+        <div
+            class="big-number"
+            id="hero-height"
+        >
+            —
+        </div>
+
+        <div
+            class="sub"
+            data-i18n="index_sub"
+        >
+            bloków wykopanych od genesis
+        </div>
+
+        <!-- REAL LIVE STATUS -->
+
+        <div
+            id="live-status"
+            class="live-status"
+        >
+            <span class="live-dot"></span>
+            <span id="live-status-text">
+                Łączenie z siecią…
+            </span>
+        </div>
+
+        <div
+            style="
+                margin-top:28px;
+                display:flex;
+                gap:12px;
+                justify-content:center;
+                flex-wrap:wrap;
+            "
+        >
+            <a
+                class="btn"
+                href="miner.html"
+                data-i18n="miner_start_btn"
+            >
+                Zacznij kopać
+            </a>
+
+            <a
+                class="btn secondary"
+                href="explorer.html"
+                data-i18n="index_view_explorer_btn"
+            >
+                Zobacz explorer
+            </a>
+        </div>
+
     </section>
 
-    <div class="card" style="margin-top:20px;">
-        <h2 data-i18n="index_status_heading">Status projektu</h2>
-        <div class="status-list">
-            <div class="status-item done">
-                <span class="status-icon">✅</span>
-                <span data-i18n="index_status_mainnet">Mainnet</span>
-            </div>
-            <div class="status-item done">
-                <span class="status-icon">✅</span>
-                <span data-i18n="index_status_wallet">Portfel</span>
-            </div>
-            <div class="status-item done">
-                <span class="status-icon">✅</span>
-                <span data-i18n="index_status_explorer">Explorer</span>
-            </div>
-            <div class="status-item done">
-                <span class="status-icon">✅</span>
-                <span data-i18n="index_status_mining">Kopanie</span>
-            </div>
-            <div class="status-item done">
-                <span class="status-icon">✅</span>
-                <span data-i18n="index_status_swaps">Atomic swaps</span>
-            </div>
-            <div class="status-item testing">
-                <span class="status-icon">⏳</span>
-                <span data-i18n="index_status_exchange">Oczekiwanie na giełdę</span>
-            </div>
-        </div>
-    </div>
 
-    <div class="card" style="margin-top:20px;">
-        <h2 data-i18n="index_milestones_heading">Kamienie milowe</h2>
-        <div class="milestone-list">
-            <div class="milestone-item">
-                <div class="milestone-date">30.07.2026</div>
-                <div class="milestone-desc" data-i18n="index_milestone1_desc">Pierwszy w pełni dokończony atomic swap BTC↔BbC — ten sam hashlock po obu stronach, do sprawdzenia samemu.</div>
-                <div class="milestone-links">
-                    <a href="https://mempool.space/tx/26559e15d0e3d98389900c7747f07aea935bf90849d8b64bfd895cdd8109dfd0" target="_blank" data-i18n="index_milestone1_btc_link">Transakcja BTC →</a>
-                    <a href="block.html?height=3071" data-i18n="index_milestone1_bbc_link">Blok BbC #3071 →</a>
+    <!-- =================================================
+         vMax / 100 000
+         ================================================= -->
+
+    <div
+        class="card vmax-card"
+        style="margin-top:20px;"
+    >
+
+        <div class="vmax-header">
+
+            <div>
+                <h2 class="vmax-title">
+                    vMax · 100 000 bloków
+                </h2>
+
+                <div
+                    class="vmax-near"
+                    id="vmax-message"
+                >
+                    Ładowanie postępu sieci…
                 </div>
             </div>
+
+            <div
+                class="vmax-number"
+                id="vmax-percent"
+            >
+                0.00%
+            </div>
+
         </div>
+
+        <div class="vmax-progress">
+            <div
+                id="vmax-progress-bar"
+                class="vmax-progress-bar"
+            ></div>
+        </div>
+
+        <div class="vmax-meta">
+
+            <span>
+                blok
+                <strong id="vmax-current">
+                    —
+                </strong>
+            </span>
+
+            <span>
+                cel
+                <strong>
+                    100 000
+                </strong>
+            </span>
+
+            <span>
+                pozostało
+                <strong id="vmax-remaining">
+                    —
+                </strong>
+            </span>
+
+        </div>
+
     </div>
 
-    <div class="grid cols-3" style="margin-top:20px;">
-        <div class="card">
-            <div class="card-label" data-i18n="index_stat_supply">Podaż w obiegu</div>
-            <div class="card-value leaf" id="stat-supply">—</div>
+
+    <!-- =================================================
+         STATUS PROJEKTU
+         ================================================= -->
+
+    <div
+        class="card"
+        style="margin-top:20px;"
+    >
+
+        <h2 data-i18n="index_status_heading">
+            Status projektu
+        </h2>
+
+        <div class="status-list">
+
+            <div class="status-item done">
+                <span class="status-icon">✅</span>
+                <span data-i18n="index_status_mainnet">
+                    Mainnet
+                </span>
+            </div>
+
+            <div class="status-item done">
+                <span class="status-icon">✅</span>
+                <span data-i18n="index_status_wallet">
+                    Portfel
+                </span>
+            </div>
+
+            <div class="status-item done">
+                <span class="status-icon">✅</span>
+                <span data-i18n="index_status_explorer">
+                    Explorer
+                </span>
+            </div>
+
+            <div class="status-item done">
+                <span class="status-icon">✅</span>
+                <span data-i18n="index_status_mining">
+                    Kopanie
+                </span>
+            </div>
+
+            <div class="status-item done">
+                <span class="status-icon">✅</span>
+                <span data-i18n="index_status_swaps">
+                    Atomic swaps
+                </span>
+            </div>
+
+            <div class="status-item testing">
+                <span class="status-icon">⏳</span>
+                <span data-i18n="index_status_exchange">
+                    Oczekiwanie na giełdę
+                </span>
+            </div>
+
         </div>
-        <div class="card">
-            <div class="card-label" data-i18n="index_stat_reward">Aktualna nagroda</div>
-            <div class="card-value flame" id="stat-reward">—</div>
-        </div>
-        <div class="card">
-            <div class="card-label" data-i18n="index_stat_difficulty">Trudność</div>
-            <div class="card-value" id="stat-difficulty">—</div>
-        </div>
+
     </div>
 
-    <div class="card" style="margin-top:32px;">
-        <h2 data-i18n="index_about_heading">Czym jest BitBudCoin?</h2>
+
+    <!-- =================================================
+         MILESTONE
+         ================================================= -->
+
+    <div
+        class="card"
+        style="margin-top:20px;"
+    >
+
+        <h2 data-i18n="index_milestones_heading">
+            Kamienie milowe
+        </h2>
+
+        <div class="milestone-list">
+
+            <div class="milestone-item">
+
+                <div class="milestone-date">
+                    30.07.2026
+                </div>
+
+                <div
+                    class="milestone-desc"
+                    data-i18n="index_milestone1_desc"
+                >
+                    Pierwszy w pełni dokończony atomic swap
+                    BTC↔BbC — ten sam hashlock po obu stronach,
+                    do sprawdzenia samemu.
+                </div>
+
+                <div class="milestone-links">
+
+                    <a
+                        href="https://mempool.space/tx/26559e15d0e3d98389900c7747f07aea935bf90849d8b64bfd895cdd8109dfd0"
+                        target="_blank"
+                        rel="noopener"
+                        data-i18n="index_milestone1_btc_link"
+                    >
+                        Transakcja BTC →
+                    </a>
+
+                    <a
+                        href="block.html?height=3071"
+                        data-i18n="index_milestone1_bbc_link"
+                    >
+                        Blok BbC #3071 →
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =================================================
+         LIVE STATS
+         ================================================= -->
+
+    <div
+        class="grid cols-3"
+        style="margin-top:20px;"
+    >
+
+        <div class="card">
+
+            <div
+                class="card-label"
+                data-i18n="index_stat_supply"
+            >
+                Podaż w obiegu
+            </div>
+
+            <div
+                class="card-value leaf stat-live-value"
+                id="stat-supply"
+            >
+                —
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div
+                class="card-label"
+                data-i18n="index_stat_reward"
+            >
+                Aktualna nagroda
+            </div>
+
+            <div
+                class="card-value flame stat-live-value"
+                id="stat-reward"
+            >
+                —
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div
+                class="card-label"
+                data-i18n="index_stat_difficulty"
+            >
+                Trudność
+            </div>
+
+            <div
+                class="card-value stat-live-value"
+                id="stat-difficulty"
+            >
+                —
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =================================================
+         ABOUT
+         ================================================= -->
+
+    <div
+        class="card"
+        style="margin-top:32px;"
+    >
+
+        <h2 data-i18n="index_about_heading">
+            Czym jest BitBudCoin?
+        </h2>
+
         <p data-i18n="index_about_text">
-            BbC to niezależna sieć blockchain z klasycznym proof-of-work (SHA-256), premine'em
-            założycielskim, halvingiem nagrody co 210 000 bloków i twardym pułapem podaży.
-            Kopać można solo albo w puli — u siebie liczysz hashe, a sieć weryfikuje i zapisuje
-            wynik. Cały ruch (przelewy, blokowanie, salda) idzie przez podpisy Ed25519,
-            więc nikt poza właścicielem klucza prywatnego nie rusza jego środków.
+            BbC to niezależna sieć blockchain z klasycznym
+            proof-of-work (SHA-256), premine'em założycielskim,
+            halvingiem nagrody co 210 000 bloków i twardym
+            pułapem podaży. Kopać można solo albo w puli —
+            u siebie liczysz hashe, a sieć weryfikuje i zapisuje
+            wynik. Cały ruch (przelewy, blokowanie, salda) idzie
+            przez podpisy Ed25519, więc nikt poza właścicielem
+            klucza prywatnego nie ruszy jego środków.
         </p>
+
     </div>
 
-    <div class="grid cols-3" style="margin-top:20px;">
+
+    <!-- =================================================
+         CARDS
+         ================================================= -->
+
+    <div
+        class="grid cols-3"
+        style="margin-top:20px;"
+    >
+
         <div class="card">
-            <h3 data-i18n="nav_mining">Kopanie</h3>
-            <p data-i18n="index_card_mining_desc">Solo albo w puli, z realnym udziałem w nagrodzie proporcjonalnym do zgłoszonych shares.</p>
-            <a href="miner.html" data-i18n="index_card_mining_link">Zobacz jak →</a>
+
+            <h3 data-i18n="nav_mining">
+                Kopanie
+            </h3>
+
+            <p data-i18n="index_card_mining_desc">
+                Solo albo w puli, z realnym udziałem w nagrodzie
+                proporcjonalnym do zgłoszonych shares.
+            </p>
+
+            <a
+                href="miner.html"
+                data-i18n="index_card_mining_link"
+            >
+                Zobacz jak →
+            </a>
+
         </div>
+
+
         <div class="card">
-            <h3 data-i18n="nav_explorer">Explorer</h3>
-            <p data-i18n="index_card_explorer_desc">Każdy blok, każda transakcja, jawnie i do sprawdzenia w dowolnej chwili.</p>
-            <a href="explorer.html" data-i18n="index_card_explorer_link">Przeglądaj →</a>
+
+            <h3 data-i18n="nav_explorer">
+                Explorer
+            </h3>
+
+            <p data-i18n="index_card_explorer_desc">
+                Każdy blok, każda transakcja, jawnie i do
+                sprawdzenia w dowolnej chwili.
+            </p>
+
+            <a
+                href="explorer.html"
+                data-i18n="index_card_explorer_link"
+            >
+                Przeglądaj →
+            </a>
+
         </div>
+
+
         <div class="card">
-            <h3 data-i18n="nav_wallet">Portfel</h3>
-            <p data-i18n="index_card_wallet_desc">Sprawdź saldo dowolnego adresu i historię jego transakcji.</p>
-            <a href="address.html" data-i18n="index_card_wallet_link">Sprawdź adres →</a>
+
+            <h3 data-i18n="nav_wallet">
+                Portfel
+            </h3>
+
+            <p data-i18n="index_card_wallet_desc">
+                Sprawdź saldo dowolnego adresu i historię jego
+                transakcji.
+            </p>
+
+            <a
+                href="address.html"
+                data-i18n="index_card_wallet_link"
+            >
+                Sprawdź adres →
+            </a>
+
         </div>
+
     </div>
+
 </div>
 
+
+<!-- =====================================================
+     FOOTER
+     ===================================================== -->
+
 <footer>
-    <span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span>
+
+    <span data-i18n="footer_text">
+        BitBudCoin (BbC) · sieć proof-of-work
+    </span>
+
     ·
-    <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a>
+
+    <a
+        href="docks.html"
+        data-i18n="footer_docs_link"
+    >
+        dokumentacja
+    </a>
+
 </footer>
+
+
+<!-- =====================================================
+     COMMON JS
+     ===================================================== -->
 
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
 <script src="assets/i18n.js"></script>
 
+
+<!-- =====================================================
+     BITBUDCOIN LIVE ENGINE
+     ===================================================== -->
+
 <script>
+
+"use strict";
+
 setActiveNav("nav-index");
 
+
+/* -----------------------------------------------------
+   KONFIGURACJA
+   ----------------------------------------------------- */
+
+const VMAX_HEIGHT = 100000;
+
 let lastHeight = null;
+
+let eventSource = null;
+
 let reconnectTimer = null;
 
-function updateIndex(info) {
-    if (!info) return;
+let pollingTimer = null;
 
-    const height = Number(info.height);
+let pollingStarted = false;
 
-    if (Number.isFinite(height)) {
-        document.getElementById("hero-height").textContent =
-            fmtNumber(height, 0);
 
-        if (lastHeight !== null && height > lastHeight) {
-            const hero = document.getElementById("hero-height");
+/* -----------------------------------------------------
+   ELEMENTY
+   ----------------------------------------------------- */
 
-            hero.style.transform = "scale(1.06)";
-            hero.style.transition = "transform .2s ease";
+const heroHeight =
+    document.getElementById("hero-height");
 
-            setTimeout(() => {
-                hero.style.transform = "scale(1)";
-            }, 200);
+const statSupply =
+    document.getElementById("stat-supply");
+
+const statReward =
+    document.getElementById("stat-reward");
+
+const statDifficulty =
+    document.getElementById("stat-difficulty");
+
+const liveStatus =
+    document.getElementById("live-status");
+
+const liveStatusText =
+    document.getElementById("live-status-text");
+
+const vmaxCurrent =
+    document.getElementById("vmax-current");
+
+const vmaxRemaining =
+    document.getElementById("vmax-remaining");
+
+const vmaxPercent =
+    document.getElementById("vmax-percent");
+
+const vmaxProgressBar =
+    document.getElementById("vmax-progress-bar");
+
+const vmaxMessage =
+    document.getElementById("vmax-message");
+
+
+/* -----------------------------------------------------
+   FORMATOWANIE
+   ----------------------------------------------------- */
+
+function formatNumber(value, decimals = 0) {
+
+    const number = Number(value);
+
+    if (!Number.isFinite(number)) {
+        return "—";
+    }
+
+    return new Intl.NumberFormat(
+        "pl-PL",
+        {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }
+    ).format(number);
+}
+
+
+function safeFmt(value, decimals = 0) {
+
+    try {
+
+        if (typeof fmtNumber === "function") {
+            return fmtNumber(value, decimals);
         }
 
-        lastHeight = height;
-    }
+    } catch (e) {}
 
-    if (info.circulatingSupply !== undefined) {
-        document.getElementById("stat-supply").textContent =
-            fmtNumber(info.circulatingSupply) +
-            " " +
-            (info.symbol || "BbC");
-    }
-
-    if (info.currentBlockReward !== undefined) {
-        document.getElementById("stat-reward").textContent =
-            fmtNumber(info.currentBlockReward) +
-            " " +
-            (info.symbol || "BbC");
-    }
-
-    if (info.difficulty !== undefined) {
-        document.getElementById("stat-difficulty").textContent =
-            fmtNumber(info.difficulty, 0);
-    }
+    return formatNumber(value, decimals);
 }
 
 
-/*
- * Pierwszy odczyt przez zwykłe API.
- * Dzięki temu strona pokazuje dane natychmiast,
- * nawet zanim SSE zdąży się połączyć.
- */
-async function loadInitial() {
-    try {
-        const info = await apiGet("/info");
-        updateIndex(info);
-    } catch (e) {
-        console.error("Nie można pobrać /info:", e);
-        document.getElementById("hero-height").textContent = "—";
-    }
+/* -----------------------------------------------------
+   LIVE STATUS
+   ----------------------------------------------------- */
+
+function setLive(isLive, text) {
+
+    liveStatus.classList.toggle(
+        "live",
+        isLive
+    );
+
+    liveStatus.classList.toggle(
+        "offline",
+        !isLive
+    );
+
+    liveStatusText.textContent =
+        text ||
+        (isLive
+            ? "LIVE · sieć"
+            : "OFFLINE · próba połączenia");
 }
 
 
-/*
- * LIVE SSE
- *
- * server.js:
- * GET /events
- *
- * Serwer wysyła event "state" z aktualnym stanem
- * sieci bez potrzeby ciągłego fetchowania /info.
- */
-function connectSSE() {
-    if (!window.EventSource) {
-        console.warn("Przeglądarka nie obsługuje SSE.");
-        startPollingFallback();
+/* -----------------------------------------------------
+   ANIMACJA NOWEGO BLOKU
+   ----------------------------------------------------- */
+
+function animateNewBlock() {
+
+    heroHeight.classList.remove(
+        "block-update"
+    );
+
+    /*
+     * Wymuszenie reflow pozwala odtworzyć
+     * animację przy każdym kolejnym bloku.
+     */
+
+    void heroHeight.offsetWidth;
+
+    heroHeight.classList.add(
+        "block-update"
+    );
+
+    setTimeout(() => {
+
+        heroHeight.classList.remove(
+            "block-update"
+        );
+
+    }, 260);
+}
+
+
+/* -----------------------------------------------------
+   AKTUALIZACJA 100K
+   ----------------------------------------------------- */
+
+function updateVmax(height) {
+
+    const current =
+        Math.max(
+            0,
+            Number(height) || 0
+        );
+
+    const clamped =
+        Math.min(
+            current,
+            VMAX_HEIGHT
+        );
+
+    const percent =
+        Math.min(
+            100,
+            (clamped / VMAX_HEIGHT) * 100
+        );
+
+    const remaining =
+        Math.max(
+            0,
+            VMAX_HEIGHT - current
+        );
+
+    vmaxCurrent.textContent =
+        safeFmt(current, 0);
+
+    vmaxRemaining.textContent =
+        safeFmt(remaining, 0);
+
+    vmaxPercent.textContent =
+        percent.toFixed(2) + "%";
+
+    vmaxProgressBar.style.width =
+        percent + "%";
+
+
+    if (current >= VMAX_HEIGHT) {
+
+        vmaxMessage.textContent =
+            "🚀 vMax osiągnięty — 100 000 bloków.";
+
+        vmaxMessage.style.color =
+            "var(--bbl-green)";
+
         return;
     }
 
-    const events = new EventSource("/events");
 
-    events.addEventListener("state", (event) => {
-        try {
-            const info = JSON.parse(event.data);
-            updateIndex(info);
-        } catch (e) {
-            console.error("Błąd parsowania SSE:", e);
-        }
-    });
+    if (current >= 99000) {
 
-    events.onopen = () => {
-        console.log("BitBudCoin SSE: LIVE");
-        
-        if (reconnectTimer) {
-            clearTimeout(reconnectTimer);
-            reconnectTimer = null;
-        }
-    };
+        vmaxMessage.textContent =
+            "🔥 Ostatni odcinek do vMax — sieć zbliża się do 100 000.";
 
-    events.onerror = () => {
-        console.warn("BitBudCoin SSE: połączenie utracone.");
+        vmaxMessage.style.color =
+            "var(--bbl-green)";
 
-        events.close();
+        return;
+    }
 
-        if (!reconnectTimer) {
-            reconnectTimer = setTimeout(() => {
-                reconnectTimer = null;
-                connectSSE();
-            }, 3000);
-        }
-    };
+
+    if (current >= 90000) {
+
+        vmaxMessage.textContent =
+            "🌿 Sieć jest już bardzo blisko vMax.";
+
+        return;
+    }
+
+
+    vmaxMessage.textContent =
+        "Postęp sieci w kierunku aktywacji vMax.";
 }
 
 
-/*
- * Fallback dla sytuacji, w której SSE nie przejdzie
- * przez reverse proxy albo starszą przeglądarkę.
- *
- * Nie uruchamiamy go normalnie razem z SSE.
- */
-let pollingStarted = false;
+/* -----------------------------------------------------
+   AKTUALIZACJA STATYSTYK
+   ----------------------------------------------------- */
+
+function flashElement(element) {
+
+    if (!element) return;
+
+    element.classList.remove("flash");
+
+    void element.offsetWidth;
+
+    element.classList.add("flash");
+
+    setTimeout(() => {
+
+        element.classList.remove("flash");
+
+    }, 180);
+}
+
+
+function updateIndex(info) {
+
+    if (!info || typeof info !== "object") {
+        return;
+    }
+
+
+    /* HEIGHT */
+
+    const height =
+        Number(info.height);
+
+    if (Number.isFinite(height)) {
+
+        const heightChanged =
+            lastHeight !== null &&
+            height !== lastHeight;
+
+        heroHeight.textContent =
+            safeFmt(height, 0);
+
+        updateVmax(height);
+
+        if (
+            heightChanged &&
+            height > lastHeight
+        ) {
+
+            animateNewBlock();
+
+        }
+
+        lastHeight =
+            height;
+    }
+
+
+    /* SUPPLY */
+
+    if (
+        info.circulatingSupply !== undefined
+    ) {
+
+        statSupply.textContent =
+            safeFmt(
+                info.circulatingSupply
+            ) +
+            " " +
+            (
+                info.symbol ||
+                "BbC"
+            );
+
+        flashElement(statSupply);
+    }
+
+
+    /* REWARD */
+
+    if (
+        info.currentBlockReward !==
+        undefined
+    ) {
+
+        statReward.textContent =
+            safeFmt(
+                info.currentBlockReward
+            ) +
+            " " +
+            (
+                info.symbol ||
+                "BbC"
+            );
+
+        flashElement(statReward);
+    }
+
+
+    /* DIFFICULTY */
+
+    if (
+        info.difficulty !==
+        undefined
+    ) {
+
+        statDifficulty.textContent =
+            safeFmt(
+                info.difficulty,
+                0
+            );
+
+        flashElement(statDifficulty);
+    }
+}
+
+
+/* -----------------------------------------------------
+   NORMALIZACJA DANYCH SSE
+   -----------------------------------------------------
+
+   Serwer może wysłać:
+
+   event: state
+   data: {...}
+
+   albo:
+
+   event: block
+   data: {...}
+
+   albo zwykłe:
+
+   data: {...}
+
+   Obsługujemy wszystkie.
+   ----------------------------------------------------- */
+
+function parseSSEData(event) {
+
+    try {
+
+        const parsed =
+            JSON.parse(
+                event.data
+            );
+
+        /*
+         * Jeżeli serwer wysyła:
+         *
+         * { height, ... }
+         *
+         * mamy gotowy /info.
+         */
+
+        if (
+            parsed &&
+            typeof parsed.height !==
+                "undefined"
+        ) {
+
+            return parsed;
+        }
+
+
+        /*
+         * Jeżeli serwer wysyła:
+         *
+         * { info: {...} }
+         */
+
+        if (
+            parsed &&
+            parsed.info
+        ) {
+
+            return parsed.info;
+        }
+
+
+        /*
+         * Jeżeli serwer wysyła:
+         *
+         * { state: {...} }
+         */
+
+        if (
+            parsed &&
+            parsed.state
+        ) {
+
+            return parsed.state;
+        }
+
+
+        /*
+         * Jeżeli serwer wysyła blok:
+         *
+         * { block: {...} }
+         *
+         * Nie zakładamy, że blok ma wszystkie
+         * pola /info.
+         *
+         * Dlatego zwracamy null i pobieramy
+         * świeże /info.
+         */
+
+        if (
+            parsed &&
+            parsed.block
+        ) {
+
+            return null;
+        }
+
+
+    } catch (e) {
+
+        console.error(
+            "BbC SSE: nieprawidłowe JSON:",
+            e
+        );
+
+    }
+
+    return null;
+}
+
+
+/* -----------------------------------------------------
+   POBRANIE AKTUALNEGO STANU
+   ----------------------------------------------------- */
+
+async function refreshState() {
+
+    try {
+
+        const info =
+            await apiGet(
+                "/info"
+            );
+
+        if (info) {
+
+            updateIndex(info);
+
+        }
+
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            "BbC /info error:",
+            error
+        );
+
+        return false;
+    }
+}
+
+
+/* -----------------------------------------------------
+   POLLING FALLBACK
+   ----------------------------------------------------- */
 
 function startPollingFallback() {
-    if (pollingStarted) return;
+
+    if (pollingStarted) {
+        return;
+    }
 
     pollingStarted = true;
 
-    setInterval(async () => {
-        try {
-            const info = await apiGet("/info");
-            updateIndex(info);
-        } catch (e) {
-            console.error("Błąd odświeżania /info:", e);
-        }
-    }, 5000);
+    /*
+     * Co 3 sekundy.
+     *
+     * To nie jest podstawowy tryb.
+     * Jest tylko zabezpieczeniem, jeśli SSE
+     * nie przejdzie przez proxy/hosting.
+     */
+
+    pollingTimer =
+        setInterval(
+            async () => {
+
+                await refreshState();
+
+            },
+            3000
+        );
 }
 
 
-/*
- * START
- */
-loadInitial();
-connectSSE();
+function stopPollingFallback() {
+
+    if (
+        pollingTimer
+    ) {
+
+        clearInterval(
+            pollingTimer
+        );
+
+        pollingTimer =
+            null;
+
+    }
+
+    pollingStarted = false;
+}
+
+
+/* -----------------------------------------------------
+   SSE
+   ----------------------------------------------------- */
+
+function connectSSE() {
+
+    if (
+        !window.EventSource
+    ) {
+
+        console.warn(
+            "BbC: EventSource niedostępne."
+        );
+
+        setLive(
+            false,
+            "OFFLINE · SSE niedostępne"
+        );
+
+        startPollingFallback();
+
+        return;
+    }
+
+
+    /*
+     * Jeżeli stare połączenie jeszcze istnieje,
+     * zamykamy je przed stworzeniem nowego.
+     */
+
+    if (eventSource) {
+
+        try {
+            eventSource.close();
+        } catch (e) {}
+
+        eventSource =
+            null;
+    }
+
+
+    /*
+     * Cache busting.
+     *
+     * Dzięki temu nie dostaniemy starego
+     * połączenia przez cache/proxy.
+     */
+
+    const eventsUrl =
+        "/events?stream=index&t=" +
+        Date.now();
+
+
+    eventSource =
+        new EventSource(
+            eventsUrl
+        );
+
+
+    /* -------------------------------------------------
+       WSPÓLNA OBSŁUGA EVENTU
+       ------------------------------------------------- */
+
+    function handleEvent(event) {
+
+        const info =
+            parseSSEData(event);
+
+
+        if (info) {
+
+            updateIndex(info);
+
+            return;
+        }
+
+
+        /*
+         * Jeżeli przyszło tylko powiadomienie
+         * o nowym bloku, pobieramy jeden
+         * autorytatywny /info.
+         */
+
+        refreshState();
+    }
+
+
+    /* -------------------------------------------------
+       CUSTOM EVENT: state
+       ------------------------------------------------- */
+
+    eventSource.addEventListener(
+        "state",
+        handleEvent
+    );
+
+
+    /* -------------------------------------------------
+       CUSTOM EVENT: info
+       ------------------------------------------------- */
+
+    eventSource.addEventListener(
+        "info",
+        handleEvent
+    );
+
+
+    /* -------------------------------------------------
+       CUSTOM EVENT: block
+       ------------------------------------------------- */
+
+    eventSource.addEventListener(
+        "block",
+        handleEvent
+    );
+
+
+    /* -------------------------------------------------
+       CUSTOM EVENT: message
+       -------------------------------------------------
+
+       EventSource wysyła tu eventy bez
+       "event: ..." po stronie serwera.
+       ------------------------------------------------- */
+
+    eventSource.addEventListener(
+        "message",
+        handleEvent
+    );
+
+
+    /* -------------------------------------------------
+       OPEN
+       ------------------------------------------------- */
+
+    eventSource.onopen =
+        () => {
+
+            console.log(
+                "BitBudCoin SSE: LIVE"
+            );
+
+            setLive(
+                true,
+                "LIVE · sieć"
+            );
+
+            stopPollingFallback();
+
+
+            if (
+                reconnectTimer
+            ) {
+
+                clearTimeout(
+                    reconnectTimer
+                );
+
+                reconnectTimer =
+                    null;
+            }
+
+
+            /*
+             * Natychmiastowy /info po połączeniu.
+             *
+             * Dzięki temu nie czekamy na następny
+             * event z serwera.
+             */
+
+            refreshState();
+        };
+
+
+    /* -------------------------------------------------
+       ERROR
+       ------------------------------------------------- */
+
+    eventSource.onerror =
+        () => {
+
+            console.warn(
+                "BitBudCoin SSE: połączenie utracone."
+            );
+
+            setLive(
+                false,
+                "OFFLINE · ponowne łączenie…"
+            );
+
+
+            try {
+
+                eventSource.close();
+
+            } catch (e) {}
+
+
+            eventSource =
+                null;
+
+
+            /*
+             * Fallback uruchamiamy od razu.
+             *
+             * Dzięki temu UI nadal pokazuje
+             * rzeczywisty stan, nawet gdy SSE
+             * jest chwilowo niedostępne.
+             */
+
+            startPollingFallback();
+
+
+            if (
+                reconnectTimer
+            ) {
+
+                return;
+            }
+
+
+            reconnectTimer =
+                setTimeout(
+                    () => {
+
+                        reconnectTimer =
+                            null;
+
+                        connectSSE();
+
+                    },
+                    3000
+                );
+        };
+}
+
+
+/* -----------------------------------------------------
+   START
+   -----------------------------------------------------
+
+   Najpierw /info.
+   Potem SSE.
+
+   To daje:
+   1. natychmiastowy stan,
+   2. potem real-time.
+   ----------------------------------------------------- */
+
+(async function startLive() {
+
+    setLive(
+        false,
+        "Łączenie z siecią…"
+    );
+
+
+    await refreshState();
+
+
+    connectSSE();
+
+})();
+
 </script>
 
 </body>
