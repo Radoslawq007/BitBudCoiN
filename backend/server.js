@@ -37,22 +37,32 @@ const {
 /*
  * ============================================================
  * BITBUDCOIN SERVER
- * vMax LEGENDARY MODE
+ * vMax FINAL
  * ============================================================
  *
- * Zasady:
+ * JEDNO ŹRÓDŁO LIVE:
  *
- * 1. Blockchain jest źródłem prawdy dla konsensusu.
- * 2. ASERT jest obsługiwany przez bbcblockchain.js.
- * 3. server.js NIE zmienia difficulty ręcznie.
- * 4. P2P korzysta z tego samego mempoola co API.
- * 5. Wszystkie ścieżki submitujące blok przechodzą przez
- *    blockchain.receiveBlock().
- * 6. Po zaakceptowaniu bloku mempool jest czyszczony.
- * 7. Po zaakceptowaniu bloku P2P dostaje NEW_BLOCK.
- * 8. SSE pokazuje jeden spójny stan sieci.
+ *   blockchain.getInfo()
+ *          ↓
+ *   getLiveState()
+ *          ↓
+ *   /info
+ *   /state
+ *   /events
  *
- * Nie ma tutaj drugiego mechanizmu DAA.
+ * Wszystkie strony mogą więc korzystać z tego samego stanu.
+ *
+ * SSE:
+ *   - natychmiastowy snapshot po połączeniu
+ *   - natychmiastowe eventy po zmianach
+ *   - heartbeat
+ *   - retry po zerwaniu
+ *   - ID eventów
+ *   - brak cache
+ *   - brak proxy buffering
+ *
+ * Blockchain pozostaje źródłem prawdy.
+ * server.js nie prowadzi drugiego mechanizmu difficulty/consensus.
  */
 
 
@@ -68,9 +78,11 @@ app.disable("x-powered-by");
 
 app.use(cors());
 
-app.use(express.json({
-    limit: "1mb"
-}));
+app.use(
+    express.json({
+        limit: "1mb"
+    })
+);
 
 app.use(rateLimiter);
 
@@ -121,12 +133,19 @@ p2p.start();
 
 /*
  * ============================================================
- * SSE — LIVE BITBUDCOIN
+ * LIVE STATE
  * ============================================================
+ *
+ * Jedna funkcja używana przez:
+ *
+ *   /info
+ *   /state
+ *   /events
+ *   /pool/status
+ *
+ * Dzięki temu frontend nie dostaje kilku różnych wersji
+ * aktualnego stanu sieci.
  */
-
-const sseClients = new Set();
-
 
 function getLiveState() {
 
@@ -155,6 +174,15 @@ function getLiveState() {
 
     return {
         ...info,
+
+        /*
+         * Jednolity numer wysokości.
+         * Nie nadpisujemy tego, co zwrócił blockchain.
+         */
+        height:
+            Number.isFinite(Number(info.height))
+                ? Number(info.height)
+                : info.height,
 
         pool: {
             poolAddress:
@@ -187,191 +215,364 @@ function getLiveState() {
 }
 
 
+/*
+ * ============================================================
+ * SSE — LIVE BITBUDCOIN
+ * ============================================================
+ */
+
+const sseClients = new Set();
+
+let sseEventId = 0;
+
+
 function sendSSE(eventName, data) {
 
+    const id =
+        ++sseEventId;
+
     const message =
+        `id: ${id}\n` +
         `event: ${eventName}\n` +
         `data: ${JSON.stringify(data)}\n\n`;
 
-    for (const res of sseClients) {
+    for (const client of sseClients) {
+
+        const res = client.res;
+
+        if (
+            res.writableEnded ||
+            res.destroyed
+        ) {
+            sseClients.delete(client);
+            continue;
+        }
 
         try {
+
             res.write(message);
+
         } catch (err) {
-            sseClients.delete(res);
+
+            sseClients.delete(client);
+
+            try {
+                res.end();
+            } catch (_) {}
         }
     }
 }
 
 
-app.get("/events", (req, res) => {
+/*
+ * Natychmiastowa aktualizacja wszystkich klientów.
+ *
+ * Wywołujemy ją po zmianach stanu.
+ */
 
-    res.setHeader(
-        "Content-Type",
-        "text/event-stream"
-    );
+function broadcastLiveState() {
 
-    res.setHeader(
-        "Cache-Control",
-        "no-cache, no-store, must-revalidate"
-    );
-
-    res.setHeader(
-        "Connection",
-        "keep-alive"
-    );
-
-    res.setHeader(
-        "X-Accel-Buffering",
-        "no"
-    );
-
-    if (res.flushHeaders) {
-        res.flushHeaders();
-    }
-
-    sseClients.add(res);
-
-    try {
-
-        res.write(
-            `event: state\n` +
-            `data: ${JSON.stringify(getLiveState())}\n\n`
-        );
-
-    } catch (err) {
-
-        sseClients.delete(res);
+    if (sseClients.size === 0) {
         return;
     }
 
-    const heartbeat =
-        setInterval(() => {
+    sendSSE(
+        "state",
+        getLiveState()
+    );
+}
+
+
+/*
+ * ============================================================
+ * SSE ENDPOINT
+ * ============================================================
+ */
+
+app.get(
+    "/events",
+    (req, res) => {
+
+        res.statusCode = 200;
+
+        res.setHeader(
+            "Content-Type",
+            "text/event-stream; charset=utf-8"
+        );
+
+        res.setHeader(
+            "Cache-Control",
+            "no-cache, no-store, must-revalidate"
+        );
+
+        res.setHeader(
+            "Connection",
+            "keep-alive"
+        );
+
+        /*
+         * Ważne dla Nginx / reverse proxy.
+         */
+        res.setHeader(
+            "X-Accel-Buffering",
+            "no"
+        );
+
+        res.setHeader(
+            "X-Content-Type-Options",
+            "nosniff"
+        );
+
+        /*
+         * EventSource ma automatycznie próbować
+         * połączyć się ponownie po 3 sekundach.
+         */
+        res.write(
+            "retry: 3000\n\n"
+        );
+
+        /*
+         * Wysyłamy nagłówki od razu.
+         */
+        if (typeof res.flushHeaders === "function") {
+            res.flushHeaders();
+        }
+
+        const client = {
+            res,
+            connectedAt: Date.now()
+        };
+
+        sseClients.add(client);
+
+        /*
+         * Natychmiastowy snapshot.
+         *
+         * Nie trzeba czekać sekundy na interval.
+         */
+        try {
+
+            const initialMessage =
+                `id: ${++sseEventId}\n` +
+                `event: state\n` +
+                `data: ${JSON.stringify(getLiveState())}\n\n`;
+
+            res.write(initialMessage);
+
+        } catch (err) {
+
+            sseClients.delete(client);
 
             try {
+                res.end();
+            } catch (_) {}
 
-                res.write(
-                    `: heartbeat ${Date.now()}\n\n`
-                );
+            return;
+        }
 
-            } catch (err) {
+
+        /*
+         * HEARTBEAT
+         *
+         * SSE comment zaczynający się od ":" nie jest
+         * przekazywany jako normalny event do EventSource,
+         * ale utrzymuje połączenie aktywne.
+         */
+        const heartbeat =
+            setInterval(() => {
+
+                if (
+                    res.writableEnded ||
+                    res.destroyed
+                ) {
+
+                    clearInterval(heartbeat);
+                    sseClients.delete(client);
+                    return;
+                }
+
+                try {
+
+                    res.write(
+                        `: heartbeat ${Date.now()}\n\n`
+                    );
+
+                } catch (err) {
+
+                    clearInterval(heartbeat);
+                    sseClients.delete(client);
+
+                    try {
+                        res.end();
+                    } catch (_) {}
+                }
+
+            }, 15000);
+
+        heartbeat.unref?.();
+
+
+        /*
+         * Ostatni event ID.
+         *
+         * Nie próbujemy tutaj odtwarzać historii,
+         * ponieważ /events jest streamem aktualnego stanu.
+         */
+        req.on(
+            "close",
+            () => {
 
                 clearInterval(heartbeat);
-                sseClients.delete(res);
+
+                sseClients.delete(client);
+
+                try {
+
+                    if (!res.writableEnded) {
+                        res.end();
+                    }
+
+                } catch (_) {}
             }
-
-        }, 15000);
-
-    heartbeat.unref?.();
-
-    req.on("close", () => {
-
-        clearInterval(heartbeat);
-        sseClients.delete(res);
-    });
-});
+        );
+    }
+);
 
 
-const sseInterval =
+/*
+ * ============================================================
+ * PERIODIC LIVE SYNC
+ * ============================================================
+ *
+ * To jest dodatkowa warstwa bezpieczeństwa.
+ *
+ * Nawet jeśli jakaś zmiana została wykonana przez moduł,
+ * którego nie obsłużyliśmy bezpośrednim broadcastem,
+ * wszystkie podłączone strony dostaną świeży snapshot.
+ *
+ * 1 sekunda = maksymalnie około 1 s opóźnienia w takim przypadku.
+ */
+
+const liveSyncInterval =
     setInterval(() => {
 
         if (sseClients.size === 0) {
             return;
         }
 
-        sendSSE(
-            "state",
-            getLiveState()
-        );
+        broadcastLiveState();
 
     }, 1000);
 
-sseInterval.unref?.();
+liveSyncInterval.unref?.();
 
 
 /*
  * ============================================================
  * INFO / BLOCKCHAIN
  * ============================================================
+ *
+ * /info zwraca TERAZ ten sam spójny snapshot co /state.
+ *
+ * Dzięki temu strona, która robi apiGet("/info"), nie zobaczy
+ * innego stanu niż strona korzystająca z SSE.
  */
 
-app.get("/info", (req, res) => {
+app.get(
+    "/info",
+    (req, res) => {
 
-    res.json(
-        blockchain.getInfo()
-    );
-});
-
-
-app.get("/blocks", (req, res) => {
-
-    let limit =
-        Number(req.query.limit);
-
-    if (!Number.isFinite(limit) || limit <= 0) {
-        limit = 20;
-    }
-
-    limit =
-        Math.min(
-            Math.floor(limit),
-            100
+        res.json(
+            getLiveState()
         );
+    }
+);
 
-    let before = null;
 
-    if (req.query.before !== undefined) {
+app.get(
+    "/blocks",
+    (req, res) => {
 
-        const parsed =
-            Number(req.query.before);
+        let limit =
+            Number(req.query.limit);
 
         if (
-            Number.isInteger(parsed) &&
-            parsed >= 0
+            !Number.isFinite(limit) ||
+            limit <= 0
         ) {
-            before = parsed;
+            limit = 20;
         }
-    }
 
-    res.json(
-        blockchain.getRecentBlocks(
-            limit,
-            before
-        )
-    );
-});
-
-
-app.get("/blocks/:height", (req, res) => {
-
-    const height =
-        Number(req.params.height);
-
-    if (
-        !Number.isInteger(height) ||
-        height < 0
-    ) {
-        return res.status(400).json({
-            error: "Nieprawidłowa wysokość bloku"
-        });
-    }
-
-    const block =
-        blockchain
-            .getChain()
-            .find(
-                (b) => b.height === height
+        limit =
+            Math.min(
+                Math.floor(limit),
+                100
             );
 
-    if (!block) {
+        let before = null;
 
-        return res.status(404).json({
-            error: "Blok nie znaleziony"
-        });
+        if (
+            req.query.before !== undefined
+        ) {
+
+            const parsed =
+                Number(req.query.before);
+
+            if (
+                Number.isInteger(parsed) &&
+                parsed >= 0
+            ) {
+                before = parsed;
+            }
+        }
+
+        res.json(
+            blockchain.getRecentBlocks(
+                limit,
+                before
+            )
+        );
     }
+);
 
-    res.json(block);
-});
+
+app.get(
+    "/blocks/:height",
+    (req, res) => {
+
+        const height =
+            Number(req.params.height);
+
+        if (
+            !Number.isInteger(height) ||
+            height < 0
+        ) {
+
+            return res.status(400).json({
+                error:
+                    "Nieprawidłowa wysokość bloku"
+            });
+        }
+
+        const block =
+            blockchain
+                .getChain()
+                .find(
+                    (b) =>
+                        b.height === height
+                );
+
+        if (!block) {
+
+            return res.status(404).json({
+                error:
+                    "Blok nie znaleziony"
+            });
+        }
+
+        res.json(block);
+    }
+);
 
 
 /*
@@ -380,26 +581,33 @@ app.get("/blocks/:height", (req, res) => {
  * ============================================================
  */
 
-app.get("/balance/:address", (req, res) => {
+app.get(
+    "/balance/:address",
+    (req, res) => {
 
-    const address =
-        req.params.address;
+        const address =
+            req.params.address;
 
-    const confirmed =
-        blockchain.getBalance(address);
+        const confirmed =
+            blockchain.getBalance(address);
 
-    const pending =
-        mempool.getPendingDelta
-            ? mempool.getPendingDelta(address)
-            : 0;
+        const pending =
+            mempool.getPendingDelta
+                ? mempool.getPendingDelta(address)
+                : 0;
 
-    res.json({
-        address,
-        balance: confirmed,
-        pendingAwareBalance:
-            confirmed + pending
-    });
-});
+        res.json({
+
+            address,
+
+            balance:
+                confirmed,
+
+            pendingAwareBalance:
+                confirmed + pending
+        });
+    }
+);
 
 
 /*
@@ -425,6 +633,12 @@ app.post(
                 .json(result);
         }
 
+        /*
+         * Mempool zmienił stan.
+         * Informujemy frontend natychmiast.
+         */
+        broadcastLiveState();
+
         res.json(result);
     }
 );
@@ -436,41 +650,49 @@ app.post(
  * ============================================================
  */
 
-app.get("/pool/status", (req, res) => {
+app.get(
+    "/pool/status",
+    (req, res) => {
 
-    const status =
-        pool.getStatus();
+        const status =
+            pool.getStatus();
 
-    const poolMiners =
-        Object.entries(
-            status.sharesThisRound || {}
-        ).map(([address, shares]) => ({
-            minerAddress: address,
-            shares,
-            source: "pool"
-        }));
+        const poolMiners =
+            Object.entries(
+                status.sharesThisRound || {}
+            ).map(([address, shares]) => ({
+                minerAddress:
+                    address,
 
-    const soloMiners =
-        soloTracker
-            .getActiveMiners()
-            .map((m) => ({
-                ...m,
-                source: "solo"
+                shares,
+
+                source:
+                    "pool"
             }));
 
-    res.json({
+        const soloMiners =
+            soloTracker
+                .getActiveMiners()
+                .map((m) => ({
+                    ...m,
+                    source:
+                        "solo"
+                }));
 
-        ...status,
+        res.json({
 
-        activeMiners: [
-            ...poolMiners,
-            ...soloMiners
-        ],
+            ...status,
 
-        soloHashrate:
-            soloTracker.getTotalHashrate()
-    });
-});
+            activeMiners: [
+                ...poolMiners,
+                ...soloMiners
+            ],
+
+            soloHashrate:
+                soloTracker.getTotalHashrate()
+        });
+    }
+);
 
 
 /*
@@ -479,60 +701,65 @@ app.get("/pool/status", (req, res) => {
  * ============================================================
  */
 
-app.get("/network/miners", (req, res) => {
+app.get(
+    "/network/miners",
+    (req, res) => {
 
-    const poolMiners =
-        blockchain
-            .storage
-            .getKnownPoolMiners()
-            .map((m) => ({
-                address:
-                    m.minerAddress,
+        const poolMiners =
+            blockchain
+                .storage
+                .getKnownPoolMiners()
+                .map((m) => ({
 
-                source:
-                    "pool",
+                    address:
+                        m.minerAddress,
 
-                totalEarned:
-                    m.totalCredits,
+                    source:
+                        "pool",
 
-                lastBlockHeight:
-                    m.lastBlockHeight,
+                    totalEarned:
+                        m.totalCredits,
 
-                roundsParticipated:
-                    m.roundsParticipated
-            }));
+                    lastBlockHeight:
+                        m.lastBlockHeight,
 
-    const soloMiners =
-        blockchain
-            .getSoloMiners()
-            .map((m) => ({
-                address:
-                    m.address,
+                    roundsParticipated:
+                        m.roundsParticipated
+                }));
 
-                source:
-                    "solo",
+        const soloMiners =
+            blockchain
+                .getSoloMiners()
+                .map((m) => ({
 
-                totalEarned:
-                    m.totalEarned,
+                    address:
+                        m.address,
 
-                lastBlockHeight:
-                    m.lastBlockHeight,
+                    source:
+                        "solo",
 
-                blocksFound:
-                    m.blocksFound
-            }));
+                    totalEarned:
+                        m.totalEarned,
 
-    const all = [
-        ...poolMiners,
-        ...soloMiners
-    ].sort(
-        (a, b) =>
-            b.lastBlockHeight -
-            a.lastBlockHeight
-    );
+                    lastBlockHeight:
+                        m.lastBlockHeight,
 
-    res.json(all);
-});
+                    blocksFound:
+                        m.blocksFound
+                }));
+
+        const all = [
+            ...poolMiners,
+            ...soloMiners
+        ].sort(
+            (a, b) =>
+                b.lastBlockHeight -
+                a.lastBlockHeight
+        );
+
+        res.json(all);
+    }
+);
 
 
 /*
@@ -541,45 +768,57 @@ app.get("/network/miners", (req, res) => {
  * ============================================================
  */
 
-app.get("/network/addresses", (req, res) => {
+app.get(
+    "/network/addresses",
+    (req, res) => {
 
-    res.json(
-        blockchain.getAddressStats()
-    );
-});
-
-
-app.get("/stats/new-addresses", (req, res) => {
-
-    let days =
-        Number(req.query.days);
-
-    if (!Number.isFinite(days) || days <= 0) {
-        days = 30;
-    }
-
-    days =
-        Math.min(
-            Math.floor(days),
-            90
+        res.json(
+            blockchain.getAddressStats()
         );
-
-    res.json(
-        blockchain
-            .storage
-            .getNewAddressesPerDay(days)
-    );
-});
+    }
+);
 
 
-app.get("/stats/active-addresses", (req, res) => {
+app.get(
+    "/stats/new-addresses",
+    (req, res) => {
 
-    res.json(
-        blockchain
-            .storage
-            .getActiveAddresses24h()
-    );
-});
+        let days =
+            Number(req.query.days);
+
+        if (
+            !Number.isFinite(days) ||
+            days <= 0
+        ) {
+            days = 30;
+        }
+
+        days =
+            Math.min(
+                Math.floor(days),
+                90
+            );
+
+        res.json(
+            blockchain
+                .storage
+                .getNewAddressesPerDay(days)
+        );
+    }
+);
+
+
+app.get(
+    "/stats/active-addresses",
+    (req, res) => {
+
+        res.json(
+            blockchain
+                .storage
+                .getActiveAddresses24h()
+        );
+    }
+);
 
 
 /*
@@ -588,12 +827,15 @@ app.get("/stats/active-addresses", (req, res) => {
  * ============================================================
  */
 
-app.get("/peers", (req, res) => {
+app.get(
+    "/peers",
+    (req, res) => {
 
-    res.json(
-        p2p.getStatus()
-    );
-});
+        res.json(
+            p2p.getStatus()
+        );
+    }
+);
 
 
 /*
@@ -602,12 +844,15 @@ app.get("/peers", (req, res) => {
  * ============================================================
  */
 
-app.get("/state", (req, res) => {
+app.get(
+    "/state",
+    (req, res) => {
 
-    res.json(
-        getLiveState()
-    );
-});
+        res.json(
+            getLiveState()
+        );
+    }
+);
 
 
 /*
@@ -630,8 +875,10 @@ app.post(
             secret !==
             bridgeTags.ADMIN_SECRET
         ) {
+
             return res.status(403).json({
-                error: "Zły sekret"
+                error:
+                    "Zły sekret"
             });
         }
 
@@ -640,6 +887,7 @@ app.post(
             typeof address !== "string" ||
             !address.includes(":")
         ) {
+
             return res.status(400).json({
                 error:
                     "Nieprawidłowy adres - oczekiwano formatu host:port"
@@ -648,8 +896,12 @@ app.post(
 
         p2p.connectToPeer(address);
 
+        broadcastLiveState();
+
         res.json({
-            ok: true,
+
+            ok:
+                true,
 
             message:
                 `Próba połączenia z ${address} rozpoczęta`
@@ -694,8 +946,10 @@ app.post(
             secret !==
             bridgeTags.ADMIN_SECRET
         ) {
+
             return res.status(403).json({
-                error: "Zły sekret"
+                error:
+                    "Zły sekret"
             });
         }
 
@@ -711,15 +965,21 @@ app.post(
                     note
                 });
 
+            broadcastLiveState();
+
             res.json({
-                ok: true,
+
+                ok:
+                    true,
+
                 tag
             });
 
         } catch (err) {
 
             res.status(400).json({
-                error: err.message
+                error:
+                    err.message
             });
         }
     }
@@ -791,15 +1051,21 @@ app.post(
                     targetSellerAddress
                 });
 
+            broadcastLiveState();
+
             res.json({
-                ok: true,
+
+                ok:
+                    true,
+
                 offer
             });
 
         } catch (err) {
 
             res.status(400).json({
-                error: err.message
+                error:
+                    err.message
             });
         }
     }
@@ -851,15 +1117,22 @@ app.post(
                     }
                 );
 
+            broadcastLiveState();
+
             res.json({
-                ok: true,
-                offer: updated
+
+                ok:
+                    true,
+
+                offer:
+                    updated
             });
 
         } catch (err) {
 
             res.status(400).json({
-                error: err.message
+                error:
+                    err.message
             });
         }
     }
@@ -905,15 +1178,22 @@ app.post(
                     offer.targetSellerAddress
                 );
 
+            broadcastLiveState();
+
             res.json({
-                ok: true,
-                offer: updated
+
+                ok:
+                    true,
+
+                offer:
+                    updated
             });
 
         } catch (err) {
 
             res.status(400).json({
-                error: err.message
+                error:
+                    err.message
             });
         }
     }
@@ -975,11 +1255,19 @@ app.post(
             !tx ||
             !tx.type
         ) {
+
             return res.status(400).json({
                 error:
                     "Brak typu transakcji"
             });
         }
+
+
+        /*
+         * ----------------------------------------------------
+         * HTLC_CREATE
+         * ----------------------------------------------------
+         */
 
         if (
             tx.type ===
@@ -1053,16 +1341,26 @@ app.post(
                 result &&
                 result.accepted === false
             ) {
+
                 return res
                     .status(400)
                     .json(result);
             }
 
+            broadcastLiveState();
+
             return res.json({
-                accepted: true
+                accepted:
+                    true
             });
         }
 
+
+        /*
+         * ----------------------------------------------------
+         * HTLC_CLAIM
+         * ----------------------------------------------------
+         */
 
         if (
             tx.type ===
@@ -1118,16 +1416,26 @@ app.post(
                 result &&
                 result.accepted === false
             ) {
+
                 return res
                     .status(400)
                     .json(result);
             }
 
+            broadcastLiveState();
+
             return res.json({
-                accepted: true
+                accepted:
+                    true
             });
         }
 
+
+        /*
+         * ----------------------------------------------------
+         * HTLC_REFUND
+         * ----------------------------------------------------
+         */
 
         if (
             tx.type ===
@@ -1180,13 +1488,17 @@ app.post(
                 result &&
                 result.accepted === false
             ) {
+
                 return res
                     .status(400)
                     .json(result);
             }
 
+            broadcastLiveState();
+
             return res.json({
-                accepted: true
+                accepted:
+                    true
             });
         }
 
@@ -1304,6 +1616,21 @@ app.post(
                 .json(result);
         }
 
+        /*
+         * Share zaakceptowany.
+         * Live powinien zobaczyć go natychmiast.
+         */
+        broadcastLiveState();
+
+
+        /*
+         * Jeżeli share znalazł prawdziwy blok,
+         * Pool powinien już przeprowadzić właściwe
+         * receiveBlock() zgodnie ze swoją logiką.
+         *
+         * Tutaj tylko rozsyłamy zaakceptowany blok P2P.
+         */
+
         if (
             result.blockFound &&
             result.block
@@ -1312,6 +1639,8 @@ app.post(
             p2p.broadcastNewBlock(
                 result.block
             );
+
+            broadcastLiveState();
         }
 
         res.json(result);
@@ -1424,6 +1753,12 @@ app.post(
             result.block
         );
 
+        /*
+         * Blok wszedł do chaina.
+         * Live dostaje go natychmiast.
+         */
+        broadcastLiveState();
+
         res.json({
 
             status:
@@ -1474,8 +1809,14 @@ app.post(
             intervalSeconds
         );
 
+        /*
+         * Hashrate/miner status zmienił się.
+         */
+        broadcastLiveState();
+
         res.json({
-            ok: true
+            ok:
+                true
         });
     }
 );
@@ -1593,8 +1934,62 @@ const server =
             console.log(
                 `ASERT halflife: ${CONFIG.ASERT_HALFLIFE_SECONDS}s`
             );
+
+            console.log(
+                `SSE: /events`
+            );
         }
     );
+
+
+/*
+ * ============================================================
+ * HTTP / SSE TIMEOUTS
+ * ============================================================
+ *
+ * SSE jest połączeniem długotrwałym.
+ *
+ * Nie chcemy, żeby Node zamykał stream zanim klient
+ * zdąży dostać kolejne heartbeat/eventy.
+ */
+
+server.requestTimeout = 0;
+
+server.timeout = 0;
+
+server.keepAliveTimeout =
+    300000;
+
+server.headersTimeout =
+    305000;
+
+
+/*
+ * ============================================================
+ * SOCKET KEEPALIVE
+ * ============================================================
+ */
+
+server.on(
+    "connection",
+    (socket) => {
+
+        try {
+
+            socket.setKeepAlive(
+                true,
+                10000
+            );
+
+        } catch (err) {
+
+            console.warn(
+                "Nie można ustawić TCP keepalive:",
+                err.message
+            );
+        }
+    }
+);
 
 
 /*
@@ -1618,55 +2013,92 @@ function shutdown(signal) {
         `Otrzymano ${signal} - zamykanie BitBudCoin...`
     );
 
+
+    /*
+     * Stop Live sync.
+     */
     clearInterval(
-        sseInterval
+        liveSyncInterval
     );
 
-    for (const res of sseClients) {
+
+    /*
+     * Zamknij wszystkie SSE.
+     */
+    for (const client of sseClients) {
 
         try {
-            res.end();
+
+            client.res.end();
+
         } catch (err) {}
     }
 
     sseClients.clear();
 
+
+    /*
+     * P2P.
+     */
     try {
+
         p2p.close();
+
     } catch (err) {
+
         console.error(
             "Błąd zamykania P2P:",
             err.message
         );
     }
 
+
+    /*
+     * Blockchain.
+     */
     try {
+
         blockchain.close();
+
     } catch (err) {
+
         console.error(
             "Błąd zamykania blockchain:",
             err.message
         );
     }
 
-    server.close(() => {
 
-        console.log(
-            "BitBudCoin API zamknięte."
-        );
+    /*
+     * HTTP server.
+     */
+    server.close(
+        () => {
 
-        process.exit(0);
-    });
+            console.log(
+                "BitBudCoin API zamknięte."
+            );
 
-    setTimeout(() => {
+            process.exit(0);
+        }
+    );
 
-        console.error(
-            "Wymuszone zamknięcie serwera."
-        );
 
-        process.exit(1);
+    /*
+     * Awaryjne zamknięcie.
+     */
+    setTimeout(
+        () => {
 
-    }, 10000).unref();
+            console.error(
+                "Wymuszone zamknięcie serwera."
+            );
+
+            process.exit(1);
+
+        },
+        10000
+    ).unref();
 }
 
 
@@ -1693,5 +2125,7 @@ module.exports = {
     blockchain,
     mempool,
     pool,
-    p2p
+    p2p,
+    getLiveState,
+    broadcastLiveState
 };
