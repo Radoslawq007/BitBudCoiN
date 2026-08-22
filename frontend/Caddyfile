@@ -1,4 +1,23 @@
-# Konfiguracja Caddy dla BitBudCoin - automatyczne, darmowe HTTPS (Let's Encrypt),
+141-147-98-57.sslip.io {
+    # BitBudCoin API / backend
+    reverse_proxy 127.0.0.1:5000
+
+    # Podstawowe nagłówki bezpieczeństwa
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Kompresja odpowiedzi
+    encode gzip zstd
+
+    # Log dostępu Caddy
+    log {
+        output file /var/log/caddy/bitbudcoin-access.log
+    }
+}# Konfiguracja Caddy dla BitBudCoin - automatyczne, darmowe HTTPS (Let's Encrypt),
 # bez ręcznego zarządzania certyfikatami.
 #
 # Instalacja Caddy: https://caddyserver.com/docs/install
