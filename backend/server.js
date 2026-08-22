@@ -108,7 +108,6 @@ app.get("/events", (req, res) => {
 
     sseClients.add(res);
 
-    // Od razu wysyłamy aktualny stan.
     try {
         res.write(
             `event: state\n` +
@@ -119,7 +118,6 @@ app.get("/events", (req, res) => {
         return;
     }
 
-    // Keep-alive.
     const heartbeat = setInterval(() => {
         try {
             res.write(`: heartbeat ${Date.now()}\n\n`);
@@ -135,7 +133,6 @@ app.get("/events", (req, res) => {
     });
 });
 
-// Aktualizacja LIVE co sekundę.
 setInterval(() => {
     if (sseClients.size === 0) return;
 
