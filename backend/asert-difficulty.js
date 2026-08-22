@@ -1,139 +1,107 @@
 "use strict";
 
 /*
- * BitBudCoin ASERT difficulty
+ * BitBudCoin vMax ASERT
  *
- * ASERTI3-2D adapted for BbC.
+ * aserti3-2d adapted for BbC.
  *
  * IMPORTANT:
  * - consensus arithmetic uses BigInt
- * - target is calculated as a 256-bit-style unsigned integer
- * - no floating point is used in the ASERT calculation itself
- * - the external BbC representation remains `difficulty`
- *
- * Reference:
- * Bitcoin Cash ASERTI3-2D specification.
+ * - exponent division uses truncation toward zero
+ * - no floating point arithmetic is used inside the ASERT calculation
+ * - target is calculated from the fixed vMax anchor
  */
 
 const RADIX = 1n << 16n;
 
-// ASERTI3-2D cubic approximation constants.
+/*
+ * Cubic approximation constants from aserti3-2d.
+ */
 const C1 = 195766423245049n;
 const C2 = 971821376n;
 const C3 = 5127n;
 const C4 = 1n << 47n;
 
 /*
- * Mathematical floor division.
+ * BigInt division in JavaScript truncates toward zero.
  *
- * Used only where explicitly required by BbC's integer representation.
- */
-function floorDiv(a, b) {
-    if (b <= 0n) {
-        throw new Error("floorDiv: divisor musi byc dodatni");
-    }
-
-    if (a >= 0n) {
-        return a / b;
-    }
-
-    return -((-a + b - 1n) / b);
-}
-
-/*
- * Truncating division toward zero.
+ * This is intentionally NOT floor division.
  *
- * ASERTI3-2D specifies trunc_div for the fixed-point exponent.
+ * ASERT specification requires:
+ *
+ * trunc_div(value, halflife)
  */
 function truncDiv(a, b) {
     if (b <= 0n) {
-        throw new Error("truncDiv: divisor musi byc dodatni");
+        throw new Error("ASERT: divisor musi byc dodatni");
     }
 
     return a / b;
 }
 
-/*
- * Convert BbC difficulty -> target.
- *
- * BbC internally stores difficulty as:
- *
- *     difficulty = MAX_TARGET / target
- *
- * The Number conversion happens ONLY at the API boundary.
- * The resulting target is BigInt.
- */
 function difficultyToTarget(difficulty, maxTarget) {
-    maxTarget = BigInt(maxTarget);
+    const d = BigInt(
+        Math.max(1, Math.trunc(Number(difficulty)))
+    );
 
-    if (maxTarget <= 0n) {
-        throw new Error("difficultyToTarget: maxTarget musi byc dodatni");
+    if (d <= 0n) {
+        return maxTarget;
     }
-
-    if (typeof difficulty === "bigint") {
-        if (difficulty <= 0n) return maxTarget;
-
-        const target = maxTarget / difficulty;
-        return target > 0n ? target : 1n;
-    }
-
-    if (
-        typeof difficulty !== "number" ||
-        !Number.isFinite(difficulty) ||
-        difficulty <= 0
-    ) {
-        throw new Error("difficultyToTarget: nieprawidlowa trudnosc");
-    }
-
-    const rounded = Math.max(1, Math.round(difficulty));
-    const d = BigInt(rounded);
 
     const target = maxTarget / d;
 
     return target > 0n ? target : 1n;
 }
 
-/*
- * Convert target -> BbC difficulty.
- *
- * Ceiling division is intentional:
- *
- *     ceil(MAX_TARGET / target)
- *
- * This prevents returning a difficulty that would correspond to
- * an easier-than-calculated target.
- */
 function targetToDifficulty(target, maxTarget) {
-    target = BigInt(target);
-    maxTarget = BigInt(maxTarget);
-
-    if (maxTarget <= 0n) {
-        throw new Error("targetToDifficulty: maxTarget musi byc dodatni");
-    }
-
     if (target <= 0n) {
         return Number(maxTarget);
     }
 
+    /*
+     * Ceiling division:
+     *
+     * ceil(maxTarget / target)
+     *
+     * Dzięki temu wynik nie tworzy łatwiejszego targetu
+     * niż target wyliczony przez ASERT.
+     */
     const difficulty =
         (maxTarget + target - 1n) / target;
 
-    return Number(difficulty > 0n ? difficulty : 1n);
+    return Number(
+        difficulty > 0n ? difficulty : 1n
+    );
 }
 
 /*
- * Calculate ASERT target for the block AFTER eval block.
- *
- * Parameters:
+ * ============================================================
+ * vMax ASERT
+ * ============================================================
  *
  * anchorHeight
+ *     wysokość bloku kotwicznego
+ *
  * anchorParentTime
+ *     timestamp rodzica kotwicy, sekundy
+ *
  * anchorDifficulty
+ *     difficulty bloku kotwicznego
+ *
  * evalHeight
+ *     wysokość aktualnego bloku
+ *
  * evalTime
+ *     timestamp aktualnego bloku, sekundy
+ *
  * idealBlockTime
+ *     480 sekund dla BbC
+ *
  * halflife
+ *     3600 sekund dla BbC
+ *
  * maxTarget
+ *     maksymalny target
  */
 function asertNextDifficulty({
     anchorHeight,
@@ -143,19 +111,40 @@ function asertNextDifficulty({
     evalTime,
     idealBlockTime,
     halflife,
-    maxTarget,
+    maxTarget
 }) {
     anchorHeight = BigInt(anchorHeight);
     anchorParentTime = BigInt(anchorParentTime);
+
+    anchorDifficulty = BigInt(
+        Math.max(
+            1,
+            Math.trunc(Number(anchorDifficulty))
+        )
+    );
+
     evalHeight = BigInt(evalHeight);
     evalTime = BigInt(evalTime);
+
     idealBlockTime = BigInt(idealBlockTime);
     halflife = BigInt(halflife);
     maxTarget = BigInt(maxTarget);
 
     if (anchorHeight <= 0n) {
         throw new Error(
-            "ASERT: anchorHeight musi byc wieksza od zera"
+            "ASERT: anchorHeight musi byc > 0"
+        );
+    }
+
+    if (anchorDifficulty <= 0n) {
+        throw new Error(
+            "ASERT: anchorDifficulty musi byc dodatnie"
+        );
+    }
+
+    if (evalHeight < anchorHeight) {
+        throw new Error(
+            "ASERT: evalHeight nie moze byc mniejsze od anchorHeight"
         );
     }
 
@@ -177,34 +166,26 @@ function asertNextDifficulty({
         );
     }
 
-    if (evalHeight < anchorHeight) {
-        throw new Error(
-            "ASERT: evalHeight nie moze byc mniejsza od anchorHeight"
-        );
-    }
-
     /*
      * Anchor target.
-     *
-     * BbC's anchor stores difficulty instead of compact nBits,
-     * therefore convert it to the equivalent integer target.
      */
     const anchorTarget =
-        difficultyToTarget(anchorDifficulty, maxTarget);
+        difficultyToTarget(
+            anchorDifficulty,
+            maxTarget
+        );
 
     /*
      * ASERT:
      *
      * exponent =
      *
-     *   ((timeDelta -
-     *     idealBlockTime * (heightDelta + 1))
-     *    * RADIX)
-     *   / halflife
+     * ((timeDelta -
+     *   idealBlockTime * (heightDelta + 1))
+     *   * RADIX)
+     * / halflife
      *
-     * IMPORTANT:
-     * This division is truncation toward zero, matching the
-     * ASERTI3-2D specification.
+     * Division = truncation toward zero.
      */
     const timeDelta =
         evalTime - anchorParentTime;
@@ -223,31 +204,25 @@ function asertNextDifficulty({
         );
 
     /*
-     * Equivalent to arithmetic:
+     * Arithmetic right shift.
      *
-     *     numShifts = exponent >> 16
-     *
-     * JavaScript BigInt >> performs arithmetic right shift
-     * for signed BigInts.
+     * BigInt >> is arithmetic for signed BigInt.
      */
     const numShifts =
         exponent >> 16n;
 
     /*
-     * Remaining fractional part.
-     *
-     * Must be in [0, 65535].
+     * Fractional part in [0, 65535].
      */
     const fractionalExponent =
         exponent -
         (numShifts << 16n);
 
-    const x = fractionalExponent;
+    const x =
+        fractionalExponent;
 
     /*
-     * Cubic approximation of 2^fraction.
-     *
-     * All operations remain BigInt.
+     * Cubic approximation of 2^x.
      */
     let factor =
         (
@@ -260,30 +235,29 @@ function asertNextDifficulty({
     factor += RADIX;
 
     /*
-     * nextTarget = anchorTarget * factor
+     * Multiply anchor target by fractional factor.
      */
     let nextTarget =
         anchorTarget * factor;
 
     /*
-     * Apply the integer power-of-two component.
-     *
-     * BigInt has arbitrary precision, so this avoids the overflow
-     * problem that exists with fixed-width integer implementations.
+     * Apply integer power-of-two component.
      */
     if (numShifts < 0n) {
-        nextTarget >>= -numShifts;
-    } else if (numShifts > 0n) {
-        nextTarget <<= numShifts;
+        nextTarget >>=
+            -numShifts;
+    } else {
+        nextTarget <<=
+            numShifts;
     }
 
     /*
-     * Remove the 16-bit fixed-point fractional component.
+     * Remove fixed-point fractional bits.
      */
     nextTarget >>= 16n;
 
     /*
-     * Clamp to valid target range.
+     * Clamp.
      */
     if (nextTarget <= 0n) {
         nextTarget = 1n;
@@ -293,10 +267,6 @@ function asertNextDifficulty({
         nextTarget = maxTarget;
     }
 
-    /*
-     * BbC blockchain currently exposes difficulty as Number,
-     * so convert only at the final boundary.
-     */
     return targetToDifficulty(
         nextTarget,
         maxTarget
@@ -307,6 +277,5 @@ module.exports = {
     asertNextDifficulty,
     difficultyToTarget,
     targetToDifficulty,
-    floorDiv,
-    truncDiv,
+    truncDiv
 };
