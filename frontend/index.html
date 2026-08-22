@@ -131,7 +131,11 @@
     </div>
 </div>
 
-<footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span> · <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a></footer>
+<footer>
+    <span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span>
+    ·
+    <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a>
+</footer>
 
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
@@ -142,41 +146,56 @@
 setActiveNav("nav-index");
 
 let lastHeight = null;
-let refreshTimer = null;
+let reconnectTimer = null;
 
 function updateIndex(info) {
     if (!info) return;
 
     const height = Number(info.height);
 
-    document.getElementById("hero-height").textContent =
-        fmtNumber(height, 0);
+    if (Number.isFinite(height)) {
+        document.getElementById("hero-height").textContent =
+            fmtNumber(height, 0);
 
-    document.getElementById("stat-supply").textContent =
-        fmtNumber(info.circulatingSupply) + " " + info.symbol;
+        if (lastHeight !== null && height > lastHeight) {
+            const hero = document.getElementById("hero-height");
 
-    document.getElementById("stat-reward").textContent =
-        fmtNumber(info.currentBlockReward) + " " + info.symbol;
+            hero.style.transform = "scale(1.06)";
+            hero.style.transition = "transform .2s ease";
 
-    document.getElementById("stat-difficulty").textContent =
-        fmtNumber(info.difficulty, 0);
+            setTimeout(() => {
+                hero.style.transform = "scale(1)";
+            }, 200);
+        }
 
-    if (lastHeight !== null && height > lastHeight) {
-        const hero = document.getElementById("hero-height");
-
-        hero.style.transform = "scale(1.06)";
-        hero.style.transition = "transform .2s ease";
-
-        setTimeout(() => {
-            hero.style.transform = "scale(1)";
-        }, 200);
+        lastHeight = height;
     }
 
-    lastHeight = height;
+    if (info.circulatingSupply !== undefined) {
+        document.getElementById("stat-supply").textContent =
+            fmtNumber(info.circulatingSupply) +
+            " " +
+            (info.symbol || "BbC");
+    }
+
+    if (info.currentBlockReward !== undefined) {
+        document.getElementById("stat-reward").textContent =
+            fmtNumber(info.currentBlockReward) +
+            " " +
+            (info.symbol || "BbC");
+    }
+
+    if (info.difficulty !== undefined) {
+        document.getElementById("stat-difficulty").textContent =
+            fmtNumber(info.difficulty, 0);
+    }
 }
 
+
 /*
- * Pierwszy odczyt natychmiast po wejściu.
+ * Pierwszy odczyt przez zwykłe API.
+ * Dzięki temu strona pokazuje dane natychmiast,
+ * nawet zanim SSE zdąży się połączyć.
  */
 async function loadInitial() {
     try {
@@ -188,39 +207,87 @@ async function loadInitial() {
     }
 }
 
-/*
- * Fallback:
- * jeśli SSE nie jest jeszcze w server.js, index nadal działa
- * i sprawdza /info co 3 sekundy.
- */
-function startPollingFallback() {
-    if (refreshTimer) return;
 
-    refreshTimer = setInterval(async () => {
+/*
+ * LIVE SSE
+ *
+ * server.js:
+ * GET /events
+ *
+ * Serwer wysyła event "state" z aktualnym stanem
+ * sieci bez potrzeby ciągłego fetchowania /info.
+ */
+function connectSSE() {
+    if (!window.EventSource) {
+        console.warn("Przeglądarka nie obsługuje SSE.");
+        startPollingFallback();
+        return;
+    }
+
+    const events = new EventSource("/events");
+
+    events.addEventListener("state", (event) => {
+        try {
+            const info = JSON.parse(event.data);
+            updateIndex(info);
+        } catch (e) {
+            console.error("Błąd parsowania SSE:", e);
+        }
+    });
+
+    events.onopen = () => {
+        console.log("BitBudCoin SSE: LIVE");
+        
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
+    };
+
+    events.onerror = () => {
+        console.warn("BitBudCoin SSE: połączenie utracone.");
+
+        events.close();
+
+        if (!reconnectTimer) {
+            reconnectTimer = setTimeout(() => {
+                reconnectTimer = null;
+                connectSSE();
+            }, 3000);
+        }
+    };
+}
+
+
+/*
+ * Fallback dla sytuacji, w której SSE nie przejdzie
+ * przez reverse proxy albo starszą przeglądarkę.
+ *
+ * Nie uruchamiamy go normalnie razem z SSE.
+ */
+let pollingStarted = false;
+
+function startPollingFallback() {
+    if (pollingStarted) return;
+
+    pollingStarted = true;
+
+    setInterval(async () => {
         try {
             const info = await apiGet("/info");
             updateIndex(info);
         } catch (e) {
             console.error("Błąd odświeżania /info:", e);
         }
-    }, 3000);
+    }, 5000);
 }
 
+
+/*
+ * START
+ */
 loadInitial();
-startPollingFallback();
-</script>stat-difficulty").textContent =
-            fmtNumber(info.difficulty, 0);
-
-    } catch (e) {
-        document.getElementById("hero-height").textContent = "—";
-    }
-}
-
-/* Pierwsze pobranie natychmiast po załadowaniu strony */
-load();
-
-/* Aktualizacja danych sieci co 5 sekund */
-setInterval(load, 5000);
+connectSSE();
 </script>
 
 </body>
