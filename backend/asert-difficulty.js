@@ -1,261 +1,81 @@
 "use strict";
 
-const MAX_TARGET = (1n << 256n) - 1n;
+/*
+ * BitBudCoin ASERT difficulty
+ *
+ * ASERTI3-2D adapted for BbC's internal representation:
+ *
+ *   difficulty = MAX_TARGET / target
+ *
+ * Consensus calculation itself uses BigInt only.
+ * No floating-point arithmetic is used inside ASERT.
+ *
+ * The anchor is the LAST block mined under the old DAA.
+ * Its parent timestamp is used as ASERT's reference timestamp.
+ */
 
-const RADIX = 65536n;
-const RADIX_BITS = 16n;
+const RADIX = 1n << 16n;
 
-const IDEAL_BLOCK_TIME = 600n;
-const DEFAULT_HALFLIFE = 172800n;
-
-// ASERT aserti3-2d polynomial constants.
+// Cubic approximation constants from aserti3-2d.
 const C1 = 195766423245049n;
 const C2 = 971821376n;
 const C3 = 5127n;
 const C4 = 1n << 47n;
 
-
-/*
- * BigInt division w JS obcina w kierunku zera.
- *
- * ASERT wymaga truncating division dla exponentu.
- */
-function truncDiv(a, b) {
-    if (b === 0n) {
-        throw new Error("ASERT: dzielenie przez zero");
+function floorDiv(a, b) {
+    if (b <= 0n) {
+        throw new Error("floorDiv: divisor musi byc dodatni");
     }
 
-    const negative = (a < 0n) !== (b < 0n);
-    const aa = a < 0n ? -a : a;
-    const bb = b < 0n ? -b : b;
+    if (a >= 0n) {
+        return a / b;
+    }
 
-    const result = aa / bb;
-
-    return negative ? -result : result;
+    return -((-a + b - 1n) / b);
 }
 
+function difficultyToTarget(difficulty, maxTarget) {
+    const d = BigInt(Math.max(1, Math.round(Number(difficulty))));
 
-/*
- * ASERT liczy target następnego bloku bez floating point.
- *
- * anchorTarget:
- *   rzeczywisty 256-bitowy target kotwicy.
- *
- * evalHeight/evalTime:
- *   aktualnie zaakceptowany blok.
- */
-function asertNextTarget({
-    anchorHeight,
-    anchorParentTime,
-    anchorTarget,
-    evalHeight,
-    evalTime,
-    idealBlockTime = IDEAL_BLOCK_TIME,
-    halflife = DEFAULT_HALFLIFE,
-    maxTarget = MAX_TARGET,
-}) {
-    anchorHeight = BigInt(anchorHeight);
-    anchorParentTime = BigInt(anchorParentTime);
-    anchorTarget = BigInt(anchorTarget);
-    evalHeight = BigInt(evalHeight);
-    evalTime = BigInt(evalTime);
-    idealBlockTime = BigInt(idealBlockTime);
-    halflife = BigInt(halflife);
-    maxTarget = BigInt(maxTarget);
-
-    if (anchorHeight <= 0n) {
-        throw new Error("ASERT: anchorHeight musi byc > 0");
-    }
-
-    if (evalHeight < anchorHeight) {
-        throw new Error("ASERT: evalHeight < anchorHeight");
-    }
-
-    if (anchorTarget <= 0n || anchorTarget > maxTarget) {
-        throw new Error("ASERT: nieprawidlowy anchorTarget");
-    }
-
-    if (idealBlockTime <= 0n) {
-        throw new Error("ASERT: nieprawidlowy idealBlockTime");
-    }
-
-    if (halflife <= 0n) {
-        throw new Error("ASERT: nieprawidlowy halflife");
-    }
-
-    /*
-     * timeDelta:
-     *
-     * czas aktualnego bloku
-     * minus czas rodzica kotwicy.
-     */
-    const timeDelta =
-        evalTime - anchorParentTime;
-
-    /*
-     * heightDelta:
-     *
-     * aktualna wysokosc
-     * minus wysokosc kotwicy.
-     */
-    const heightDelta =
-        evalHeight - anchorHeight;
-
-    /*
-     * KLUCZOWY WZÓR ASERT:
-     *
-     * exponent =
-     *
-     * ((timeDelta -
-     *   idealBlockTime * (heightDelta + 1))
-     *   * RADIX)
-     * / halflife
-     *
-     * Całość musi być integerowa.
-     */
-    const scheduleError =
-        timeDelta -
-        idealBlockTime * (heightDelta + 1n);
-
-    let exponent =
-        truncDiv(
-            scheduleError * RADIX,
-            halflife
-        );
-
-    /*
-     * exponent = integer part + fractional part.
-     *
-     * Arithmetic right shift jest wymagany dla liczb ujemnych.
-     */
-    const numShifts =
-        exponent >> RADIX_BITS;
-
-    exponent =
-        exponent -
-        numShifts * RADIX;
-
-
-    /*
-     * Polynomial approximation:
-     *
-     * 2^(fraction)
-     */
-    const exponentSquared =
-        exponent * exponent;
-
-    const exponentCubed =
-        exponentSquared * exponent;
-
-    const factor =
-        (
-            (
-                C1 * exponent +
-                C2 * exponentSquared +
-                C3 * exponentCubed +
-                C4
-            ) >> 48n
-        ) + RADIX;
-
-
-    /*
-     * anchorTarget * factor
-     */
-    let nextTarget =
-        anchorTarget * factor;
-
-
-    /*
-     * Potega całkowita 2^numShifts.
-     */
-    if (numShifts < 0n) {
-        const shift = -numShifts;
-
-        /*
-         * Jeżeli przesunięcie jest większe niż zakres
-         * 256-bitowego targetu, wynik będzie 0.
-         */
-        if (shift >= 512n) {
-            return 1n;
-        }
-
-        nextTarget >>= shift;
-    } else if (numShifts > 0n) {
-        /*
-         * BigInt może rozszerzać się dowolnie,
-         * więc nie ma overflow jak przy uint256.
-         */
-        nextTarget <<= numShifts;
-    }
-
-    /*
-     * Usunięcie części fixed-point.
-     */
-    nextTarget >>= RADIX_BITS;
-
-
-    /*
-     * Konsensusowe granice.
-     */
-    if (nextTarget <= 0n) {
-        return 1n;
-    }
-
-    if (nextTarget > maxTarget) {
+    if (d <= 0n) {
         return maxTarget;
     }
 
-    return nextTarget;
+    const target = maxTarget / d;
+
+    return target > 0n ? target : 1n;
 }
 
-
-/*
- * Zamiana starego modelu difficulty -> target.
- *
- * Ta funkcja istnieje dla kompatybilności z obecnym
- * blockchainem.
- *
- * Docelowo consensus powinien przechowywać TARGET,
- * nie difficulty jako Number.
- */
-function difficultyToTarget(difficulty, maxTarget = MAX_TARGET) {
-    const d = BigInt(
-        Math.max(
-            1,
-            Math.round(Number(difficulty))
-        )
-    );
-
-    return maxTarget / d;
-}
-
-
-/*
- * Target -> difficulty.
- *
- * TYLKO UI / API / statystyki.
- *
- * Nie używać jako wartości konsensusowej.
- */
-function targetToDifficulty(target, maxTarget = MAX_TARGET) {
-    target = BigInt(target);
-    maxTarget = BigInt(maxTarget);
-
+function targetToDifficulty(target, maxTarget) {
     if (target <= 0n) {
-        throw new Error("ASERT: target <= 0");
+        return Number(maxTarget);
     }
 
-    return Number(maxTarget / target);
+    /*
+     * BbC internally represents difficulty as a Number.
+     * The consensus target calculation remains BigInt.
+     *
+     * Ceiling is important here: using floor could make the resulting
+     * difficulty slightly easier than the calculated target.
+     */
+    const difficulty = (maxTarget + target - 1n) / target;
+
+    return Number(difficulty > 0n ? difficulty : 1n);
 }
 
-
 /*
- * Wrapper zachowujący obecne API:
+ * Calculate ASERT target for the block AFTER currentBlock.
  *
- * asertNextDifficulty(...)
+ * Parameters:
  *
- * Dzięki temu obecny bbcblockchain.js nie musi
- * zostać rozwalony jednym ruchem.
+ * anchorHeight       = height of ASERT anchor block
+ * anchorParentTime   = timestamp of anchor's parent, seconds
+ * anchorDifficulty   = difficulty of anchor block
+ * evalHeight         = current block height
+ * evalTime           = current block timestamp, seconds
+ * idealBlockTime     = target interval, seconds
+ * halflife           = ASERT half-life, seconds
+ * maxTarget           = maximum allowed target
  */
 function asertNextDifficulty({
     anchorHeight,
@@ -263,75 +83,116 @@ function asertNextDifficulty({
     anchorDifficulty,
     evalHeight,
     evalTime,
-    idealBlockTime = IDEAL_BLOCK_TIME,
-    halflife = DEFAULT_HALFLIFE,
-    maxTarget = MAX_TARGET,
+    idealBlockTime,
+    halflife,
+    maxTarget,
 }) {
-    const anchorTarget =
-        difficultyToTarget(
-            anchorDifficulty,
-            maxTarget
-        );
+    anchorHeight = BigInt(anchorHeight);
+    anchorParentTime = BigInt(anchorParentTime);
+    anchorDifficulty = BigInt(
+        Math.max(1, Math.round(Number(anchorDifficulty)))
+    );
+    evalHeight = BigInt(evalHeight);
+    evalTime = BigInt(evalTime);
+    idealBlockTime = BigInt(idealBlockTime);
+    halflife = BigInt(halflife);
+    maxTarget = BigInt(maxTarget);
 
-    const nextTarget =
-        asertNextTarget({
-            anchorHeight,
-            anchorParentTime,
-            anchorTarget,
-            evalHeight,
-            evalTime,
-            idealBlockTime,
-            halflife,
-            maxTarget,
-        });
+    if (anchorDifficulty <= 0n) {
+        throw new Error("ASERT: anchorDifficulty musi byc dodatnie");
+    }
 
-    return targetToDifficulty(
-        nextTarget,
+    if (idealBlockTime <= 0n) {
+        throw new Error("ASERT: idealBlockTime musi byc dodatni");
+    }
+
+    if (halflife <= 0n) {
+        throw new Error("ASERT: halflife musi byc dodatni");
+    }
+
+    if (maxTarget <= 0n) {
+        throw new Error("ASERT: maxTarget musi byc dodatni");
+    }
+
+    const anchorTarget = difficultyToTarget(
+        anchorDifficulty,
         maxTarget
     );
-}
 
+    /*
+     * ASERT:
+     *
+     * exponent =
+     *   (timeDelta - idealBlockTime * (heightDelta + 1))
+     *   / halflife
+     *
+     * The division MUST be mathematical floor division.
+     */
+    const timeDelta = evalTime - anchorParentTime;
+    const heightDelta = evalHeight - anchorHeight;
 
-/*
- * Bezpośredni test PoW:
- *
- * hash <= target
- */
-function hashMeetsTarget(hashHex, target) {
-    if (
-        typeof hashHex !== "string" ||
-        !/^[0-9a-fA-F]{64}$/.test(hashHex)
-    ) {
-        return false;
+    const rawExponent =
+        timeDelta -
+        idealBlockTime * (heightDelta + 1n);
+
+    const exponent =
+        floorDiv(rawExponent << 16n, halflife);
+
+    /*
+     * Separate integer shift and fractional 16-bit part.
+     *
+     * Arithmetic shift is required for negative values.
+     */
+    const numShifts = exponent >> 16n;
+
+    const fractionalExponent =
+        exponent - (numShifts << 16n);
+
+    /*
+     * Cubic approximation of 2^x for x in [0,1).
+     */
+    const x = fractionalExponent;
+
+    let factor =
+        (
+            C1 * x +
+            C2 * x * x +
+            C3 * x * x * x +
+            C4
+        ) >> 48n;
+
+    factor += RADIX;
+
+    let nextTarget = anchorTarget * factor;
+
+    /*
+     * Apply integer power-of-two shift.
+     */
+    if (numShifts < 0n) {
+        nextTarget >>= -numShifts;
+    } else {
+        nextTarget <<= numShifts;
     }
 
-    target = BigInt(target);
+    nextTarget >>= 16n;
 
-    if (
-        target <= 0n ||
-        target > MAX_TARGET
-    ) {
-        return false;
+    /*
+     * Clamp to valid target range.
+     */
+    if (nextTarget <= 0n) {
+        nextTarget = 1n;
     }
 
-    const hash =
-        BigInt("0x" + hashHex);
+    if (nextTarget > maxTarget) {
+        nextTarget = maxTarget;
+    }
 
-    return hash <= target;
+    return targetToDifficulty(nextTarget, maxTarget);
 }
-
 
 module.exports = {
-    MAX_TARGET,
-    RADIX,
-    IDEAL_BLOCK_TIME,
-    DEFAULT_HALFLIFE,
-
-    asertNextTarget,
     asertNextDifficulty,
-
     difficultyToTarget,
     targetToDifficulty,
-
-    hashMeetsTarget,
+    floorDiv,
 };
