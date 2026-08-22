@@ -141,20 +141,74 @@
 <script>
 setActiveNav("nav-index");
 
-async function load() {
+let lastHeight = null;
+let refreshTimer = null;
+
+function updateIndex(info) {
+    if (!info) return;
+
+    const height = Number(info.height);
+
+    document.getElementById("hero-height").textContent =
+        fmtNumber(height, 0);
+
+    document.getElementById("stat-supply").textContent =
+        fmtNumber(info.circulatingSupply) + " " + info.symbol;
+
+    document.getElementById("stat-reward").textContent =
+        fmtNumber(info.currentBlockReward) + " " + info.symbol;
+
+    document.getElementById("stat-difficulty").textContent =
+        fmtNumber(info.difficulty, 0);
+
+    if (lastHeight !== null && height > lastHeight) {
+        const hero = document.getElementById("hero-height");
+
+        hero.style.transform = "scale(1.06)";
+        hero.style.transition = "transform .2s ease";
+
+        setTimeout(() => {
+            hero.style.transform = "scale(1)";
+        }, 200);
+    }
+
+    lastHeight = height;
+}
+
+/*
+ * Pierwszy odczyt natychmiast po wejściu.
+ */
+async function loadInitial() {
     try {
         const info = await apiGet("/info");
+        updateIndex(info);
+    } catch (e) {
+        console.error("Nie można pobrać /info:", e);
+        document.getElementById("hero-height").textContent = "—";
+    }
+}
 
-        document.getElementById("hero-height").textContent =
-            fmtNumber(info.height, 0);
+/*
+ * Fallback:
+ * jeśli SSE nie jest jeszcze w server.js, index nadal działa
+ * i sprawdza /info co 3 sekundy.
+ */
+function startPollingFallback() {
+    if (refreshTimer) return;
 
-        document.getElementById("stat-supply").textContent =
-            fmtNumber(info.circulatingSupply) + " " + info.symbol;
+    refreshTimer = setInterval(async () => {
+        try {
+            const info = await apiGet("/info");
+            updateIndex(info);
+        } catch (e) {
+            console.error("Błąd odświeżania /info:", e);
+        }
+    }, 3000);
+}
 
-        document.getElementById("stat-reward").textContent =
-            fmtNumber(info.currentBlockReward) + " " + info.symbol;
-
-        document.getElementById("stat-difficulty").textContent =
+loadInitial();
+startPollingFallback();
+</script>stat-difficulty").textContent =
             fmtNumber(info.difficulty, 0);
 
     } catch (e) {
