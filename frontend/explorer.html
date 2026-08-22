@@ -314,6 +314,21 @@ document.getElementById("search-input").addEventListener("keydown", (e) => {
 loadInitial();
 document.addEventListener("bbc:langchange", loadInitial);
 setTimeout(pollForNewBlocks, 12000);
+
+// NAPRAWA (dzisiaj, mniejsza): pasek statystyk czekal az do 12s (cykl
+// odpytywania listy blokow), zamiast reagowac od razu jak naglowek i
+// inne strony. Lista blokow zostaje NIETKNIETA - jej wlasna logika
+// (dokladanie nowych, ciche ponawianie) juz dzialala dobrze, nie ma
+// powodu jej ruszac. To tylko dodatkowe, szybsze zrodlo dla samego paska.
+if (typeof BBCLiveState !== "undefined") {
+    BBCLiveState.subscribe(({ state, live }) => {
+        if (!state) return;
+        const warn = live ? "" : " ⚠️";
+        document.getElementById("stat-height").textContent = "#" + fmtNumber(state.height, 0) + warn;
+        document.getElementById("stat-difficulty").textContent = fmtNumber(state.difficulty, 0);
+    });
+    BBCLiveState.init();
+}
 </script>
 </body>
 </html>
