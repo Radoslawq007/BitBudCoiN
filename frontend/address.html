@@ -35,10 +35,13 @@ setActiveNav("nav-address");
 
 function badgeFor(type) { return `<span class="badge ${type}">${type}</span>`; }
 
-async function search(address) {
+let currentAddress = null;
+let refreshTimer = null;
+
+async function search(address, isAutoRefresh = false) {
     const result = document.getElementById("result");
     if (!address) return;
-    result.innerHTML = '<div class="skeleton" style="height:120px; border-radius:12px;"></div>';
+    if (!isAutoRefresh) result.innerHTML = '<div class="skeleton" style="height:120px; border-radius:12px;"></div>';
 
     try {
         const [balance, txs] = await Promise.all([
@@ -68,8 +71,19 @@ async function search(address) {
                     </tbody>
                 </table>
             </div>`;
+
+        currentAddress = address;
+        // NAPRAWA (dzisiaj): strona nigdy sie sama nie odswiezala, mimo
+        // ze ktos moze zostac na niej czekajac na wplate. Teraz szuka
+        // ponownie co 15s TEGO SAMEGO adresu, w tle, bez czyszczenia
+        // ekranu do szkieletu przy kazdym cyklu (isAutoRefresh=true).
+        if (refreshTimer) clearInterval(refreshTimer);
+        refreshTimer = setInterval(() => search(currentAddress, true), 15000);
     } catch (e) {
-        result.innerHTML = `<div class="error-banner">${escapeHtml(e.message)}</div>`;
+        // NAPRAWA: przy automatycznym odswiezeniu w tle NIE czyscimy
+        // juz pokazanych, dobrych danych - tylko przy pierwszym, recznym
+        // wyszukaniu blad ma sens pokazac (nie ma jeszcze niczego do zachowania).
+        if (!isAutoRefresh) result.innerHTML = `<div class="error-banner">${escapeHtml(e.message)}</div>`;
     }
 }
 
