@@ -552,3 +552,168 @@ console.log(
     "BitBudCoin SSE:",
     BBC_EVENTS_URL
 );
+
+
+// =====================================================
+// BitBudCoin — odporny klient stanu na żywo (BBCLiveState)
+// =====================================================
+//
+// Jeden, wspólny mechanizm dla WSZYSTKICH 16 stron (już ładują
+// api.js). Cel: strona nigdy nie pokazuje pustego ekranu ani
+// "Failed to fetch" — zawsze ostatni znany dobry stan, plus jasna
+// informacja czy dane są żywe czy z awaryjnego cache.
+//
+// Kolejność źródeł:
+//   1. SSE (/events)   - główne źródło, push w czasie rzeczywistym
+//   2. REST (/state)   - fallback co 10s, gdy SSE nie działa
+//   3. Ostatni znany dobry stan w pamięci - gdy oba wyżej zawiodą
+//
+// Zero peerów, zero górników to POPRAWNY stan danych (puste tablice,
+// zera), NIE błąd — nie jest tu w żaden sposób traktowany inaczej niż
+// każdy inny stan.
+//
+// Użycie na stronie:
+//
+//   BBCLiveState.init();
+//   BBCLiveState.subscribe(({ state, live, lastGoodAt }) => {
+//       document.querySelector("#height").textContent = state.height;
+//       document.querySelector("#status").textContent =
+//           live ? "🟢 na żywo" : "⚠️ ostatnia synchronizacja: " + new Date(lastGoodAt).toLocaleTimeString();
+//   });
+//
+// =====================================================
+
+const BBCLiveState = (() => {
+    let currentState = null;
+    let lastGoodAt = null;
+    let live = false;
+    const listeners = new Set();
+
+    let eventSource = null;
+    let pollTimer = null;
+    let reconnectTimer = null;
+    let pollIntervalMs = 10000;
+    let started = false;
+
+    function notify() {
+        const snapshot = { state: currentState, lastGoodAt, live };
+        for (const fn of listeners) {
+            try {
+                fn(snapshot);
+            } catch (err) {
+                // błąd w jednym subskrybencie nie może zepsuć reszty
+                console.error("BBCLiveState: błąd w subskrybencie:", err);
+            }
+        }
+    }
+
+    function applyGoodState(newState, isLive) {
+        currentState = newState;
+        lastGoodAt = Date.now();
+        live = isLive;
+        notify();
+    }
+
+    // Dostępne, nawet gdy nic świeżego nie przyszło - UI może pokazać
+    // baner "połączenie chwilowo niedostępne", nie czyścić ekranu.
+    function markDegraded() {
+        live = false;
+        notify();
+    }
+
+    async function pollOnce() {
+        try {
+            const data = await apiGet("/state");
+            applyGoodState(data, false); // false = to fallback REST, nie SSE push
+        } catch (err) {
+            markDegraded();
+        }
+    }
+
+    function startPolling() {
+        if (pollTimer) return;
+        pollOnce();
+        pollTimer = setInterval(pollOnce, pollIntervalMs);
+    }
+
+    function stopPolling() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+    }
+
+    function scheduleReconnect() {
+        if (reconnectTimer) return;
+        reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            connectSSE();
+        }, 5000);
+    }
+
+    function connectSSE() {
+        if (!window.EventSource) {
+            startPolling();
+            return;
+        }
+
+        try {
+            eventSource = createBBCEventSource();
+        } catch (err) {
+            startPolling();
+            return;
+        }
+
+        eventSource.addEventListener("state", (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                stopPolling(); // SSE żyje - fallback nie jest już potrzebny
+                applyGoodState(data, true);
+            } catch (err) {
+                // pojedyncza zła ramka SSE - ignoruj, czekaj na następną
+            }
+        });
+
+        eventSource.onopen = () => {
+            stopPolling();
+        };
+
+        eventSource.onerror = () => {
+            // SSE padło - awaryjnie REST, ale połączenie samo próbuje
+            // się odbudować (natywne zachowanie EventSource), więc nie
+            // tworzymy tu duplikatu przez ręczne reconnect w kółko.
+            markDegraded();
+            startPolling();
+        };
+    }
+
+    function init(options = {}) {
+        if (started) return; // bezpieczne przy wielokrotnym wywołaniu z tej samej strony
+        started = true;
+        if (options.pollIntervalMs) pollIntervalMs = options.pollIntervalMs;
+
+        // Natychmiastowy pierwszy odczyt przez REST - nie czekamy na
+        // pierwszy event SSE, żeby strona miała dane od razu przy starcie.
+        pollOnce().then(() => connectSSE());
+    }
+
+    function subscribe(fn) {
+        listeners.add(fn);
+        if (currentState) {
+            try {
+                fn({ state: currentState, lastGoodAt, live });
+            } catch (err) {}
+        }
+        return () => listeners.delete(fn);
+    }
+
+    return {
+        init,
+        subscribe,
+        getState: () => currentState,
+        getLastGoodAt: () => lastGoodAt,
+        isLive: () => live,
+    };
+})();
+
+window.BBCLiveState = BBCLiveState;
