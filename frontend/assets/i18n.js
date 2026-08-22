@@ -1,16 +1,42 @@
-// System wielojęzyczności BitBudCoin. Działa na KAŻDEJ stronie, która wczyta
-// ten plik - sam dokłada przełącznik do menu i tłumaczy elementy oznaczone
-// atrybutem data-i18n="klucz". Strony bez takich atrybutów po prostu nie mają
-// jeszcze nic do przetłumaczenia (przełącznik i tak się pojawi, bezpiecznie).
+/* ============================================================
+   BitBudCoin i18n
+   PL / EN
+   Jeden system tłumaczeń dla całej strony.
+   ============================================================ */
+
+"use strict";
+
+/* ============================================================
+   TRANSLATIONS
+   ============================================================ */
 
 const translations = {
+
+    /* ========================================================
+       POLSKI
+       ======================================================== */
+
     pl: {
-        nav_dashboard: "Dashboard", nav_explorer: "Explorer", nav_mining: "Kopanie",
-        nav_network: "Sieć", nav_peers: "Peery", nav_exchange: "Giełda",
-        nav_address: "Adres", nav_docs: "Docs", nav_wallet: "Portfel",
+
+        /* NAV */
+
+        nav_dashboard: "Dashboard",
+        nav_explorer: "Explorer",
+        nav_mining: "Kopanie",
+        nav_network: "Sieć",
+        nav_peers: "Peery",
+        nav_exchange: "Giełda",
+        nav_address: "Adres",
+        nav_docs: "Docs",
+        nav_wallet: "Portfel",
+        nav_swap: "Kup BbC",
+        nav_family: "Rodzina BbC",
+
+        /* COMMON */
 
         footer_text: "BitBudCoin (BbC) · sieć proof-of-work",
         footer_docs_link: "dokumentacja",
+
         common_blocks_suffix: "bloków",
         common_backend_error: "Nie można połączyć się z backendem",
         common_error_prefix: "błąd",
@@ -21,26 +47,44 @@ const translations = {
         common_pool_label: "pula",
         common_solo_label: "solo",
         common_last_block: "ostatnio blok",
+
         time_now: "teraz",
         time_s_ago: "s temu",
         time_m_ago: "m temu",
         time_h_ago: "h temu",
         time_d_ago: "d temu",
 
+        /* INDEX */
+
         index_kicker: "proof-of-work · sieć BbC",
         index_sub: "bloków wykopanych od genesis",
         index_view_explorer_btn: "Zobacz explorer",
+
         index_stat_supply: "Podaż w obiegu",
         index_stat_reward: "Aktualna nagroda",
         index_stat_difficulty: "Trudność",
+
         index_about_heading: "Czym jest BitBudCoin?",
-        index_about_text: "BbC to niezależna sieć blockchain z klasycznym proof-of-work (SHA-256), premine'em założycielskim, halvingiem nagrody co 210 000 bloków i twardym pułapem podaży. Kopać można solo albo w puli — u siebie liczysz hashe, a sieć weryfikuje i zapisuje wynik. Cały ruch (przelewy, blokowanie, salda) idzie przez podpisy Ed25519, więc nikt poza właścicielem klucza prywatnego nie rusza jego środków.",
-        index_card_mining_desc: "Solo albo w puli, z realnym udziałem w nagrodzie proporcjonalnym do zgłoszonych shares.",
+
+        index_about_text:
+            "BbC to niezależna sieć blockchain z klasycznym proof-of-work (SHA-256), premine'em założycielskim, halvingiem nagrody co 210 000 bloków i twardym pułapem podaży. Kopać można solo albo w puli — u siebie liczysz hashe, a sieć weryfikuje i zapisuje wynik. Cały ruch (przelewy, blokowanie, salda) idzie przez podpisy Ed25519, więc nikt poza właścicielem klucza prywatnego nie rusza jego środków.",
+
+        index_card_mining_desc:
+            "Solo albo w puli, z realnym udziałem w nagrodzie proporcjonalnym do zgłoszonych shares.",
+
         index_card_mining_link: "Zobacz jak →",
-        index_card_explorer_desc: "Każdy blok, każda transakcja, jawnie i do sprawdzenia w dowolnej chwili.",
+
+        index_card_explorer_desc:
+            "Każdy blok, każda transakcja, jawnie i do sprawdzenia w dowolnej chwili.",
+
         index_card_explorer_link: "Przeglądaj →",
-        index_card_wallet_desc: "Sprawdź saldo dowolnego adresu i historię jego transakcji.",
+
+        index_card_wallet_desc:
+            "Sprawdź saldo dowolnego adresu i historię jego transakcji.",
+
         index_card_wallet_link: "Sprawdź adres →",
+
+        /* DASHBOARD */
 
         dashboard_h1: "Dashboard sieci",
         dashboard_height: "Wysokość",
@@ -48,41 +92,95 @@ const translations = {
         dashboard_block_reward: "Nagroda za blok",
         dashboard_next_halving: "Do następnego halvingu",
         dashboard_next_retarget: "Do przeliczenia trudności",
+
         dashboard_recent_blocks: "Ostatnie bloki",
         dashboard_th_when: "Kiedy",
         dashboard_th_hash: "Hash",
         dashboard_full_explorer_link: "Pełny explorer →",
+
         dashboard_pool_heading: "Pula kopania",
         dashboard_join_mining_link: "Dołącz do kopania →",
-        dashboard_invalid_chain: "Węzeł zgłasza niepoprawny łańcuch lokalny — sprawdź logi serwera.",
-        dashboard_no_blocks: "Brak bloków poza genesis",
+
+        dashboard_invalid_chain:
+            "Węzeł zgłasza niepoprawny łańcuch lokalny — sprawdź logi serwera.",
+
+        dashboard_no_blocks:
+            "Brak bloków poza genesis",
+
         dashboard_share_diff: "Trudność share",
         dashboard_shares_round: "Shares w tej rundzie",
         dashboard_pool_fee: "Opłata puli",
+
         dashboard_addresses_heading: "Adresy w sieci",
         dashboard_total_addresses: "Łącznie znanych adresów",
         dashboard_whales_heading: "Wieloryby (najwięcej BbC)",
         dashboard_newest_heading: "Najnowsze adresy",
         dashboard_since_block: "od bloku",
 
+        /* EXPLORER */
+
         explorer_h1: "Dziennik łańcucha",
-        explorer_intro: "Każdy wykopany blok to prawdziwa chwila czyjejś pracy. Kliknij wpis, żeby zobaczyć pełne transakcje.",
+
+        explorer_intro:
+            "Każdy wykopany blok to prawdziwa chwila czyjejś pracy. Kliknij wpis, żeby zobaczyć pełne transakcje.",
+
         explorer_load_more_btn: "Wczytaj starsze bloki",
-        explorer_story_genesis: "Początek. Pierwszy blok tego łańcucha, zapisany na stałe — {amount} BbC rozdane na start.",
+
+        explorer_story_genesis:
+            "Początek. Pierwszy blok tego łańcucha, zapisany na stałe — {amount} BbC rozdane na start.",
+
         explorer_unit_seconds: "s",
         explorer_unit_minutes: "min",
-        explorer_story_worked: "Ktoś spędził {duration}, żeby to udowodnić",
-        explorer_story_proved: "Ktoś udowodnił prawdziwą pracę",
+
+        explorer_story_worked:
+            "Ktoś spędził {duration}, żeby to udowodnić",
+
+        explorer_story_proved:
+            "Ktoś udowodnił prawdziwą pracę",
+
         explorer_story_alongside: "przy okazji",
-        explorer_story_tx_singular: "transakcja przeszła",
-        explorer_story_tx_plural: "transakcje przeszły",
+
+        explorer_story_tx_singular:
+            "transakcja przeszła",
+
+        explorer_story_tx_plural:
+            "transakcje przeszły",
+
         explorer_block_label: "Blok",
-        explorer_only_genesis: "Tylko genesis na razie — wykop pierwszy blok w",
+
+        explorer_only_genesis:
+            "Tylko genesis na razie — wykop pierwszy blok w",
+
+        explorer_stat_height: "Najnowszy blok",
+        explorer_stat_difficulty: "Trudność",
+        explorer_stat_blocktime: "Śr. czas bloku",
+
+        explorer_search_placeholder:
+            "Szukaj bloku po wysokości (np. 4821)…",
+
+        explorer_search_btn: "Szukaj",
+
+        explorer_col_height: "Blok",
+        explorer_col_time: "Czas",
+        explorer_col_txs: "Tx",
+        explorer_col_difficulty: "Trudność",
+        explorer_col_hash: "Hash",
+
+        explorer_search_height_only:
+            "Na razie szukam tylko po wysokości bloku (liczba).",
+
+        explorer_live_label: "na żywo",
+
+        /* NETWORK */
 
         network_h1: "Parametry sieci",
-        network_intro: "Zdrowie łańcucha i stałe protokołu — to, na czym zgadzają się wszystkie węzły.",
+
+        network_intro:
+            "Zdrowie łańcucha i stałe protokołu — to, na czym zgadzają się wszystkie węzły.",
+
         network_chain_valid: "Łańcuch poprawny",
         network_chain_invalid: "Łańcuch NIEPOPRAWNY",
+
         network_row_network: "Sieć",
         network_row_version: "Wersja protokołu",
         network_row_current_difficulty: "Trudność bieżąca",
@@ -90,1305 +188,2481 @@ const translations = {
         network_row_blocks_to_halving: "Bloków do halvingu",
         network_row_supply_cap: "Pułap podaży",
         network_row_premine: "Premine",
-        network_no_node_connection: "Brak połączenia z węzłem",
+
+        network_no_node_connection:
+            "Brak połączenia z węzłem",
+
+        /* PEERS */
 
         peers_h1: "Peery P2P",
         peers_connect_heading: "Połącz z nowym peerem",
         peers_address_label: "Adres (host:port)",
         peers_connect_btn: "Połącz",
+
         peers_status_heading: "Status węzła",
         peers_connected_heading: "Połączeni",
         peers_configured_heading: "Skonfigurowani",
         peers_reconnecting_heading: "Łączą się ponownie",
+
         peers_none: "— brak —",
+
         peers_port_label: "Port P2P",
         peers_connected_count_label: "Połączeni peerzy",
-        peers_need_address: "Podaj adres w formacie host:port",
+
+        peers_need_address:
+            "Podaj adres w formacie host:port",
+
         peers_connecting_to: "Łączenie z",
 
+        /* EXCHANGE */
+
         exchange_h1: "Giełda jeszcze się nie pali",
-        exchange_p1: "Handel BbC (order book, pary handlowe, dopasowywanie zleceń) nie jest jeszcze częścią sieci — na razie BitBudCoin to warstwa łańcucha i portfeli, bez modułu giełdowego.",
-        exchange_p2: "Do tego czasu monety BbC można przesyłać bezpośrednio między adresami (podpisane transakcje Ed25519) — to już działa.",
-        exchange_check_address_btn: "Sprawdź swój adres",
-        exchange_docs_btn: "Dokumentacja API",
+
+        exchange_p1:
+            "Handel BbC (order book, pary handlowe, dopasowywanie zleceń) nie jest jeszcze częścią sieci — na razie BitBudCoin to warstwa łańcucha i portfeli, bez modułu giełdowego.",
+
+        exchange_p2:
+            "Do tego czasu monety BbC można przesyłać bezpośrednio między adresami (podpisane transakcje Ed25519) — to już działa.",
+
+        exchange_check_address_btn:
+            "Sprawdź swój adres",
+
+        exchange_docs_btn:
+            "Dokumentacja API",
+
+        /* ADDRESS */
 
         address_h1: "Sprawdź adres",
         address_label: "Adres BbC",
         address_search_btn: "Szukaj",
-        address_confirmed_balance: "Saldo potwierdzone",
-        address_mempool_aware_balance: "Z uwzględnieniem mempoola",
+
+        address_confirmed_balance:
+            "Saldo potwierdzone",
+
+        address_mempool_aware_balance:
+            "Z uwzględnieniem mempoola",
+
         address_history_heading: "Historia",
+
         address_th_type: "Typ",
         address_th_direction: "Kierunek",
         address_th_amount: "Kwota",
-        address_no_transactions: "Brak transakcji dla tego adresu",
+
+        address_no_transactions:
+            "Brak transakcji dla tego adresu",
+
         address_incoming: "przychodząca",
         address_outgoing: "wychodząca",
 
-        docks_h1: "Dokumentacja",
-        docks_intro: "Skrócona referencja API i parametrów sieci BitBudCoin.",
-        docks_chain_heading: "Łańcuch",
-        docks_wallets_heading: "Portfele i transakcje",
-        docks_wallets_desc: "Transakcje podpisujesz lokalnie kluczem prywatnym (Ed25519) — wallet.js i send.js w repo backendu.",
-        docks_params_heading: "Parametry protokołu (na żywo)",
-        docks_how_heading: "Jak to działa w skrócie",
-        docks_how_desc: "Proof-of-work SHA-256, trudność jako ciągła liczba (nie skoki x16), retarget co ~2028 bloków, halving nagrody co 210 000 bloków, twardy pułap podaży. Baza SQLite (node:sqlite), P2P po surowym TCP (linie JSON), pula ze share-based proof of work, transakcje podpisane Ed25519.",
-        docks_node_heading: "Uruchomienie własnego węzła",
-        docks_footer_home_link: "strona główna",
-        docks_base_reward: "Nagroda bazowa",
-        docks_node_offline: "węzeł offline",
+        /* DOCUMENTATION */
 
-        block_back_to_journal: "← Dziennik łańcucha",
-        block_tx_heading: "Transakcje",
+        docs_h1: "Dokumentacja",
+        docs_intro:
+            "Skrócona referencja API i parametrów sieci BitBudCoin.",
+
+        docs_chain_heading: "Łańcuch",
+
+        docs_wallets_heading:
+            "Portfele i transakcje",
+
+        docs_wallets_desc:
+            "Transakcje podpisujesz lokalnie kluczem prywatnym (Ed25519) — wallet.js i send.js w repo backendu.",
+
+        docs_params_heading:
+            "Parametry protokołu (na żywo)",
+
+        docs_how_heading:
+            "Jak to działa w skrócie",
+
+        docs_how_desc:
+            "Proof-of-work SHA-256, trudność jako ciągła liczba (nie skoki x16), retarget co ~2028 bloków, halving nagrody co 210 000 bloków, twardy pułap podaży. Baza SQLite (node:sqlite), P2P po surowym TCP (linie JSON), pula ze share-based proof of work, transakcje podpisane Ed25519.",
+
+        docs_node_heading:
+            "Uruchomienie własnego węzła",
+
+        docs_footer_home_link:
+            "strona główna",
+
+        docs_base_reward:
+            "Nagroda bazowa",
+
+        docs_node_offline:
+            "węzeł offline",
+
+        /* BLOCK */
+
+        block_back_to_journal:
+            "← Dziennik łańcucha",
+
+        block_tx_heading:
+            "Transakcje",
+
         block_th_from: "Od",
         block_th_to: "Do",
-        block_no_height: "Brak wysokości bloku w adresie.",
+
+        block_no_height:
+            "Brak wysokości bloku w adresie.",
+
         block_hash_label: "Hash",
         block_prev_hash_label: "Poprzedni hash",
-        block_genesis_note: "— (genesis)",
+
+        block_genesis_note:
+            "— (genesis)",
+
         block_when_label: "Kiedy",
         block_nonce_label: "Nonce",
-        block_no_transactions: "Brak transakcji w tym bloku",
-        block_new_coins: "— (nowe monety)",
-        block_fee_suffix: "opłaty",
 
-        wallet_h1: "Portfel", wallet_tab_create: "Nowy portfel", wallet_tab_manage: "Mój portfel",
-        wallet_phrase_heading: "12 słów zamiast klucza",
-        wallet_phrase_subtitle: "Łatwiej przepisać ręcznie, łatwiej rozpoznać literówkę. Ta sama fraza zawsze odtwarza dokładnie ten sam portfel.",
-        wallet_show_raw_keys: "Zaawansowane: surowe klucze zamiast frazy",
-        wallet_hide_raw_keys: "Ukryj surowe klucze",
-        wallet_phrase_generate_btn: "Wygeneruj nową frazę",
-        wallet_phrase_confirm_saved: "Zapisałem te 12 słów w bezpiecznym miejscu.",
-        wallet_phrase_use_btn: "Użyj tego portfela",
-        wallet_remember_heading: "💾 Zapamiętać ten portfel na tym urządzeniu?",
-        wallet_remember_desc_short: "Zaszyfrowany prawdziwym hasłem (AES-256) — następnym razem tylko hasło, bez wklejania kluczy.",
-        wallet_set_password: "Ustaw hasło",
-        wallet_remember_btn: "Zapamiętaj",
-        wallet_unlock_heading: "🔒 Masz zapisany portfel na tym urządzeniu",
-        wallet_password_label: "Hasło",
-        wallet_unlock_btn: "Odblokuj",
-        wallet_forget_btn: "Zapomnij ten portfel",
-        wallet_login_heading: "Zaloguj się",
-        wallet_login_hint: "Wklej swoje stare klucze albo wpisz 12 słów — rozpoznam samo, co to jest.",
-        wallet_remember_heading2: "💾 Zapamiętać ten portfel tutaj?",
-        wallet_remember_desc_long: "Zaszyfrowany prawdziwym hasłem (AES-256) — następnym razem tylko hasło, bez wklejania kluczy. Zgubione hasło = trzeba wczytać portfel od nowa wklejeniem (klucze nadal masz w swoim pliku).",
-        wallet_intro: "Klucz prywatny powstaje tutaj, w tej przeglądarce, i nigdy nigdzie nie jest wysyłany.",
-        wallet_warning: "Jeśli zgubisz klucz prywatny, tracisz dostęp do adresu na zawsze. Zapisz go, zanim zamkniesz tę kartę.",
-        wallet_generate_btn: "Wygeneruj nowy portfel",
-        wallet_step1: "Twój adres BbC", wallet_step2: "Klucz publiczny",
-        wallet_step3: "Klucz PRYWATNY — nigdy nikomu nie pokazuj",
-        wallet_step4: "Zapisz na dysk", wallet_download_bundle: "Pobierz oba klucze (1 plik)",
-        wallet_bundle_hint: "Ten jeden plik wystarczy, żeby później wczytać ten portfel w zakładce \"Mój portfel\".",
-        wallet_confirm_saved: "Zapisałem klucz prywatny w bezpiecznym miejscu.",
-        wallet_import_title: "Wczytaj portfel",
-        wallet_import_hint: "Wklej tutaj treść pliku, który pobrałeś przy tworzeniu portfela (oba klucze naraz — rozpoznam je same).",
-        wallet_load_btn: "Wczytaj portfel",
-        wallet_import_error: "Nie znalazłem obu kluczy w wklejonym tekście — upewnij się, że wkleiłeś zarówno klucz prywatny, jak i publiczny.",
-        wallet_receive_title: "Odbierz", wallet_copy_addr: "Kopiuj adres", wallet_share: "Udostępnij",
-        wallet_send_title: "Wyślij", wallet_send_to: "Adres odbiorcy", wallet_send_amount: "Kwota (BbC)",
-        wallet_send_fee: "Opłata", wallet_send_btn: "Wyślij",
-        wallet_footer: "BitBudCoin (BbC) · klucz prywatny nigdy nie opuszcza tej przeglądarki",
-        wallet_generating: "Generuję...", wallet_generate_error: "Nie udało się wygenerować portfela: ",
-        wallet_copied: "Skopiowano ✓", wallet_selected: "Zaznaczono - Ctrl+C",
-        wallet_load_error: "Błąd wczytywania kluczy: ", wallet_balance_error: "błąd",
-        wallet_share_fallback: "Adres skopiowany (udostępnianie niedostępne w tej przeglądarce)",
-        wallet_need_recipient: "Podaj adres odbiorcy", wallet_need_amount: "Podaj poprawną kwotę",
-        wallet_fee_negative: "Opłata nie może być ujemna", wallet_signing: "Podpisuję i wysyłam...",
-        wallet_send_success: "✅ Wysłano, czeka na potwierdzenie w bloku",
+        block_no_transactions:
+            "Brak transakcji w tym bloku",
 
-        miner_h1: "Kopanie", miner_pool_status: "Status puli",
-        miner_auto_title: "Kopanie automatyczne (w tej przeglądarce)",
-        miner_auto_desc: "Liczy hashe tutaj, na Twoim urządzeniu, i samo zgłasza znalezione shares — bez klikania czegokolwiek co chwilę.",
-        miner_your_address: "Twój adres BbC", miner_start_btn: "Zacznij kopać",
-        miner_stop_btn: "Zatrzymaj kopanie",
-        miner_auto_hint: "Kopie dopóki ta karta jest otwarta na ekranie — zamknięcie karty albo zgaszenie ekranu telefonu może to zatrzymać.",
-        miner_solo_title: "⚡ Solo — cała nagroda dla Ciebie",
-        miner_solo_desc: "Liczy w tej przeglądarce, tak jak kopanie przez pulę — ale bez dzielenia się. Znajdziesz blok, cała nagroda trafia prosto na Twój adres.",
-        miner_solo_start: "Zacznij kopać solo",
-        miner_models_title: "Modele sprzętu (referencyjne)",
-        miner_blocks_label: "Bloki",
-        miner_attempts_label: "Próby",
-        miner_bench_title: "Ile realnie liczy Twoje urządzenie?",
-        miner_bench_desc: "Prawdziwy pomiar wykonany teraz, na żywo — nie specyfikacja z ulotki.",
-        miner_bench_btn: "Sprawdź szybkość", miner_bench_running: "Liczę przez 1,5 sekundy...",
-        miner_bench_busy: "Zatrzymaj najpierw kopanie, żeby pomiar był miarodajny.",
-        miner_bench_estimate: "Przy obecnej trudności sieci: średnio", miner_bench_sec: "s",
-        miner_bench_min: "min", miner_bench_hr: "godz.",
-        miner_footer: "BitBudCoin (BbC) · sieć proof-of-work",
+        block_new_coins:
+            "— (nowe monety)",
 
-        miner_active_miners_heading: "Aktywni górnicy",
-        miner_active_miners_window: "(ostatnie kilka minut)",
-        miner_working_on_block: "Pracuje nad blokiem",
-        miner_share_block_diff: "Trudność share / bloku",
-        miner_shares_this_round: "Shares w tej rundzie",
-        miner_pool_fee_label: "Opłata puli",
-        miner_pool_hashrate: "Hashrate puli",
-        miner_solo_hashrate: "Hashrate solo",
-        miner_no_active_miners: "Brak aktywnych górników w ostatnich",
-        miner_th_address: "Adres",
-        miner_th_mode: "Tryb",
-        miner_th_activity: "Aktywność",
-        miner_need_address_alert: "Podaj adres BbC",
+        block_fee_suffix:
+            "opłaty",
 
-        explorer_stat_height: "Najnowszy blok",
-        explorer_stat_difficulty: "Trudność",
-        explorer_stat_blocktime: "Śr. czas bloku",
-        explorer_search_placeholder: "Szukaj bloku po wysokości (np. 4821)…",
-        explorer_search_btn: "Szukaj",
-        explorer_col_height: "Blok",
-        explorer_col_time: "Czas",
-        explorer_col_txs: "Tx",
-        explorer_col_difficulty: "Trudność",
-        explorer_col_hash: "Hash",
-        explorer_search_height_only: "Na razie szukam tylko po wysokości bloku (liczba).",
+        /* WALLET */
 
-        nav_swap: "Kup BbC",
-        swap_h1: "Kup BbC za BTC",
-        swap_intro: "Bezpośrednia wymiana z drugą osobą — nikt nie wysyła niczego na zaufanie.",
-        swap_preview_banner: "Podgląd tego, jak to będzie działać — jeszcze niepodłączone do prawdziwych sieci.",
-        swap_step1_label: "Kwota", swap_step2_label: "Wysyłasz BTC",
-        swap_step3_label: "Druga strona", swap_step4_label: "Odbierz BbC", swap_step5_label: "Gotowe",
-        swap_step1_heading: "Ile i za ile",
-        swap_step1_btc_label: "Wysyłasz (BTC)",
-        swap_step1_bbc_label: "Otrzymujesz (BbC)",
-        swap_step1_note: "Kwoty ustalone wcześniej między Wami — strona ich nie wymyśla.",
-        swap_step1_next_btn: "Dalej",
-        swap_step2_heading: "Wyślij BTC na ten adres",
-        swap_step2_address_label: "Adres do wpłaty",
-        swap_step2_waiting: "Czekam na wpłatę…",
-        swap_step2_note: "Sprawdzane wprost w sieci BTC, nie na zaufanie.",
-        swap_step3_heading: "Wpłata przyjęta",
-        swap_step3_waiting: "Czekam, aż druga strona zablokuje BbC…",
-        swap_step4_heading: "Twoje BbC czeka",
-        swap_step4_note: "Obie strony zablokowane tym samym sekretem — teraz można odebrać.",
-        swap_step4_btn: "Odbierz BbC",
-        swap_step5_heading: "Gotowe",
-        swap_step5_btc_tx: "Transakcja BTC",
-        swap_step5_bbc_tx: "Transakcja BbC",
-        swap_step5_note: "Obie transakcje możesz sprawdzić sam, w prawdziwych sieciach.",
-        swap_demo_prev: "← Wstecz", swap_demo_next: "Dalej →", swap_demo_restart: "Od nowa",
+        wallet_h1: "Portfel",
 
-        reqoffer_h1: "Zaproponuj zakup BbC",
-        reqoffer_intro: "Napisz ile chcesz wysłać i ile BbC oczekujesz w zamian. Sprzedający to zobaczy i zdecyduje — nic nie jest jeszcze wiążące.",
-        reqoffer_bbc_label: "Ile BbC chcesz otrzymać",
-        reqoffer_btc_label: "Ile BTC oferujesz",
-        reqoffer_timeout_label: "Ile godzin na dokończenie transakcji (po akceptacji)",
-        reqoffer_note_label: "Wiadomość do sprzedającego (opcjonalnie)",
-        reqoffer_submit_btn: "Wyślij propozycję",
-        reqoffer_fill_all: "Wypełnij wymagane pola.",
-        reqoffer_sending: "Wysyłam…",
-        reqoffer_done_heading: "Wysłane — zapisz ten link",
-        reqoffer_done_desc: "Pod tym linkiem zobaczysz, czy sprzedający zaakceptował. Jeśli tak — tu dokończysz zakup.",
+        wallet_tab_create:
+            "Nowy portfel",
 
-        revoffer_h1: "Zgłoszenia zakupu",
-        revoffer_secret_label: "Sekret administratora",
-        revoffer_load_btn: "Wczytaj oczekujące",
-        revoffer_loading: "Wczytuję…",
-        revoffer_none_pending: "Brak oczekujących zgłoszeń.",
-        revoffer_id_label: "ID",
-        revoffer_timeout_label: "Termin",
-        revoffer_accept_btn: "Akceptuj",
-        revoffer_reject_btn: "Odrzuć",
-        revoffer_key_warning: "⚠️ Nowy klucz BTC tylko dla tej transakcji. Zapisz — potrzebny do odebrania BTC później.",
-        revoffer_bbc_address_label: "Twój adres BbC (istniejący z portfela)",
-        revoffer_confirm_btn: "Potwierdź akceptację",
-        revoffer_need_bbc_address: "Podaj swój adres BbC.",
-        revoffer_accepted: "Zaakceptowane.",
+        wallet_tab_manage:
+            "Mój portfel",
 
-        swap_stepbar_1: "Warunki", swap_stepbar_2: "Wyślij BTC", swap_stepbar_3: "Sprzedający",
-        swap_stepbar_4: "Odbierz BbC", swap_stepbar_5: "Gotowe",
-        swap_panel1_heading: "Warunki tej oferty",
-        swap_sending_label: "Wysyłasz", swap_receiving_label: "Otrzymujesz",
-        swap_buyer_bbc_label: "Twój adres BbC (dokąd trafi BbC)",
-        swap_next_btn: "Dalej",
-        swap_panel2_heading: "Wyślij BTC na ten adres",
-        swap_key_warning: "⚠️ Nowy klucz tylko dla tej transakcji. Zapisz — potrzebny do zwrotu, gdyby coś poszło nie tak.",
-        swap_privkey_label: "Twój klucz prywatny (ZAPISZ)",
-        swap_lock_address_label: "Adres zamka (wyślij BTC tutaj)",
-        swap_check_mempool_link: "Sprawdź na mempool.space →",
-        explorer_live_label: "na żywo",
-        index_status_heading: "Status projektu",
-        index_status_mainnet: "Mainnet",
-        index_status_wallet: "Portfel",
-        index_status_explorer: "Explorer",
-        index_status_mining: "Kopanie",
-        index_status_swaps: "Atomic swaps (wdrażanie / testy)",
-        index_status_next: "Kolejne etapy",
-        nav_family: "Rodzina BbC",
-        family_h1: "Rodzina BbC",
-        family_intro: "Miejsce do rozmowy dla każdego, kto ma udział w sieci. Zaloguj się parą kluczy z portfela (dokładnie ta sama, co do wysyłania BbC) — to potwierdza że jesteś prawdziwym uczestnikiem sieci, nie hasło do zapamiętania.",
-        family_login_label: "Wklej parę kluczy z portfela (klucz publiczny + prywatny)",
-        family_login_btn: "Zaloguj się",
-        family_compose_placeholder: "Napisz coś do rodziny...",
-        family_send_btn: "Wyślij",
-        family_messages_heading: "Wiadomości",
-        family_err_need_both_keys: "Potrzebne oba klucze - publiczny i prywatny.",
-        family_err_bad_keys: "Nie udało się wczytać kluczy",
-        family_logged_in_as: "Zalogowano jako",
-        family_no_messages: "Jeszcze nikt nic nie napisał.",
-        family_err_not_logged_in: "Zaloguj się najpierw.",
-        family_strike_notice: "Ostrzeżenie",
-        family_blocked_notice: "Ten adres jest zablokowany po 3 ostrzeżeniach.",
-        revoffer_live_error_heading: "Zgłoszony błąd na żywo",
-        family_pending_notice: "Wiadomość czeka na sprawdzenie.",
-        family_rules_heading: "Zasady",
-        family_rules_text: "Rodzina BbC skupia się na ulepszaniu sieci. Zabronione wprost: proszenie kogokolwiek o klucz prywatny, obiecywanie gwarantowanych zysków, linki do stron trzecich bez wyraźnego powodu, podszywanie się pod innych. Podejrzane wiadomości czekają na sprawdzenie przez człowieka, nie znikają automatycznie — ale też się nie pokazują, dopóki ktoś nie potwierdzi że są w porządku. Trzy naruszenia — blokada.",
-        revoffer_family_pending_heading: "Rodzina - czeka na zatwierdzenie",
-        revoffer_family_approve: "Zatwierdź",
-        revoffer_family_reject: "Odrzuć (ostrzeżenie)",
-        revoffer_recovered_heading: "⚠️ Znaleziono zapisane klucze z poprzednich sesji",
-        revoffer_recovered_desc: "Jeśli już odebrałeś BTC dla którejś z tych ofert, możesz bezpiecznie usunąć wpis.",
-        revoffer_recovered_delete: "Usuń",
-        revoffer_recovered_confirm_delete: "Na pewno usunąć? Upewnij się najpierw, że BTC zostało już odebrane.",
-        swap_recovered_notice: "✅ To ten sam klucz co poprzednio — odzyskany automatycznie, adres się nie zmienił.",
-        revoffer_download_key: "Pobierz plik z kluczem",
-        revoffer_downloaded: "Pobrano",
-        revoffer_confirm_saved: "Zapisałem/pobrałem klucz prywatny — bez niego nie odbiorę BTC.",
-        swap_waiting_funding: "Czekam na wpłatę…",
-        swap_funding_confirmed: "✅ Wpłata potwierdzona!",
-        swap_panel3_heading: "Wpłata przyjęta — poinformuj sprzedającego",
-        swap_panel3_desc: "Wyślij mu dokładnie to (NIE swój sekret — ten zostaje tylko u Ciebie):",
-        swap_info_id: "ID", swap_info_myaddr: "Mój adres BbC", swap_info_hash: "Hash sekretu", swap_info_timeout: "Wysokość terminu",
-        swap_waiting_seller: "Czekam, aż sprzedający zablokuje BbC…",
-        swap_panel4_heading: "BbC czeka — odbierz w portfelu",
-        swap_panel4_desc: "Ostatni krok robisz w Portfelu (tam, nie tutaj — Twój klucz BbC nigdy nie dotyka tej strony). Zakładka \"Mam już portfel\" → HTLC → \"Odbierz\", wklej:",
-        swap_info_htlcid: "ID HTLC", swap_info_secret: "Sekret",
-        swap_open_wallet_btn: "Otwórz portfel →",
-        swap_waiting_claim: "Sprawdzam czy już odebrane…",
-        swap_panel5_heading: "Gotowe",
-        swap_panel5_desc: "BbC odebrane. Sprzedający teraz widzi Twój ujawniony sekret i może odebrać BTC.",
-        swap_view_tx_link: "Zobacz transakcję BTC →",
-        swap_err_no_offer: "Brak oferty w linku. Poproś sprzedającego o prawidłowy link.",
-        swap_err_offer_not_found: "Oferta nie znaleziona albo już nieaktualna.",
-        swap_err_load_failed: "Nie udało się wczytać oferty",
-        swap_err_need_bbc_addr: "Podaj swój adres BbC.",
-        swap_err_tip_height: "Nie mogę sprawdzić aktualnej wysokości BTC — spróbuj odświeżyć stronę."
+        wallet_phrase_heading:
+            "12 słów zamiast klucza",
+
+        wallet_phrase_subtitle:
+            "Łatwiej przepisać ręcznie, łatwiej rozpoznać literówkę. Ta sama fraza zawsze odtwarza dokładnie ten sam portfel.",
+
+        wallet_show_raw_keys:
+            "Zaawansowane: surowe klucze zamiast frazy",
+
+        wallet_hide_raw_keys:
+            "Ukryj surowe klucze",
+
+        wallet_phrase_generate_btn:
+            "Wygeneruj nową frazę",
+
+        wallet_phrase_confirm_saved:
+            "Zapisałem te 12 słów w bezpiecznym miejscu.",
+
+        wallet_phrase_use_btn:
+            "Użyj tego portfela",
+
+        wallet_remember_heading:
+            "💾 Zapamiętać ten portfel na tym urządzeniu?",
+
+        wallet_remember_desc_short:
+            "Zaszyfrowany prawdziwym hasłem (AES-256) — następnym razem tylko hasło, bez wklejania kluczy.",
+
+        wallet_set_password:
+            "Ustaw hasło",
+
+        wallet_remember_btn:
+            "Zapamiętaj",
+
+        wallet_unlock_heading:
+            "🔒 Masz zapisany portfel na tym urządzeniu",
+
+        wallet_password_label:
+            "Hasło",
+
+        wallet_unlock_btn:
+            "Odblokuj",
+
+        wallet_forget_btn:
+            "Zapomnij ten portfel",
+
+        wallet_login_heading:
+            "Zaloguj się",
+
+        wallet_login_hint:
+            "Wklej swoje stare klucze albo wpisz 12 słów — rozpoznam samo, co to jest.",
+
+        wallet_remember_heading2:
+            "💾 Zapamiętać ten portfel tutaj?",
+
+        wallet_remember_desc_long:
+            "Zaszyfrowany prawdziwym hasłem (AES-256) — następnym razem tylko hasło, bez wklejania kluczy. Zgubione hasło = trzeba wczytać portfel od nowa wklejeniem (klucze nadal masz w swoim pliku).",
+
+        wallet_intro:
+            "Klucz prywatny powstaje tutaj, w tej przeglądarce, i nigdy nigdzie nie jest wysyłany.",
+
+        wallet_warning:
+            "Jeśli zgubisz klucz prywatny, tracisz dostęp do adresu na zawsze. Zapisz go, zanim zamkniesz tę kartę.",
+
+        wallet_generate_btn:
+            "Wygeneruj nowy portfel",
+
+        wallet_step1:
+            "Twój adres BbC",
+
+        wallet_step2:
+            "Klucz publiczny",
+
+        wallet_step3:
+            "Klucz PRYWATNY — nigdy nikomu nie pokazuj",
+
+        wallet_step4:
+            "Zapisz na dysk",
+
+        wallet_download_bundle:
+            "Pobierz oba klucze (1 plik)",
+
+        wallet_bundle_hint:
+            "Ten jeden plik wystarczy, żeby później wczytać ten portfel w zakładce \"Mój portfel\".",
+
+        wallet_confirm_saved:
+            "Zapisałem klucz prywatny w bezpiecznym miejscu.",
+
+        wallet_import_title:
+            "Wczytaj portfel",
+
+        wallet_import_hint:
+            "Wklej tutaj treść pliku, który pobrałeś przy tworzeniu portfela (oba klucze naraz — rozpoznam je same).",
+
+        wallet_load_btn:
+            "Wczytaj portfel",
+
+        wallet_import_error:
+            "Nie znalazłem obu kluczy w wklejonym tekście — upewnij się, że wkleiłeś zarówno klucz prywatny, jak i publiczny.",
+
+        wallet_receive_title:
+            "Odbierz",
+
+        wallet_copy_addr:
+            "Kopiuj adres",
+
+        wallet_share:
+            "Udostępnij",
+
+        wallet_send_title:
+            "Wyślij",
+
+        wallet_send_to:
+            "Adres odbiorcy",
+
+        wallet_send_amount:
+            "Kwota (BbC)",
+
+        wallet_send_fee:
+            "Opłata",
+
+        wallet_send_btn:
+            "Wyślij",
+
+        wallet_footer:
+            "BitBudCoin (BbC) · klucz prywatny nigdy nie opuszcza tej przeglądarki",
+
+        wallet_generating:
+            "Generuję...",
+
+        wallet_generate_error:
+            "Nie udało się wygenerować portfela: ",
+
+        wallet_copied:
+            "Skopiowano ✓",
+
+        wallet_selected:
+            "Zaznaczono - Ctrl+C",
+
+        wallet_load_error:
+            "Błąd wczytywania kluczy: ",
+
+        wallet_balance_error:
+            "błąd",
+
+        wallet_share_fallback:
+            "Adres skopiowany (udostępnianie niedostępne w tej przeglądarce)",
+
+        wallet_need_recipient:
+            "Podaj adres odbiorcy",
+
+        wallet_need_amount:
+            "Podaj poprawną kwotę",
+
+        wallet_fee_negative:
+            "Opłata nie może być ujemna",
+
+        wallet_signing:
+            "Podpisuję i wysyłam...",
+
+        wallet_send_success:
+            "✅ Wysłano, czeka na potwierdzenie w bloku",
+
+        /* MINER */
+
+        miner_h1:
+            "Kopanie",
+
+        miner_pool_status:
+            "Status puli",
+
+        miner_auto_title:
+            "Kopanie automatyczne (w tej przeglądarce)",
+
+        miner_auto_desc:
+            "Liczy hashe tutaj, na Twoim urządzeniu, i samo zgłasza znalezione shares — bez klikania czegokolwiek co chwilę.",
+
+        miner_your_address:
+            "Twój adres BbC",
+
+        miner_start_btn:
+            "Zacznij kopać",
+
+        miner_stop_btn:
+            "Zatrzymaj kopanie",
+
+        miner_auto_hint:
+            "Kopie dopóki ta karta jest otwarta na ekranie — zamknięcie karty albo zgaszenie ekranu telefonu może to zatrzymać.",
+
+        miner_solo_title:
+            "⚡ Solo — cała nagroda dla Ciebie",
+
+        miner_solo_desc:
+            "Liczy w tej przeglądarce, tak jak kopanie przez pulę — ale bez dzielenia się. Znajdziesz blok, cała nagroda trafia prosto na Twój adres.",
+
+        miner_solo_start:
+            "Zacznij kopać solo",
+
+        miner_models_title:
+            "Modele sprzętu (referencyjne)",
+
+        miner_blocks_label:
+            "Bloki",
+
+        miner_attempts_label:
+            "Próby",
+
+        miner_bench_title:
+            "Ile realnie liczy Twoje urządzenie?",
+
+        miner_bench_desc:
+            "Prawdziwy pomiar wykonany teraz, na żywo — nie specyfikacja z ulotki.",
+
+        miner_bench_btn:
+            "Sprawdź szybkość",
+
+        miner_bench_running:
+            "Liczę przez 1,5 sekundy...",
+
+        miner_bench_busy:
+            "Zatrzymaj najpierw kopanie, żeby pomiar był miarodajny.",
+
+        miner_bench_estimate:
+            "Przy obecnej trudności sieci: średnio",
+
+        miner_bench_sec:
+            "s",
+
+        miner_bench_min:
+            "min",
+
+        miner_bench_hr:
+            "godz.",
+
+        miner_footer:
+            "BitBudCoin (BbC) · sieć proof-of-work",
+
+        miner_active_miners_heading:
+            "Aktywni górnicy",
+
+        miner_active_miners_window:
+            "(ostatnie kilka minut)",
+
+        miner_working_on_block:
+            "Pracuje nad blokiem",
+
+        miner_share_block_diff:
+            "Trudność share / bloku",
+
+        miner_shares_this_round:
+            "Shares w tej rundzie",
+
+        miner_pool_fee_label:
+            "Opłata puli",
+
+        miner_pool_hashrate:
+            "Hashrate puli",
+
+        miner_solo_hashrate:
+            "Hashrate solo",
+
+        miner_no_active_miners:
+            "Brak aktywnych górników w ostatnich",
+
+        miner_th_address:
+            "Adres",
+
+        miner_th_mode:
+            "Tryb",
+
+        miner_th_activity:
+            "Aktywność",
+
+        miner_need_address_alert:
+            "Podaj adres BbC",
+
+        /* SWAP */
+
+        swap_h1:
+            "Kup BbC za BTC",
+
+        swap_intro:
+            "Bezpośrednia wymiana z drugą osobą — nikt nie wysyła niczego na zaufanie.",
+
+        swap_preview_banner:
+            "Podgląd tego, jak to będzie działać — jeszcze niepodłączone do prawdziwych sieci.",
+
+        swap_step1_label:
+            "Kwota",
+
+        swap_step2_label:
+            "Wysyłasz BTC",
+
+        swap_step3_label:
+            "Druga strona",
+
+        swap_step4_label:
+            "Odbierz BbC",
+
+        swap_step5_label:
+            "Gotowe",
+
+        swap_step1_heading:
+            "Ile i za ile",
+
+        swap_step1_btc_label:
+            "Wysyłasz (BTC)",
+
+        swap_step1_bbc_label:
+            "Otrzymujesz (BbC)",
+
+        swap_step1_note:
+            "Kwoty ustalone wcześniej między Wami — strona ich nie wymyśla.",
+
+        swap_step1_next_btn:
+            "Dalej",
+
+        swap_step2_heading:
+            "Wyślij BTC na ten adres",
+
+        swap_step2_address_label:
+            "Adres do wpłaty",
+
+        swap_step2_waiting:
+            "Czekam na wpłatę…",
+
+        swap_step2_note:
+            "Sprawdzane wprost w sieci BTC, nie na zaufanie.",
+
+        swap_step3_heading:
+            "Wpłata przyjęta",
+
+        swap_step3_waiting:
+            "Czekam, aż druga strona zablokuje BbC…",
+
+        swap_step4_heading:
+            "Twoje BbC czeka",
+
+        swap_step4_note:
+            "Obie strony zablokowane tym samym sekretem — teraz można odebrać.",
+
+        swap_step4_btn:
+            "Odbierz BbC",
+
+        swap_step5_heading:
+            "Gotowe",
+
+        swap_step5_btc_tx:
+            "Transakcja BTC",
+
+        swap_step5_bbc_tx:
+            "Transakcja BbC",
+
+        swap_step5_note:
+            "Obie transakcje możesz sprawdzić sam, w prawdziwych sieciach.",
+
+        swap_demo_prev:
+            "← Wstecz",
+
+        swap_demo_next:
+            "Dalej →",
+
+        swap_demo_restart:
+            "Od nowa",
+
+        swap_stepbar_1:
+            "Warunki",
+
+        swap_stepbar_2:
+            "Wyślij BTC",
+
+        swap_stepbar_3:
+            "Sprzedający",
+
+        swap_stepbar_4:
+            "Odbierz BbC",
+
+        swap_stepbar_5:
+            "Gotowe",
+
+        swap_panel1_heading:
+            "Warunki tej oferty",
+
+        swap_sending_label:
+            "Wysyłasz",
+
+        swap_receiving_label:
+            "Otrzymujesz",
+
+        swap_buyer_bbc_label:
+            "Twój adres BbC (dokąd trafi BbC)",
+
+        swap_next_btn:
+            "Dalej",
+
+        swap_panel2_heading:
+            "Wyślij BTC na ten adres",
+
+        swap_key_warning:
+            "⚠️ Nowy klucz tylko dla tej transakcji. Zapisz — potrzebny do zwrotu, gdyby coś poszło nie tak.",
+
+        swap_privkey_label:
+            "Twój klucz prywatny (ZAPISZ)",
+
+        swap_lock_address_label:
+            "Adres zamka (wyślij BTC tutaj)",
+
+        swap_check_mempool_link:
+            "Sprawdź na mempool.space →",
+
+        swap_waiting_funding:
+            "Czekam na wpłatę…",
+
+        swap_funding_confirmed:
+            "✅ Wpłata potwierdzona!",
+
+        swap_panel3_heading:
+            "Wpłata przyjęta — poinformuj sprzedającego",
+
+        swap_panel3_desc:
+            "Wyślij mu dokładnie to (NIE swój sekret — ten zostaje tylko u Ciebie):",
+
+        swap_info_id:
+            "ID",
+
+        swap_info_myaddr:
+            "Mój adres BbC",
+
+        swap_info_hash:
+            "Hash sekretu",
+
+        swap_info_timeout:
+            "Wysokość terminu",
+
+        swap_waiting_seller:
+            "Czekam, aż sprzedający zablokuje BbC…",
+
+        swap_panel4_heading:
+            "BbC czeka — odbierz w portfelu",
+
+        swap_panel4_desc:
+            "Ostatni krok robisz w Portfelu (tam, nie tutaj — Twój klucz BbC nigdy nie dotyka tej strony). Zakładka \"Mam już portfel\" → HTLC → \"Odbierz\", wklej:",
+
+        swap_info_htlcid:
+            "ID HTLC",
+
+        swap_info_secret:
+            "Sekret",
+
+        swap_open_wallet_btn:
+            "Otwórz portfel →",
+
+        swap_waiting_claim:
+            "Sprawdzam czy już odebrane…",
+
+        swap_panel5_heading:
+            "Gotowe",
+
+        swap_panel5_desc:
+            "BbC odebrane. Sprzedający teraz widzi Twój ujawniony sekret i może odebrać BTC.",
+
+        swap_view_tx_link:
+            "Zobacz transakcję BTC →",
+
+        swap_err_no_offer:
+            "Brak oferty w linku. Poproś sprzedającego o prawidłowy link.",
+
+        swap_err_offer_not_found:
+            "Oferta nie znaleziona albo już nieaktualna.",
+
+        swap_err_load_failed:
+            "Nie udało się wczytać oferty",
+
+        swap_err_need_bbc_addr:
+            "Podaj swój adres BbC.",
+
+        swap_err_tip_height:
+            "Nie mogę sprawdzić aktualnej wysokości BTC — spróbuj odświeżyć stronę.",
+
+        swap_recovered_notice:
+            "✅ To ten sam klucz co poprzednio — odzyskany automatycznie, adres się nie zmienił.",
+
+        /* REQUEST OFFER */
+
+        reqoffer_h1:
+            "Zaproponuj zakup BbC",
+
+        reqoffer_intro:
+            "Napisz ile chcesz wysłać i ile BbC oczekujesz w zamian. Sprzedający to zobaczy i zdecyduje — nic nie jest jeszcze wiążące.",
+
+        reqoffer_bbc_label:
+            "Ile BbC chcesz otrzymać",
+
+        reqoffer_btc_label:
+            "Ile BTC oferujesz",
+
+        reqoffer_timeout_label:
+            "Ile godzin na dokończenie transakcji (po akceptacji)",
+
+        reqoffer_note_label:
+            "Wiadomość do sprzedającego (opcjonalnie)",
+
+        reqoffer_submit_btn:
+            "Wyślij propozycję",
+
+        reqoffer_fill_all:
+            "Wypełnij wymagane pola.",
+
+        reqoffer_sending:
+            "Wysyłam…",
+
+        reqoffer_done_heading:
+            "Wysłane — zapisz ten link",
+
+        reqoffer_done_desc:
+            "Pod tym linkiem zobaczysz, czy sprzedający zaakceptował. Jeśli tak — tu dokończysz zakup.",
+
+        /* ADMIN OFFERS */
+
+        revoffer_h1:
+            "Zgłoszenia zakupu",
+
+        revoffer_secret_label:
+            "Sekret administratora",
+
+        revoffer_load_btn:
+            "Wczytaj oczekujące",
+
+        revoffer_loading:
+            "Wczytuję…",
+
+        revoffer_none_pending:
+            "Brak oczekujących zgłoszeń.",
+
+        revoffer_id_label:
+            "ID",
+
+        revoffer_timeout_label:
+            "Termin",
+
+        revoffer_accept_btn:
+            "Akceptuj",
+
+        revoffer_reject_btn:
+            "Odrzuć",
+
+        revoffer_key_warning:
+            "⚠️ Nowy klucz BTC tylko dla tej transakcji. Zapisz — potrzebny do odebrania BTC później.",
+
+        revoffer_bbc_address_label:
+            "Twój adres BbC (istniejący z portfela)",
+
+        revoffer_confirm_btn:
+            "Potwierdź akceptację",
+
+        revoffer_need_bbc_address:
+            "Podaj swój adres BbC.",
+
+        revoffer_accepted:
+            "Zaakceptowane.",
+
+        revoffer_live_error_heading:
+            "Zgłoszony błąd na żywo",
+
+        revoffer_recovered_heading:
+            "⚠️ Znaleziono zapisane klucze z poprzednich sesji",
+
+        revoffer_recovered_desc:
+            "Jeśli już odebrałeś BTC dla którejś z tych ofert, możesz bezpiecznie usunąć wpis.",
+
+        revoffer_recovered_delete:
+            "Usuń",
+
+        revoffer_recovered_confirm_delete:
+            "Na pewno usunąć? Upewnij się najpierw, że BTC zostało już odebrane.",
+
+        revoffer_download_key:
+            "Pobierz plik z kluczem",
+
+        revoffer_downloaded:
+            "Pobrano",
+
+        revoffer_confirm_saved:
+            "Zapisałem/pobrałem klucz prywatny — bez niego nie odbiorę BTC.",
+
+        revoffer_family_pending_heading:
+            "Rodzina - czeka na zatwierdzenie",
+
+        revoffer_family_approve:
+            "Zatwierdź",
+
+        revoffer_family_reject:
+            "Odrzuć (ostrzeżenie)",
+
+        /* FAMILY */
+
+        family_h1:
+            "Rodzina BbC",
+
+        family_intro:
+            "Miejsce do rozmowy dla każdego, kto ma udział w sieci. Zaloguj się parą kluczy z portfela (dokładnie ta sama, co do wysyłania BbC) — to potwierdza że jesteś prawdziwym uczestnikiem sieci, nie hasło do zapamiętania.",
+
+        family_login_label:
+            "Wklej parę kluczy z portfela (klucz publiczny + prywatny)",
+
+        family_login_btn:
+            "Zaloguj się",
+
+        family_compose_placeholder:
+            "Napisz coś do rodziny...",
+
+        family_send_btn:
+            "Wyślij",
+
+        family_messages_heading:
+            "Wiadomości",
+
+        family_err_need_both_keys:
+            "Potrzebne oba klucze - publiczny i prywatny.",
+
+        family_err_bad_keys:
+            "Nie udało się wczytać kluczy",
+
+        family_logged_in_as:
+            "Zalogowano jako",
+
+        family_no_messages:
+            "Jeszcze nikt nic nie napisał.",
+
+        family_err_not_logged_in:
+            "Zaloguj się najpierw.",
+
+        family_strike_notice:
+            "Ostrzeżenie",
+
+        family_blocked_notice:
+            "Ten adres jest zablokowany po 3 ostrzeżeniach.",
+
+        family_pending_notice:
+            "Wiadomość czeka na sprawdzenie.",
+
+        family_rules_heading:
+            "Zasady",
+
+        family_rules_text:
+            "Rodzina BbC skupia się na ulepszaniu sieci. Zabronione wprost: proszenie kogokolwiek o klucz prywatny, obiecywanie gwarantowanych zysków, linki do stron trzecich bez wyraźnego powodu, podszywanie się pod innych. Podejrzane wiadomości czekają na sprawdzenie przez człowieka, nie znikają automatycznie — ale też się nie pokazują, dopóki ktoś nie potwierdzi że są w porządku. Trzy naruszenia — blokada.",
+
+        /* STATUS */
+
+        index_status_heading:
+            "Status projektu",
+
+        index_status_mainnet:
+            "Mainnet",
+
+        index_status_wallet:
+            "Portfel",
+
+        index_status_explorer:
+            "Explorer",
+
+        index_status_mining:
+            "Kopanie",
+
+        index_status_swaps:
+            "Atomic swaps (wdrażanie / testy)",
+
+        index_status_next:
+            "Kolejne etapy"
     },
+
+
+    /* ========================================================
+       ENGLISH
+       ======================================================== */
+
     en: {
-        nav_dashboard: "Dashboard", nav_explorer: "Explorer", nav_mining: "Mining",
-        nav_network: "Network", nav_peers: "Peers", nav_exchange: "Exchange",
-        nav_address: "Address", nav_docs: "Docs", nav_wallet: "Wallet",
 
-        footer_text: "BitBudCoin (BbC) · proof-of-work network",
-        footer_docs_link: "documentation",
-        common_blocks_suffix: "blocks",
-        common_backend_error: "Couldn't connect to the backend",
-        common_error_prefix: "error",
-        common_known_miners: "Known Miners",
-        common_only_you: "Just you, for now.",
-        common_unavailable: "Unavailable.",
-        common_pool_unavailable: "Pool unavailable",
-        common_pool_label: "pool",
-        common_solo_label: "solo",
-        common_last_block: "last block",
-        time_now: "now",
-        time_s_ago: "s ago",
-        time_m_ago: "m ago",
-        time_h_ago: "h ago",
-        time_d_ago: "d ago",
+        /* NAV */
 
-        index_kicker: "proof-of-work · BbC network",
-        index_sub: "blocks mined since genesis",
-        index_view_explorer_btn: "View explorer",
-        index_stat_supply: "Circulating Supply",
-        index_stat_reward: "Current Reward",
-        index_stat_difficulty: "Difficulty",
-        index_about_heading: "What is BitBudCoin?",
-        index_about_text: "BbC is an independent blockchain network with classic proof-of-work (SHA-256), a founder's premine, a block reward halving every 210,000 blocks, and a hard supply cap. You can mine solo or through the pool — you count hashes locally, and the network verifies and records the result. All activity (transfers, locking, balances) goes through Ed25519 signatures, so no one but the private key owner can touch their funds.",
-        index_card_mining_desc: "Solo or through the pool, with a real share of the reward proportional to submitted shares.",
-        index_card_mining_link: "See how →",
-        index_card_explorer_desc: "Every block, every transaction, transparent and checkable at any time.",
-        index_card_explorer_link: "Browse →",
-        index_card_wallet_desc: "Check the balance of any address and its transaction history.",
-        index_card_wallet_link: "Check address →",
-
-        dashboard_h1: "Network Dashboard",
-        dashboard_height: "Height",
-        dashboard_supply_cap: "Supply / cap",
-        dashboard_block_reward: "Block Reward",
-        dashboard_next_halving: "Until Next Halving",
-        dashboard_next_retarget: "Until Difficulty Retarget",
-        dashboard_recent_blocks: "Recent Blocks",
-        dashboard_th_when: "When",
-        dashboard_th_hash: "Hash",
-        dashboard_full_explorer_link: "Full explorer →",
-        dashboard_pool_heading: "Mining Pool",
-        dashboard_join_mining_link: "Join mining →",
-        dashboard_invalid_chain: "The node is reporting an invalid local chain — check the server logs.",
-        dashboard_no_blocks: "No blocks besides genesis",
-        dashboard_share_diff: "Share difficulty",
-        dashboard_shares_round: "Shares this round",
-        dashboard_pool_fee: "Pool fee",
-        dashboard_addresses_heading: "Addresses on the Network",
-        dashboard_total_addresses: "Total known addresses",
-        dashboard_whales_heading: "Whales (most BbC)",
-        dashboard_newest_heading: "Newest Addresses",
-        dashboard_since_block: "since block",
-
-        explorer_h1: "Chain Journal",
-        explorer_intro: "Every mined block is a real moment of someone's work. Click an entry to see the full transactions.",
-        explorer_load_more_btn: "Load older blocks",
-        explorer_story_genesis: "The beginning. The first block of this chain, recorded forever — {amount} BbC given out at the start.",
-        explorer_unit_seconds: "s",
-        explorer_unit_minutes: "min",
-        explorer_story_worked: "Someone spent {duration} proving it",
-        explorer_story_proved: "Someone proved real work",
-        explorer_story_alongside: "along the way",
-        explorer_story_tx_singular: "transaction made it",
-        explorer_story_tx_plural: "transactions made it",
-        explorer_block_label: "Block",
-        explorer_only_genesis: "Just genesis for now — mine the first block in",
-
-        network_h1: "Network Parameters",
-        network_intro: "Chain health and protocol constants — what every node agrees on.",
-        network_chain_valid: "Chain valid",
-        network_chain_invalid: "Chain INVALID",
-        network_row_network: "Network",
-        network_row_version: "Protocol version",
-        network_row_current_difficulty: "Current difficulty",
-        network_row_blocks_to_retarget: "Blocks until retarget",
-        network_row_blocks_to_halving: "Blocks until halving",
-        network_row_supply_cap: "Supply cap",
-        network_row_premine: "Premine",
-        network_no_node_connection: "No connection to the node",
-
-        peers_h1: "P2P Peers",
-        peers_connect_heading: "Connect to a New Peer",
-        peers_address_label: "Address (host:port)",
-        peers_connect_btn: "Connect",
-        peers_status_heading: "Node Status",
-        peers_connected_heading: "Connected",
-        peers_configured_heading: "Configured",
-        peers_reconnecting_heading: "Reconnecting",
-        peers_none: "— none —",
-        peers_port_label: "P2P port",
-        peers_connected_count_label: "Connected peers",
-        peers_need_address: "Enter an address in host:port format",
-        peers_connecting_to: "Connecting to",
-
-        exchange_h1: "The exchange hasn't lit up yet",
-        exchange_p1: "Trading BbC (order book, trading pairs, order matching) isn't part of the network yet — for now BitBudCoin is just the chain and wallet layer, without an exchange module.",
-        exchange_p2: "Until then, BbC coins can be sent directly between addresses (signed Ed25519 transactions) — that already works.",
-        exchange_check_address_btn: "Check your address",
-        exchange_docs_btn: "API Documentation",
-
-        address_h1: "Check an Address",
-        address_label: "BbC Address",
-        address_search_btn: "Search",
-        address_confirmed_balance: "Confirmed Balance",
-        address_mempool_aware_balance: "Including Mempool",
-        address_history_heading: "History",
-        address_th_type: "Type",
-        address_th_direction: "Direction",
-        address_th_amount: "Amount",
-        address_no_transactions: "No transactions for this address",
-        address_incoming: "incoming",
-        address_outgoing: "outgoing",
-
-        docks_h1: "Documentation",
-        docks_intro: "A quick reference for the BitBudCoin API and network parameters.",
-        docks_chain_heading: "Chain",
-        docks_wallets_heading: "Wallets & Transactions",
-        docks_wallets_desc: "You sign transactions locally with your private key (Ed25519) — wallet.js and send.js in the backend repo.",
-        docks_params_heading: "Protocol Parameters (live)",
-        docks_how_heading: "How It Works, in Short",
-        docks_how_desc: "SHA-256 proof-of-work, difficulty as a continuous number (not x16 jumps), retarget every ~2028 blocks, reward halving every 210,000 blocks, hard supply cap. SQLite database (node:sqlite), P2P over raw TCP (JSON lines), share-based proof-of-work pool, Ed25519-signed transactions.",
-        docks_node_heading: "Running Your Own Node",
-        docks_footer_home_link: "home page",
-        docks_base_reward: "Base reward",
-        docks_node_offline: "node offline",
-
-        block_back_to_journal: "← Chain Journal",
-        block_tx_heading: "Transactions",
-        block_th_from: "From",
-        block_th_to: "To",
-        block_no_height: "No block height in the address.",
-        block_hash_label: "Hash",
-        block_prev_hash_label: "Previous hash",
-        block_genesis_note: "— (genesis)",
-        block_when_label: "When",
-        block_nonce_label: "Nonce",
-        block_no_transactions: "No transactions in this block",
-        block_new_coins: "— (new coins)",
-        block_fee_suffix: "fee",
-
-        wallet_h1: "Wallet", wallet_tab_create: "New Wallet", wallet_tab_manage: "My Wallet",
-        wallet_phrase_heading: "12 words instead of a key",
-        wallet_phrase_subtitle: "Easier to copy by hand, easier to spot a typo. The same phrase always recreates exactly the same wallet.",
-        wallet_show_raw_keys: "Advanced: raw keys instead of a phrase",
-        wallet_hide_raw_keys: "Hide raw keys",
-        wallet_phrase_generate_btn: "Generate new phrase",
-        wallet_phrase_confirm_saved: "I've saved these 12 words somewhere safe.",
-        wallet_phrase_use_btn: "Use this wallet",
-        wallet_remember_heading: "💾 Remember this wallet on this device?",
-        wallet_remember_desc_short: "Encrypted with a real password (AES-256) — next time just the password, no pasting keys.",
-        wallet_set_password: "Set a password",
-        wallet_remember_btn: "Remember",
-        wallet_unlock_heading: "🔒 You have a saved wallet on this device",
-        wallet_password_label: "Password",
-        wallet_unlock_btn: "Unlock",
-        wallet_forget_btn: "Forget this wallet",
-        wallet_login_heading: "Log in",
-        wallet_login_hint: "Paste your old keys or type the 12 words — I'll recognize which one it is.",
-        wallet_remember_heading2: "💾 Remember this wallet here?",
-        wallet_remember_desc_long: "Encrypted with a real password (AES-256) — next time just the password, no pasting keys. Lost password = you'll need to reload the wallet by pasting again (you still have the keys in your file).",
-        wallet_intro: "Your private key is created right here, in this browser, and is never sent anywhere.",
-        wallet_warning: "If you lose your private key, you lose access to this address forever. Save it before closing this tab.",
-        wallet_generate_btn: "Generate New Wallet",
-        wallet_step1: "Your BbC Address", wallet_step2: "Public Key",
-        wallet_step3: "PRIVATE Key — never show this to anyone",
-        wallet_step4: "Save to Disk", wallet_download_bundle: "Download Both Keys (1 file)",
-        wallet_bundle_hint: "This one file is all you need to load this wallet later under \"My Wallet\".",
-        wallet_confirm_saved: "I've saved my private key somewhere safe.",
-        wallet_import_title: "Load Wallet",
-        wallet_import_hint: "Paste the contents of the file you downloaded when creating your wallet (both keys at once — they'll be detected automatically).",
-        wallet_load_btn: "Load Wallet",
-        wallet_import_error: "Couldn't find both keys in the pasted text — make sure you pasted both the private and public key.",
-        wallet_receive_title: "Receive", wallet_copy_addr: "Copy Address", wallet_share: "Share",
-        wallet_send_title: "Send", wallet_send_to: "Recipient Address", wallet_send_amount: "Amount (BbC)",
-        wallet_send_fee: "Fee", wallet_send_btn: "Send",
-        wallet_footer: "BitBudCoin (BbC) · your private key never leaves this browser",
-        wallet_generating: "Generating...", wallet_generate_error: "Failed to generate wallet: ",
-        wallet_copied: "Copied ✓", wallet_selected: "Selected - Ctrl+C",
-        wallet_load_error: "Error loading keys: ", wallet_balance_error: "error",
-        wallet_share_fallback: "Address copied (sharing not available in this browser)",
-        wallet_need_recipient: "Enter recipient address", wallet_need_amount: "Enter a valid amount",
-        wallet_fee_negative: "Fee cannot be negative", wallet_signing: "Signing and sending...",
-        wallet_send_success: "✅ Sent, waiting for block confirmation",
-
-        miner_h1: "Mining", miner_pool_status: "Pool Status",
-        miner_auto_title: "Automatic Mining (in this browser)",
-        miner_auto_desc: "Computes hashes right here on your device and automatically reports shares found — no need to keep clicking anything.",
-        miner_your_address: "Your BbC Address", miner_start_btn: "Start Mining",
-        miner_stop_btn: "Stop Mining",
-        miner_auto_hint: "Mines as long as this tab stays open — closing the tab or locking your phone screen may stop it.",
-        miner_solo_title: "⚡ Solo — Keep the Whole Reward",
-        miner_solo_desc: "Computes right here in this browser, just like pool mining — but without sharing. Find a block, and the full reward goes straight to your address.",
-        miner_solo_start: "Start Solo Mining",
-        miner_models_title: "Hardware Models (reference)",
-        miner_blocks_label: "Blocks",
-        miner_attempts_label: "Attempts",
-        miner_bench_title: "How fast is your device, really?",
-        miner_bench_desc: "A real measurement taken right now, live — not a spec sheet.",
-        miner_bench_btn: "Check speed", miner_bench_running: "Measuring for 1.5 seconds...",
-        miner_bench_busy: "Stop mining first for an accurate reading.",
-        miner_bench_estimate: "At the current network difficulty: on average", miner_bench_sec: "s",
-        miner_bench_min: "min", miner_bench_hr: "hr",
-        miner_footer: "BitBudCoin (BbC) · proof-of-work network",
-
-        miner_active_miners_heading: "Active Miners",
-        miner_active_miners_window: "(last few minutes)",
-        miner_working_on_block: "Working on block",
-        miner_share_block_diff: "Share / block difficulty",
-        miner_shares_this_round: "Shares this round",
-        miner_pool_fee_label: "Pool fee",
-        miner_pool_hashrate: "Pool hashrate",
-        miner_solo_hashrate: "Solo hashrate",
-        miner_no_active_miners: "No active miners in the last",
-        miner_th_address: "Address",
-        miner_th_mode: "Mode",
-        miner_th_activity: "Activity",
-        miner_need_address_alert: "Enter a BbC address",
-
-        explorer_stat_height: "Latest block",
-        explorer_stat_difficulty: "Difficulty",
-        explorer_stat_blocktime: "Avg. block time",
-        explorer_search_placeholder: "Search by block height (e.g. 4821)…",
-        explorer_search_btn: "Search",
-        explorer_col_height: "Block",
-        explorer_col_time: "Time",
-        explorer_col_txs: "Tx",
-        explorer_col_difficulty: "Difficulty",
-        explorer_col_hash: "Hash",
-        explorer_search_height_only: "Right now search only works by block height (a number).",
-
+        nav_dashboard: "Dashboard",
+        nav_explorer: "Explorer",
+        nav_mining: "Mining",
+        nav_network: "Network",
+        nav_peers: "Peers",
+        nav_exchange: "Exchange",
+        nav_address: "Address",
+        nav_docs: "Docs",
+        nav_wallet: "Wallet",
         nav_swap: "Buy BbC",
-        swap_h1: "Buy BbC with BTC",
-        swap_intro: "A direct trade with another person — nobody sends anything on trust.",
-        swap_preview_banner: "A preview of how this will work — not yet connected to real networks.",
-        swap_step1_label: "Amount", swap_step2_label: "Send BTC",
-        swap_step3_label: "Other side", swap_step4_label: "Claim BbC", swap_step5_label: "Done",
-        swap_step1_heading: "How much, for how much",
-        swap_step1_btc_label: "You send (BTC)",
-        swap_step1_bbc_label: "You receive (BbC)",
-        swap_step1_note: "Amounts agreed between you beforehand — the site doesn't invent them.",
-        swap_step1_next_btn: "Next",
-        swap_step2_heading: "Send BTC to this address",
-        swap_step2_address_label: "Deposit address",
-        swap_step2_waiting: "Waiting for payment…",
-        swap_step2_note: "Checked directly on the BTC network, not on trust.",
-        swap_step3_heading: "Payment received",
-        swap_step3_waiting: "Waiting for the other side to lock BbC…",
-        swap_step4_heading: "Your BbC is waiting",
-        swap_step4_note: "Both sides locked with the same secret — it can be claimed now.",
-        swap_step4_btn: "Claim BbC",
-        swap_step5_heading: "Done",
-        swap_step5_btc_tx: "BTC transaction",
-        swap_step5_bbc_tx: "BbC transaction",
-        swap_step5_note: "You can check both transactions yourself, on the real networks.",
-        swap_demo_prev: "← Back", swap_demo_next: "Next →", swap_demo_restart: "Start over",
-
-        reqoffer_h1: "Propose a BbC purchase",
-        reqoffer_intro: "Write how much you want to send and how much BbC you expect in return. The seller will see it and decide — nothing is binding yet.",
-        reqoffer_bbc_label: "How much BbC do you want",
-        reqoffer_btc_label: "How much BTC are you offering",
-        reqoffer_timeout_label: "Hours to complete the transaction (after acceptance)",
-        reqoffer_note_label: "Message to the seller (optional)",
-        reqoffer_submit_btn: "Send proposal",
-        reqoffer_fill_all: "Fill in the required fields.",
-        reqoffer_sending: "Sending…",
-        reqoffer_done_heading: "Sent — save this link",
-        reqoffer_done_desc: "This link will show whether the seller accepted. If so, you'll finish the purchase here.",
-
-        revoffer_h1: "Purchase requests",
-        revoffer_secret_label: "Admin secret",
-        revoffer_load_btn: "Load pending",
-        revoffer_loading: "Loading…",
-        revoffer_none_pending: "No pending requests.",
-        revoffer_id_label: "ID",
-        revoffer_timeout_label: "Timeout",
-        revoffer_accept_btn: "Accept",
-        revoffer_reject_btn: "Reject",
-        revoffer_key_warning: "⚠️ New BTC key just for this transaction. Save it — you'll need it to claim the BTC later.",
-        revoffer_bbc_address_label: "Your BbC address (existing, from your wallet)",
-        revoffer_confirm_btn: "Confirm acceptance",
-        revoffer_need_bbc_address: "Enter your BbC address.",
-        revoffer_accepted: "Accepted.",
-
-        swap_stepbar_1: "Terms", swap_stepbar_2: "Send BTC", swap_stepbar_3: "Seller",
-        swap_stepbar_4: "Claim BbC", swap_stepbar_5: "Done",
-        swap_panel1_heading: "Terms of this offer",
-        swap_sending_label: "You send", swap_receiving_label: "You receive",
-        swap_buyer_bbc_label: "Your BbC address (where BbC will go)",
-        swap_next_btn: "Next",
-        swap_panel2_heading: "Send BTC to this address",
-        swap_key_warning: "⚠️ New key just for this transaction. Save it — needed for a refund if something goes wrong.",
-        swap_privkey_label: "Your private key (SAVE THIS)",
-        swap_lock_address_label: "Lock address (send BTC here)",
-        swap_check_mempool_link: "Check on mempool.space →",
-        explorer_live_label: "live",
-        index_status_heading: "Project status",
-        index_status_mainnet: "Mainnet",
-        index_status_wallet: "Wallet",
-        index_status_explorer: "Explorer",
-        index_status_mining: "Mining",
-        index_status_swaps: "Atomic swaps (rolling out / testing)",
-        index_status_next: "Next stages",
         nav_family: "BbC Family",
-        family_h1: "BbC Family",
-        family_intro: "A place to talk for anyone with a stake in the network. Log in with your wallet key pair (the exact same one used to send BbC) — that confirms you're a genuine network participant, no password to remember.",
-        family_login_label: "Paste your wallet key pair (public + private key)",
-        family_login_btn: "Log in",
-        family_compose_placeholder: "Write something to the family...",
-        family_send_btn: "Send",
-        family_messages_heading: "Messages",
-        family_err_need_both_keys: "Both keys needed - public and private.",
-        family_err_bad_keys: "Failed to load keys",
-        family_logged_in_as: "Logged in as",
-        family_no_messages: "No one has written anything yet.",
-        family_err_not_logged_in: "Log in first.",
-        family_strike_notice: "Warning",
-        family_blocked_notice: "This address is blocked after 3 warnings.",
-        revoffer_live_error_heading: "Live error reported",
-        family_pending_notice: "Message is awaiting review.",
-        family_rules_heading: "Rules",
-        family_rules_text: "The BbC Family focuses on improving the network. Explicitly forbidden: asking anyone for a private key, promising guaranteed profits, third-party links without a clear reason, impersonating others. Suspicious messages wait for a human to check them, not removed automatically — but also not shown until someone confirms they're fine. Three violations — blocked.",
-        revoffer_family_pending_heading: "Family - awaiting approval",
-        revoffer_family_approve: "Approve",
-        revoffer_family_reject: "Reject (warning)",
-        revoffer_recovered_heading: "⚠️ Found saved keys from previous sessions",
-        revoffer_recovered_desc: "If you already claimed the BTC for one of these offers, you can safely delete the entry.",
-        revoffer_recovered_delete: "Delete",
-        revoffer_recovered_confirm_delete: "Delete for sure? Make sure the BTC was already claimed first.",
-        swap_recovered_notice: "✅ Same key as before — recovered automatically, the address hasn't changed.",
-        revoffer_download_key: "Download key file",
-        revoffer_downloaded: "Downloaded",
-        revoffer_confirm_saved: "I saved/downloaded the private key — without it I can't claim the BTC.",
-        swap_waiting_funding: "Waiting for payment…",
-        swap_funding_confirmed: "✅ Payment confirmed!",
-        swap_panel3_heading: "Payment received — inform the seller",
-        swap_panel3_desc: "Send them exactly this (NOT your secret — that stays with you only):",
-        swap_info_id: "ID", swap_info_myaddr: "My BbC address", swap_info_hash: "Secret hash", swap_info_timeout: "Timeout height",
-        swap_waiting_seller: "Waiting for the seller to lock BbC…",
-        swap_panel4_heading: "BbC is waiting — claim it in your wallet",
-        swap_panel4_desc: "You do the last step in the Wallet (not here — your BbC key never touches this page). \"Already have a wallet\" tab → HTLC → \"Claim\", paste:",
-        swap_info_htlcid: "HTLC ID", swap_info_secret: "Secret",
-        swap_open_wallet_btn: "Open wallet →",
-        swap_waiting_claim: "Checking whether it's been claimed…",
-        swap_panel5_heading: "Done",
-        swap_panel5_desc: "BbC claimed. The seller can now see your revealed secret and claim the BTC.",
-        swap_view_tx_link: "View BTC transaction →",
-        swap_err_no_offer: "No offer in the link. Ask the seller for a valid link.",
-        swap_err_offer_not_found: "Offer not found or no longer valid.",
-        swap_err_load_failed: "Failed to load the offer",
-        swap_err_need_bbc_addr: "Enter your BbC address.",
-        swap_err_tip_height: "Can't check the current BTC height — try refreshing the page."
+
+        /* COMMON */
+
+        footer_text:
+            "BitBudCoin (BbC) · proof-of-work network",
+
+        footer_docs_link:
+            "documentation",
+
+        common_blocks_suffix:
+            "blocks",
+
+        common_backend_error:
+            "Couldn't connect to the backend",
+
+        common_error_prefix:
+            "error",
+
+        common_known_miners:
+            "Known Miners",
+
+        common_only_you:
+            "Just you, for now.",
+
+        common_unavailable:
+            "Unavailable.",
+
+        common_pool_unavailable:
+            "Pool unavailable",
+
+        common_pool_label:
+            "pool",
+
+        common_solo_label:
+            "solo",
+
+        common_last_block:
+            "last block",
+
+        time_now:
+            "now",
+
+        time_s_ago:
+            "s ago",
+
+        time_m_ago:
+            "m ago",
+
+        time_h_ago:
+            "h ago",
+
+        time_d_ago:
+            "d ago",
+
+        /* INDEX */
+
+        index_kicker:
+            "proof-of-work · BbC network",
+
+        index_sub:
+            "blocks mined since genesis",
+
+        index_view_explorer_btn:
+            "View explorer",
+
+        index_stat_supply:
+            "Circulating Supply",
+
+        index_stat_reward:
+            "Current Reward",
+
+        index_stat_difficulty:
+            "Difficulty",
+
+        index_about_heading:
+            "What is BitBudCoin?",
+
+        index_about_text:
+            "BbC is an independent blockchain network with classic proof-of-work (SHA-256), a founder's premine, a block reward halving every 210,000 blocks, and a hard supply cap. You can mine solo or through the pool — you count hashes locally, and the network verifies and records the result. All activity (transfers, locking, balances) goes through Ed25519 signatures, so no one but the private key owner can touch their funds.",
+
+        index_card_mining_desc:
+            "Solo or through the pool, with a real share of the reward proportional to submitted shares.",
+
+        index_card_mining_link:
+            "See how →",
+
+        index_card_explorer_desc:
+            "Every block, every transaction, transparent and checkable at any time.",
+
+        index_card_explorer_link:
+            "Browse →",
+
+        index_card_wallet_desc:
+            "Check the balance of any address and its transaction history.",
+
+        index_card_wallet_link:
+            "Check address →",
+
+        /* DASHBOARD */
+
+        dashboard_h1:
+            "Network Dashboard",
+
+        dashboard_height:
+            "Height",
+
+        dashboard_supply_cap:
+            "Supply / cap",
+
+        dashboard_block_reward:
+            "Block Reward",
+
+        dashboard_next_halving:
+            "Until Next Halving",
+
+        dashboard_next_retarget:
+            "Until Difficulty Retarget",
+
+        dashboard_recent_blocks:
+            "Recent Blocks",
+
+        dashboard_th_when:
+            "When",
+
+        dashboard_th_hash:
+            "Hash",
+
+        dashboard_full_explorer_link:
+            "Full explorer →",
+
+        dashboard_pool_heading:
+            "Mining Pool",
+
+        dashboard_join_mining_link:
+            "Join mining →",
+
+        dashboard_invalid_chain:
+            "The node is reporting an invalid local chain — check the server logs.",
+
+        dashboard_no_blocks:
+            "No blocks besides genesis",
+
+        dashboard_share_diff:
+            "Share difficulty",
+
+        dashboard_shares_round:
+            "Shares this round",
+
+        dashboard_pool_fee:
+            "Pool fee",
+
+        dashboard_addresses_heading:
+            "Addresses on the Network",
+
+        dashboard_total_addresses:
+            "Total known addresses",
+
+        dashboard_whales_heading:
+            "Whales (most BbC)",
+
+        dashboard_newest_heading:
+            "Newest Addresses",
+
+        dashboard_since_block:
+            "since block",
+
+        /* EXPLORER */
+
+        explorer_h1:
+            "Chain Journal",
+
+        explorer_intro:
+            "Every mined block is a real moment of someone's work. Click an entry to see the full transactions.",
+
+        explorer_load_more_btn:
+            "Load older blocks",
+
+        explorer_story_genesis:
+            "The beginning. The first block of this chain, recorded forever — {amount} BbC given out at the start.",
+
+        explorer_unit_seconds:
+            "s",
+
+        explorer_unit_minutes:
+            "min",
+
+        explorer_story_worked:
+            "Someone spent {duration} proving it",
+
+        explorer_story_proved:
+            "Someone proved real work",
+
+        explorer_story_alongside:
+            "along the way",
+
+        explorer_story_tx_singular:
+            "transaction made it",
+
+        explorer_story_tx_plural:
+            "transactions made it",
+
+        explorer_block_label:
+            "Block",
+
+        explorer_only_genesis:
+            "Just genesis for now — mine the first block in",
+
+        explorer_stat_height:
+            "Latest block",
+
+        explorer_stat_difficulty:
+            "Difficulty",
+
+        explorer_stat_blocktime:
+            "Avg. block time",
+
+        explorer_search_placeholder:
+            "Search by block height (e.g. 4821)…",
+
+        explorer_search_btn:
+            "Search",
+
+        explorer_col_height:
+            "Block",
+
+        explorer_col_time:
+            "Time",
+
+        explorer_col_txs:
+            "Tx",
+
+        explorer_col_difficulty:
+            "Difficulty",
+
+        explorer_col_hash:
+            "Hash",
+
+        explorer_search_height_only:
+            "Right now search only works by block height (a number).",
+
+        explorer_live_label:
+            "live",
+
+        /* NETWORK */
+
+        network_h1:
+            "Network Parameters",
+
+        network_intro:
+            "Chain health and protocol constants — what every node agrees on.",
+
+        network_chain_valid:
+            "Chain valid",
+
+        network_chain_invalid:
+            "Chain INVALID",
+
+        network_row_network:
+            "Network",
+
+        network_row_version:
+            "Protocol version",
+
+        network_row_current_difficulty:
+            "Current difficulty",
+
+        network_row_blocks_to_retarget:
+            "Blocks until retarget",
+
+        network_row_blocks_to_halving:
+            "Blocks until halving",
+
+        network_row_supply_cap:
+            "Supply cap",
+
+        network_row_premine:
+            "Premine",
+
+        network_no_node_connection:
+            "No connection to the node",
+
+        /* PEERS */
+
+        peers_h1:
+            "P2P Peers",
+
+        peers_connect_heading:
+            "Connect to a New Peer",
+
+        peers_address_label:
+            "Address (host:port)",
+
+        peers_connect_btn:
+            "Connect",
+
+        peers_status_heading:
+            "Node Status",
+
+        peers_connected_heading:
+            "Connected",
+
+        peers_configured_heading:
+            "Configured",
+
+        peers_reconnecting_heading:
+            "Reconnecting",
+
+        peers_none:
+            "— none —",
+
+        peers_port_label:
+            "P2P port",
+
+        peers_connected_count_label:
+            "Connected peers",
+
+        peers_need_address:
+            "Enter an address in host:port format",
+
+        peers_connecting_to:
+            "Connecting to",
+
+        /* EXCHANGE */
+
+        exchange_h1:
+            "The exchange hasn't lit up yet",
+
+        exchange_p1:
+            "Trading BbC (order book, trading pairs, order matching) isn't part of the network yet — for now BitBudCoin is just the chain and wallet layer, without an exchange module.",
+
+        exchange_p2:
+            "Until then, BbC coins can be sent directly between addresses (signed Ed25519 transactions) — that already works.",
+
+        exchange_check_address_btn:
+            "Check your address",
+
+        exchange_docs_btn:
+            "API Documentation",
+
+        /* ADDRESS */
+
+        address_h1:
+            "Check an Address",
+
+        address_label:
+            "BbC Address",
+
+        address_search_btn:
+            "Search",
+
+        address_confirmed_balance:
+            "Confirmed Balance",
+
+        address_mempool_aware_balance:
+            "Including Mempool",
+
+        address_history_heading:
+            "History",
+
+        address_th_type:
+            "Type",
+
+        address_th_direction:
+            "Direction",
+
+        address_th_amount:
+            "Amount",
+
+        address_no_transactions:
+            "No transactions for this address",
+
+        address_incoming:
+            "incoming",
+
+        address_outgoing:
+            "outgoing",
+
+        /* DOCUMENTATION */
+
+        docs_h1:
+            "Documentation",
+
+        docs_intro:
+            "A quick reference for the BitBudCoin API and network parameters.",
+
+        docs_chain_heading:
+            "Chain",
+
+        docs_wallets_heading:
+            "Wallets & Transactions",
+
+        docs_wallets_desc:
+            "You sign transactions locally with your private key (Ed25519) — wallet.js and send.js in the backend repo.",
+
+        docs_params_heading:
+            "Protocol Parameters (live)",
+
+        docs_how_heading:
+            "How It Works, in Short",
+
+        docs_how_desc:
+            "SHA-256 proof-of-work, difficulty as a continuous number (not x16 jumps), retarget every ~2028 blocks, reward halving every 210,000 blocks, hard supply cap. SQLite database (node:sqlite), P2P over raw TCP (JSON lines), share-based proof-of-work pool, Ed25519-signed transactions.",
+
+        docs_node_heading:
+            "Running Your Own Node",
+
+        docs_footer_home_link:
+            "home page",
+
+        docs_base_reward:
+            "Base reward",
+
+        docs_node_offline:
+            "node offline",
+
+        /* BLOCK */
+
+        block_back_to_journal:
+            "← Chain Journal",
+
+        block_tx_heading:
+            "Transactions",
+
+        block_th_from:
+            "From",
+
+        block_th_to:
+            "To",
+
+        block_no_height:
+            "No block height in the address.",
+
+        block_hash_label:
+            "Hash",
+
+        block_prev_hash_label:
+            "Previous hash",
+
+        block_genesis_note:
+            "— (genesis)",
+
+        block_when_label:
+            "When",
+
+        block_nonce_label:
+            "Nonce",
+
+        block_no_transactions:
+            "No transactions in this block",
+
+        block_new_coins:
+            "— (new coins)",
+
+        block_fee_suffix:
+            "fee",
+
+        /* WALLET */
+
+        wallet_h1:
+            "Wallet",
+
+        wallet_tab_create:
+            "New Wallet",
+
+        wallet_tab_manage:
+            "My Wallet",
+
+        wallet_phrase_heading:
+            "12 words instead of a key",
+
+        wallet_phrase_subtitle:
+            "Easier to copy by hand, easier to spot a typo. The same phrase always recreates exactly the same wallet.",
+
+        wallet_show_raw_keys:
+            "Advanced: raw keys instead of a phrase",
+
+        wallet_hide_raw_keys:
+            "Hide raw keys",
+
+        wallet_phrase_generate_btn:
+            "Generate new phrase",
+
+        wallet_phrase_confirm_saved:
+            "I've saved these 12 words somewhere safe.",
+
+        wallet_phrase_use_btn:
+            "Use this wallet",
+
+        wallet_remember_heading:
+            "💾 Remember this wallet on this device?",
+
+        wallet_remember_desc_short:
+            "Encrypted with a real password (AES-256) — next time just the password, no pasting keys.",
+
+        wallet_set_password:
+            "Set a password",
+
+        wallet_remember_btn:
+            "Remember",
+
+        wallet_unlock_heading:
+            "🔒 You have a saved wallet on this device",
+
+        wallet_password_label:
+            "Password",
+
+        wallet_unlock_btn:
+            "Unlock",
+
+        wallet_forget_btn:
+            "Forget this wallet",
+
+        wallet_login_heading:
+            "Log in",
+
+        wallet_login_hint:
+            "Paste your old keys or type the 12 words — I'll recognize which one it is.",
+
+        wallet_remember_heading2:
+            "💾 Remember this wallet here?",
+
+        wallet_remember_desc_long:
+            "Encrypted with a real password (AES-256) — next time just the password, no pasting keys. Lost password = you'll need to reload the wallet by pasting again (you still have the keys in your file).",
+
+        wallet_intro:
+            "Your private key is created right here, in this browser, and is never sent anywhere.",
+
+        wallet_warning:
+            "If you lose your private key, you lose access to this address forever. Save it before closing this tab.",
+
+        wallet_generate_btn:
+            "Generate New Wallet",
+
+        wallet_step1:
+            "Your BbC Address",
+
+        wallet_step2:
+            "Public Key",
+
+        wallet_step3:
+            "PRIVATE Key — never show this to anyone",
+
+        wallet_step4:
+            "Save to Disk",
+
+        wallet_download_bundle:
+            "Download Both Keys (1 file)",
+
+        wallet_bundle_hint:
+            "This one file is all you need to load this wallet later under \"My Wallet\".",
+
+        wallet_confirm_saved:
+            "I've saved my private key somewhere safe.",
+
+        wallet_import_title:
+            "Load Wallet",
+
+        wallet_import_hint:
+            "Paste the contents of the file you downloaded when creating your wallet (both keys at once — they'll be detected automatically).",
+
+        wallet_load_btn:
+            "Load Wallet",
+
+        wallet_import_error:
+            "Couldn't find both keys in the pasted text — make sure you pasted both the private and public key.",
+
+        wallet_receive_title:
+            "Receive",
+
+        wallet_copy_addr:
+            "Copy Address",
+
+        wallet_share:
+            "Share",
+
+        wallet_send_title:
+            "Send",
+
+        wallet_send_to:
+            "Recipient Address",
+
+        wallet_send_amount:
+            "Amount (BbC)",
+
+        wallet_send_fee:
+            "Fee",
+
+        wallet_send_btn:
+            "Send",
+
+        wallet_footer:
+            "BitBudCoin (BbC) · your private key never leaves this browser",
+
+        wallet_generating:
+            "Generating...",
+
+        wallet_generate_error:
+            "Failed to generate wallet: ",
+
+        wallet_copied:
+            "Copied ✓",
+
+        wallet_selected:
+            "Selected - Ctrl+C",
+
+        wallet_load_error:
+            "Error loading keys: ",
+
+        wallet_balance_error:
+            "error",
+
+        wallet_share_fallback:
+            "Address copied (sharing not available in this browser)",
+
+        wallet_need_recipient:
+            "Enter recipient address",
+
+        wallet_need_amount:
+            "Enter a valid amount",
+
+        wallet_fee_negative:
+            "Fee cannot be negative",
+
+        wallet_signing:
+            "Signing and sending...",
+
+        wallet_send_success:
+            "✅ Sent, waiting for block confirmation",
+
+        /* MINER */
+
+        miner_h1:
+            "Mining",
+
+        miner_pool_status:
+            "Pool Status",
+
+        miner_auto_title:
+            "Automatic Mining (in this browser)",
+
+        miner_auto_desc:
+            "Computes hashes right here on your device and automatically reports shares found — no need to keep clicking anything.",
+
+        miner_your_address:
+            "Your BbC Address",
+
+        miner_start_btn:
+            "Start Mining",
+
+        miner_stop_btn:
+            "Stop Mining",
+
+        miner_auto_hint:
+            "Mines as long as this tab stays open — closing the tab or locking your phone screen may stop it.",
+
+        miner_solo_title:
+            "⚡ Solo — Keep the Whole Reward",
+
+        miner_solo_desc:
+            "Computes right here in this browser, just like pool mining — but without sharing. Find a block, and the full reward goes straight to your address.",
+
+        miner_solo_start:
+            "Start Solo Mining",
+
+        miner_models_title:
+            "Hardware Models (reference)",
+
+        miner_blocks_label:
+            "Blocks",
+
+        miner_attempts_label:
+            "Attempts",
+
+        miner_bench_title:
+            "How fast is your device, really?",
+
+        miner_bench_desc:
+            "A real measurement taken right now, live — not a spec sheet.",
+
+        miner_bench_btn:
+            "Check speed",
+
+        miner_bench_running:
+            "Measuring for 1.5 seconds...",
+
+        miner_bench_busy:
+            "Stop mining first for an accurate reading.",
+
+        miner_bench_estimate:
+            "At the current network difficulty: on average",
+
+        miner_bench_sec:
+            "s",
+
+        miner_bench_min:
+            "min",
+
+        miner_bench_hr:
+            "hr",
+
+        miner_footer:
+            "BitBudCoin (BbC) · proof-of-work network",
+
+        miner_active_miners_heading:
+            "Active Miners",
+
+        miner_active_miners_window:
+            "(last few minutes)",
+
+        miner_working_on_block:
+            "Working on block",
+
+        miner_share_block_diff:
+            "Share / block difficulty",
+
+        miner_shares_this_round:
+            "Shares this round",
+
+        miner_pool_fee_label:
+            "Pool fee",
+
+        miner_pool_hashrate:
+            "Pool hashrate",
+
+        miner_solo_hashrate:
+            "Solo hashrate",
+
+        miner_no_active_miners:
+            "No active miners in the last",
+
+        miner_th_address:
+            "Address",
+
+        miner_th_mode:
+            "Mode",
+
+        miner_th_activity:
+            "Activity",
+
+        miner_need_address_alert:
+            "Enter a BbC address",
+
+        /* SWAP */
+
+        swap_h1:
+            "Buy BbC with BTC",
+
+        swap_intro:
+            "A direct trade with another person — nobody sends anything on trust.",
+
+        swap_preview_banner:
+            "A preview of how this will work — not yet connected to real networks.",
+
+        swap_step1_label:
+            "Amount",
+
+        swap_step2_label:
+            "Send BTC",
+
+        swap_step3_label:
+            "Other side",
+
+        swap_step4_label:
+            "Claim BbC",
+
+        swap_step5_label:
+            "Done",
+
+        swap_step1_heading:
+            "How much, for how much",
+
+        swap_step1_btc_label:
+            "You send (BTC)",
+
+        swap_step1_bbc_label:
+            "You receive (BbC)",
+
+        swap_step1_note:
+            "Amounts agreed between you beforehand — the site doesn't invent them.",
+
+        swap_step1_next_btn:
+            "Next",
+
+        swap_step2_heading:
+            "Send BTC to this address",
+
+        swap_step2_address_label:
+            "Deposit address",
+
+        swap_step2_waiting:
+            "Waiting for payment…",
+
+        swap_step2_note:
+            "Checked directly on the BTC network, not on trust.",
+
+        swap_step3_heading:
+            "Payment received",
+
+        swap_step3_waiting:
+            "Waiting for the other side to lock BbC…",
+
+        swap_step4_heading:
+            "Your BbC is waiting",
+
+        swap_step4_note:
+            "Both sides locked with the same secret — it can be claimed now.",
+
+        swap_step4_btn:
+            "Claim BbC",
+
+        swap_step5_heading:
+            "Done",
+
+        swap_step5_btc_tx:
+            "BTC transaction",
+
+        swap_step5_bbc_tx:
+            "BbC transaction",
+
+        swap_step5_note:
+            "You can check both transactions yourself, on the real networks.",
+
+        swap_demo_prev:
+            "← Back",
+
+        swap_demo_next:
+            "Next →",
+
+        swap_demo_restart:
+            "Start over",
+
+        swap_stepbar_1:
+            "Terms",
+
+        swap_stepbar_2:
+            "Send BTC",
+
+        swap_stepbar_3:
+            "Seller",
+
+        swap_stepbar_4:
+            "Claim BbC",
+
+        swap_stepbar_5:
+            "Done",
+
+        swap_panel1_heading:
+            "Terms of this offer",
+
+        swap_sending_label:
+            "You send",
+
+        swap_receiving_label:
+            "You receive",
+
+        swap_buyer_bbc_label:
+            "Your BbC address (where BbC will go)",
+
+        swap_next_btn:
+            "Next",
+
+        swap_panel2_heading:
+            "Send BTC to this address",
+
+        swap_key_warning:
+            "⚠️ New key just for this transaction. Save it — needed for a refund if something goes wrong.",
+
+        swap_privkey_label:
+            "Your private key (SAVE THIS)",
+
+        swap_lock_address_label:
+            "Lock address (send BTC here)",
+
+        swap_check_mempool_link:
+            "Check on mempool.space →",
+
+        swap_waiting_funding:
+            "Waiting for payment…",
+
+        swap_funding_confirmed:
+            "✅ Payment confirmed!",
+
+        swap_panel3_heading:
+            "Payment received — inform the seller",
+
+        swap_panel3_desc:
+            "Send them exactly this (NOT your secret — that stays with you only):",
+
+        swap_info_id:
+            "ID",
+
+        swap_info_myaddr:
+            "My BbC address",
+
+        swap_info_hash:
+            "Secret hash",
+
+        swap_info_timeout:
+            "Timeout height",
+
+        swap_waiting_seller:
+            "Waiting for the seller to lock BbC…",
+
+        swap_panel4_heading:
+            "BbC is waiting — claim it in your wallet",
+
+        swap_panel4_desc:
+            "You do the last step in the Wallet (not here — your BbC key never touches this page). \"Already have a wallet\" tab → HTLC → \"Claim\", paste:",
+
+        swap_info_htlcid:
+            "HTLC ID",
+
+        swap_info_secret:
+            "Secret",
+
+        swap_open_wallet_btn:
+            "Open wallet →",
+
+        swap_waiting_claim:
+            "Checking whether it's been claimed…",
+
+        swap_panel5_heading:
+            "Done",
+
+        swap_panel5_desc:
+            "BbC claimed. The seller can now see your revealed secret and claim the BTC.",
+
+        swap_view_tx_link:
+            "View BTC transaction →",
+
+        swap_err_no_offer:
+            "No offer in the link. Ask the seller for a valid link.",
+
+        swap_err_offer_not_found:
+            "Offer not found or no longer valid.",
+
+        swap_err_load_failed:
+            "Failed to load the offer",
+
+        swap_err_need_bbc_addr:
+            "Enter your BbC address.",
+
+        swap_err_tip_height:
+            "Can't check the current BTC height — try refreshing the page.",
+
+        swap_recovered_notice:
+            "✅ Same key as before — recovered automatically, the address hasn't changed.",
+
+        /* REQUEST OFFER */
+
+        reqoffer_h1:
+            "Propose a BbC purchase",
+
+        reqoffer_intro:
+            "Write how much you want to send and how much BbC you expect in return. The seller will see it and decide — nothing is binding yet.",
+
+        reqoffer_bbc_label:
+            "How much BbC do you want",
+
+        reqoffer_btc_label:
+            "How much BTC are you offering",
+
+        reqoffer_timeout_label:
+            "Hours to complete the transaction (after acceptance)",
+
+        reqoffer_note_label:
+            "Message to the seller (optional)",
+
+        reqoffer_submit_btn:
+            "Send proposal",
+
+        reqoffer_fill_all:
+            "Fill in the required fields.",
+
+        reqoffer_sending:
+            "Sending…",
+
+        reqoffer_done_heading:
+            "Sent — save this link",
+
+        reqoffer_done_desc:
+            "This link will show whether the seller accepted. If so, you'll finish the purchase here.",
+
+        /* ADMIN */
+
+        revoffer_h1:
+            "Purchase requests",
+
+        revoffer_secret_label:
+            "Admin secret",
+
+        revoffer_load_btn:
+            "Load pending",
+
+        revoffer_loading:
+            "Loading…",
+
+        revoffer_none_pending:
+            "No pending requests.",
+
+        revoffer_id_label:
+            "ID",
+
+        revoffer_timeout_label:
+            "Timeout",
+
+        revoffer_accept_btn:
+            "Accept",
+
+        revoffer_reject_btn:
+            "Reject",
+
+        revoffer_key_warning:
+            "⚠️ New BTC key just for this transaction. Save it — you'll need it to claim the BTC later.",
+
+        revoffer_bbc_address_label:
+            "Your BbC address (existing, from your wallet)",
+
+        revoffer_confirm_btn:
+            "Confirm acceptance",
+
+        revoffer_need_bbc_address:
+            "Enter your BbC address.",
+
+        revoffer_accepted:
+            "Accepted.",
+
+        revoffer_live_error_heading:
+            "Live error reported",
+
+        revoffer_recovered_heading:
+            "⚠️ Found saved keys from previous sessions",
+
+        revoffer_recovered_desc:
+            "If you already claimed the BTC for one of these offers, you can safely delete the entry.",
+
+        revoffer_recovered_delete:
+            "Delete",
+
+        revoffer_recovered_confirm_delete:
+            "Delete for sure? Make sure the BTC was already claimed first.",
+
+        revoffer_download_key:
+            "Download key file",
+
+        revoffer_downloaded:
+            "Downloaded",
+
+        revoffer_confirm_saved:
+            "I saved/downloaded the private key — without it I can't claim the BTC.",
+
+        revoffer_family_pending_heading:
+            "Family - awaiting approval",
+
+        revoffer_family_approve:
+            "Approve",
+
+        revoffer_family_reject:
+            "Reject (warning)",
+
+        /* FAMILY */
+
+        family_h1:
+            "BbC Family",
+
+        family_intro:
+            "A place to talk for anyone with a stake in the network. Log in with your wallet key pair (the exact same one used to send BbC) — that confirms you're a genuine network participant, no password to remember.",
+
+        family_login_label:
+            "Paste your wallet key pair (public + private key)",
+
+        family_login_btn:
+            "Log in",
+
+        family_compose_placeholder:
+            "Write something to the family...",
+
+        family_send_btn:
+            "Send",
+
+        family_messages_heading:
+            "Messages",
+
+        family_err_need_both_keys:
+            "Both keys needed - public and private.",
+
+        family_err_bad_keys:
+            "Failed to load keys",
+
+        family_logged_in_as:
+            "Logged in as",
+
+        family_no_messages:
+            "No one has written anything yet.",
+
+        family_err_not_logged_in:
+            "Log in first.",
+
+        family_strike_notice:
+            "Warning",
+
+        family_blocked_notice:
+            "This address is blocked after 3 warnings.",
+
+        family_pending_notice:
+            "Message is awaiting review.",
+
+        family_rules_heading:
+            "Rules",
+
+        family_rules_text:
+            "The BbC Family focuses on improving the network. Explicitly forbidden: asking anyone for a private key, promising guaranteed profits, third-party links without a clear reason, impersonating others. Suspicious messages wait for a human to check them, not removed automatically — but also not shown until someone confirms they're fine. Three violations — blocked.",
+
+        /* PROJECT STATUS */
+
+        index_status_heading:
+            "Project status",
+
+        index_status_mainnet:
+            "Mainnet",
+
+        index_status_wallet:
+            "Wallet",
+
+        index_status_explorer:
+            "Explorer",
+
+        index_status_mining:
+            "Mining",
+
+        index_status_swaps:
+            "Atomic swaps (rolling out / testing)",
+
+        index_status_next:
+            "Next stages"
     }
 };
 
-function detectLanguage() {
-    const saved = localStorage.getItem("bbc_lang");
-    if (saved && translations[saved]) return saved;
-    const browserLang = (navigator.language || "pl").toLowerCase();
-    return browserLang.startsWith("pl") ? "pl" : "en";
-}
+
+/* ============================================================
+   LANGUAGE STATE
+   ============================================================ */
+
+const BBC_I18N_STORAGE_KEY = "bbc_lang";
 
 let currentLang = "pl";
 
-function t(key) {
-    return (translations[currentLang] && translations[currentLang][key]) || (translations.en[key]) || key;
+
+/* ============================================================
+   LANGUAGE DETECTION
+   ============================================================ */
+
+function detectLanguage() {
+
+    try {
+
+        const saved =
+            localStorage.getItem(BBC_I18N_STORAGE_KEY);
+
+        if (
+            saved &&
+            Object.prototype.hasOwnProperty.call(
+                translations,
+                saved
+            )
+        ) {
+            return saved;
+        }
+
+    } catch (_) {
+        /* localStorage może być niedostępne */
+    }
+
+
+    const browserLanguages =
+        Array.isArray(navigator.languages) &&
+        navigator.languages.length
+            ? navigator.languages
+            : [navigator.language || "pl"];
+
+
+    for (const language of browserLanguages) {
+
+        const normalized =
+            String(language)
+                .toLowerCase()
+                .split("-")[0];
+
+        if (translations[normalized]) {
+            return normalized;
+        }
+    }
+
+
+    return "pl";
 }
+
+
+/* ============================================================
+   TRANSLATION FUNCTION
+   ============================================================ */
+
+function t(key, replacements = {}) {
+
+    let value =
+        translations[currentLang]?.[key] ??
+        translations.pl?.[key] ??
+        translations.en?.[key] ??
+        key;
+
+
+    if (
+        replacements &&
+        typeof replacements === "object"
+    ) {
+
+        Object.entries(replacements).forEach(
+            ([name, replacement]) => {
+
+                value = value.replace(
+                    new RegExp(
+                        `\\{${name}\\}`,
+                        "g"
+                    ),
+                    String(replacement)
+                );
+
+            }
+        );
+    }
+
+
+    return value;
+}
+
+
+/* ============================================================
+   APPLY TRANSLATIONS
+   ============================================================ */
 
 function applyTranslations(lang) {
-    currentLang = translations[lang] ? lang : "en";
-    const dict = translations[currentLang];
-    document.querySelectorAll("[data-i18n]").forEach((el) => {
-        const key = el.getAttribute("data-i18n");
-        if (dict[key]) el.textContent = dict[key];
-    });
-    document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
-        const key = el.getAttribute("data-i18n-placeholder");
-        if (dict[key]) el.placeholder = dict[key];
-    });
-    document.documentElement.lang = lang;
-    document.querySelectorAll(".lang-switch-btn").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.lang === lang);
-    });
-    // Pozwala stronom, które budują treść dynamicznie przez t() (listy
-    // górników, statusy, dziennik bloków), przerenderować się od razu przy
-    // zmianie języka - bez tego zostawałyby zamrożone w starym języku aż do
-    // następnego naturalnego odświeżenia.
-    document.dispatchEvent(new CustomEvent("bbc:langchange"));
+
+    if (!translations[lang]) {
+        lang = "pl";
+    }
+
+
+    currentLang = lang;
+
+
+    const dict =
+        translations[currentLang];
+
+
+    /* TEXT */
+
+    document
+        .querySelectorAll("[data-i18n]")
+        .forEach((element) => {
+
+            const key =
+                element.getAttribute("data-i18n");
+
+            if (
+                Object.prototype.hasOwnProperty.call(
+                    dict,
+                    key
+                )
+            ) {
+
+                element.textContent =
+                    dict[key];
+            }
+        });
+
+
+    /* PLACEHOLDER */
+
+    document
+        .querySelectorAll(
+            "[data-i18n-placeholder]"
+        )
+        .forEach((element) => {
+
+            const key =
+                element.getAttribute(
+                    "data-i18n-placeholder"
+                );
+
+            if (
+                Object.prototype.hasOwnProperty.call(
+                    dict,
+                    key
+                )
+            ) {
+
+                element.placeholder =
+                    dict[key];
+            }
+        });
+
+
+    /* TITLE */
+
+    document
+        .querySelectorAll("[data-i18n-title]")
+        .forEach((element) => {
+
+            const key =
+                element.getAttribute(
+                    "data-i18n-title"
+                );
+
+            if (
+                Object.prototype.hasOwnProperty.call(
+                    dict,
+                    key
+                )
+            ) {
+
+                element.title =
+                    dict[key];
+            }
+        });
+
+
+    /* ARIA LABEL */
+
+    document
+        .querySelectorAll("[data-i18n-aria-label]")
+        .forEach((element) => {
+
+            const key =
+                element.getAttribute(
+                    "data-i18n-aria-label"
+                );
+
+            if (
+                Object.prototype.hasOwnProperty.call(
+                    dict,
+                    key
+                )
+            ) {
+
+                element.setAttribute(
+                    "aria-label",
+                    dict[key]
+                );
+            }
+        });
+
+
+    /* HTML LANG */
+
+    document.documentElement.lang =
+        currentLang;
+
+
+    /* SWITCHER */
+
+    document
+        .querySelectorAll(".lang-switch-btn")
+        .forEach((button) => {
+
+            button.classList.toggle(
+                "active",
+                button.dataset.lang === currentLang
+            );
+
+            button.setAttribute(
+                "aria-pressed",
+                button.dataset.lang === currentLang
+                    ? "true"
+                    : "false"
+            );
+        });
+
+
+    /* DYNAMIC CONTENT */
+
+    document.dispatchEvent(
+        new CustomEvent("bbc:langchange", {
+            detail: {
+                lang: currentLang
+            }
+        })
+    );
 }
 
+
+/* ============================================================
+   SET LANGUAGE
+   ============================================================ */
+
 function setLanguage(lang) {
-    localStorage.setItem("bbc_lang", lang);
+
+    if (!translations[lang]) {
+        return;
+    }
+
+
+    currentLang = lang;
+
+
+    try {
+
+        localStorage.setItem(
+            BBC_I18N_STORAGE_KEY,
+            lang
+        );
+
+    } catch (_) {
+        /* brak localStorage nie blokuje strony */
+    }
+
+
     applyTranslations(lang);
 }
 
-function mountLangSwitcher() {
-    const nav = document.querySelector(".nav");
-    if (!nav || document.querySelector(".lang-switcher")) return;
-    const wrap = document.createElement("div");
-    wrap.className = "lang-switcher";
-    wrap.style.cssText = "display:flex;gap:2px;margin-left:12px;";
-    wrap.innerHTML = `
-        <button class="lang-switch-btn" data-lang="pl" style="padding:5px 9px;font-size:.72rem;font-family:var(--font-mono);border:1px solid var(--border);background:var(--surface-2);color:var(--text-dim);border-radius:6px 0 0 6px;cursor:pointer;">PL</button>
-        <button class="lang-switch-btn" data-lang="en" style="padding:5px 9px;font-size:.72rem;font-family:var(--font-mono);border:1px solid var(--border);border-left:none;background:var(--surface-2);color:var(--text-dim);border-radius:0 6px 6px 0;cursor:pointer;">EN</button>
-    `;
-    wrap.querySelectorAll(".lang-switch-btn").forEach((btn) => {
-        btn.addEventListener("click", () => setLanguage(btn.dataset.lang));
-    });
-    nav.appendChild(wrap);
 
-    const style = document.createElement("style");
-    style.textContent = ".lang-switch-btn.active { background:var(--leaf) !important; color:#0b0f0d !important; }";
-    document.head.appendChild(style);
-}
-
-function initI18n() {
-    mountLangSwitcher();
-    applyTranslations(detectLanguage());
-}
-
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initI18n);
-} else {
-    initI18n();
-}
 /* ============================================================
-   BBC AUTO TRANSLATOR
-   Automatyczne tłumaczenie tekstów, których nie ma w translations.
-   Nie zastępuje ręcznych tłumaczeń. Jest inteligentnym fallbackiem.
+   LANGUAGE SWITCHER
    ============================================================ */
 
-(() => {
-    "use strict";
+function mountLangSwitcher() {
 
-    const BBC_AUTO_I18N = {
-        enabled: true,
+    const nav =
+        document.querySelector(".nav");
 
-        // Języki obsługiwane przez automatyczny translator.
-        languages: {
-            pl: "pl",
-            en: "en"
-        },
 
-        // Nie tłumacz bardzo krótkich rzeczy typu "BTC", "Tx", "BbC".
-        minLength: 3,
-
-        // Maksymalna długość pojedynczego tekstu wysyłanego do translatora.
-        maxLength: 1200,
-
-        // Maksymalna liczba równoległych tłumaczeń.
-        concurrency: 2,
-
-        // Cache tłumaczeń.
-        cacheKey: "bbc_auto_translation_cache_v1",
-
-        // Atrybut używany do zapamiętania oryginalnego tekstu.
-        originalAttr: "data-bbc-auto-original"
-    };
-
-    let translationCache = {};
-    let activeTranslations = 0;
-    const translationQueue = [];
-
-    // ------------------------------------------------------------
-    // CACHE
-    // ------------------------------------------------------------
-
-    try {
-        const saved = localStorage.getItem(BBC_AUTO_I18N.cacheKey);
-        if (saved) {
-            translationCache = JSON.parse(saved) || {};
-        }
-    } catch (_) {
-        translationCache = {};
+    if (!nav) {
+        return;
     }
 
-    function saveCache() {
-        try {
-            localStorage.setItem(
-                BBC_AUTO_I18N.cacheKey,
-                JSON.stringify(translationCache)
-            );
-        } catch (_) {
-            // Brak miejsca / prywatny tryb itd.
-        }
+
+    if (
+        nav.querySelector(
+            ".lang-switcher"
+        )
+    ) {
+        return;
     }
 
-    function cacheKey(source, target, text) {
-        return `${source}|${target}|${text}`;
-    }
 
-    // ------------------------------------------------------------
-    // NORMALIZACJA
-    // ------------------------------------------------------------
+    const wrapper =
+        document.createElement("div");
 
-    function normalizeText(text) {
-        return String(text || "")
-            .replace(/\s+/g, " ")
-            .trim();
-    }
 
-    function looksTranslatable(text) {
-        const value = normalizeText(text);
+    wrapper.className =
+        "lang-switcher";
 
-        if (!value) return false;
-        if (value.length < BBC_AUTO_I18N.minLength) return false;
-        if (value.length > BBC_AUTO_I18N.maxLength) return false;
 
-        // Nie ruszamy samych cyfr.
-        if (/^[\d\s.,:%+\-*/=<>()[\]{}#]+$/.test(value)) {
-            return false;
-        }
+    wrapper.style.cssText = `
+        display:flex;
+        gap:2px;
+        margin-left:12px;
+        align-items:center;
+    `;
 
-        // Nie ruszamy hashy.
-        if (/^[a-f0-9]{32,}$/i.test(value)) {
-            return false;
-        }
 
-        // Nie ruszamy adresów BTC/BbC.
-        if (/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{20,}$/i.test(value)) {
-            return false;
-        }
+    wrapper.innerHTML = `
 
-        // Nie ruszamy URL-i.
-        if (/^(https?:\/\/|www\.)/i.test(value)) {
-            return false;
-        }
+        <button
+            type="button"
+            class="lang-switch-btn"
+            data-lang="pl"
+            aria-label="Polski"
+            aria-pressed="false"
+            style="
+                padding:5px 9px;
+                font-size:.72rem;
+                font-family:var(--font-mono,monospace);
+                border:1px solid var(--border,#444);
+                background:var(--surface-2,#222);
+                color:var(--text-dim,#aaa);
+                border-radius:6px 0 0 6px;
+                cursor:pointer;
+            "
+        >PL</button>
 
-        // Nie ruszamy emaili.
-        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-            return false;
-        }
+        <button
+            type="button"
+            class="lang-switch-btn"
+            data-lang="en"
+            aria-label="English"
+            aria-pressed="false"
+            style="
+                padding:5px 9px;
+                font-size:.72rem;
+                font-family:var(--font-mono,monospace);
+                border:1px solid var(--border,#444);
+                border-left:none;
+                background:var(--surface-2,#222);
+                color:var(--text-dim,#aaa);
+                border-radius:0 6px 6px 0;
+                cursor:pointer;
+            "
+        >EN</button>
 
-        // Nie ruszamy kodu.
-        if (
-            value.includes("=>") ||
-            value.includes("function ") ||
-            value.includes("const ") ||
-            value.includes("let ") ||
-            value.includes("SELECT ") ||
-            value.includes("INSERT ")
-        ) {
-            return false;
-        }
+    `;
 
-        return true;
-    }
 
-    // ------------------------------------------------------------
-    // ELEMENTY, KTÓRYCH NIE WOLNO AUTOMATYCZNIE TŁUMACZYĆ
-    // ------------------------------------------------------------
+    wrapper
+        .querySelectorAll(
+            ".lang-switch-btn"
+        )
+        .forEach((button) => {
 
-    function shouldIgnoreElement(el) {
-        if (!el || el.nodeType !== Node.ELEMENT_NODE) return true;
+            button.addEventListener(
+                "click",
+                () => {
 
-        const tag = el.tagName.toLowerCase();
+                    setLanguage(
+                        button.dataset.lang
+                    );
 
-        const ignoredTags = [
-            "script",
-            "style",
-            "noscript",
-            "code",
-            "pre",
-            "textarea",
-            "input",
-            "select",
-            "option"
-        ];
-
-        if (ignoredTags.includes(tag)) return true;
-
-        if (el.closest("[data-no-auto-i18n]")) return true;
-
-        // Element już ma ręczne tłumaczenie.
-        if (el.hasAttribute("data-i18n")) return true;
-
-        return false;
-    }
-
-    function shouldIgnoreTextNode(node) {
-        if (!node || node.nodeType !== Node.TEXT_NODE) return true;
-
-        const parent = node.parentElement;
-        if (!parent) return true;
-
-        if (shouldIgnoreElement(parent)) return true;
-
-        const text = normalizeText(node.nodeValue);
-
-        if (!looksTranslatable(text)) return true;
-
-        return false;
-    }
-
-    // ------------------------------------------------------------
-    // WYKRYWANIE JĘZYKA
-    // ------------------------------------------------------------
-
-    function getCurrentTargetLanguage() {
-        return (
-            window.currentLang ||
-            localStorage.getItem("bbc_lang") ||
-            "pl"
-        );
-    }
-
-    function guessSourceLanguage(text) {
-        // Najpierw korzystamy z prostych charakterystycznych znaków.
-        if (
-            /[ąćęłńóśźż]/i.test(text) ||
-            /\b(że|jest|nie|dla|oraz|lub|zobacz|sprawdź|adres|blok|sieć|portfel)\b/i.test(text)
-        ) {
-            return "pl";
-        }
-
-        if (
-            /\b(the|and|or|your|you|this|that|with|from|to|network|wallet|block)\b/i.test(text)
-        ) {
-            return "en";
-        }
-
-        // Jeśli nie wiemy, zakładamy odwrotny język względem wybranego.
-        return getCurrentTargetLanguage() === "pl" ? "en" : "pl";
-    }
-
-    // ------------------------------------------------------------
-    // BROWSER TRANSLATOR API
-    // ------------------------------------------------------------
-
-    async function browserTranslate(text, source, target) {
-        if (!window.Translator) {
-            return null;
-        }
-
-        if (source === target) {
-            return text;
-        }
-
-        try {
-            if (typeof Translator.availability === "function") {
-                const availability = await Translator.availability({
-                    sourceLanguage: source,
-                    targetLanguage: target
-                });
-
-                if (availability === "unavailable") {
-                    return null;
                 }
-            }
-
-            const translator = await Translator.create({
-                sourceLanguage: source,
-                targetLanguage: target
-            });
-
-            try {
-                return await translator.translate(text);
-            } finally {
-                if (typeof translator.destroy === "function") {
-                    translator.destroy();
-                }
-            }
-        } catch (err) {
-            console.debug(
-                "[BbC AutoTranslate] Browser translator unavailable:",
-                err
             );
 
-            return null;
-        }
-    }
-
-    // ------------------------------------------------------------
-    // TŁUMACZENIE JEDNEGO TEKSTU
-    // ------------------------------------------------------------
-
-    async function translateText(text, targetLanguage) {
-        const normalized = normalizeText(text);
-
-        if (!looksTranslatable(normalized)) {
-            return null;
-        }
-
-        const sourceLanguage = guessSourceLanguage(normalized);
-
-        if (sourceLanguage === targetLanguage) {
-            return null;
-        }
-
-        const key = cacheKey(
-            sourceLanguage,
-            targetLanguage,
-            normalized
-        );
-
-        if (translationCache[key]) {
-            return translationCache[key];
-        }
-
-        const result = await browserTranslate(
-            normalized,
-            sourceLanguage,
-            targetLanguage
-        );
-
-        if (!result || !normalizeText(result)) {
-            return null;
-        }
-
-        translationCache[key] = result;
-        saveCache();
-
-        return result;
-    }
-
-    // ------------------------------------------------------------
-    // KOLEJKA
-    // ------------------------------------------------------------
-
-    function queueTranslation(job) {
-        translationQueue.push(job);
-        processQueue();
-    }
-
-    async function processQueue() {
-        if (activeTranslations >= BBC_AUTO_I18N.concurrency) {
-            return;
-        }
-
-        const job = translationQueue.shift();
-
-        if (!job) {
-            return;
-        }
-
-        activeTranslations++;
-
-        try {
-            await job();
-        } catch (err) {
-            console.debug("[BbC AutoTranslate] Job error:", err);
-        } finally {
-            activeTranslations--;
-
-            if (translationQueue.length) {
-                processQueue();
-            }
-        }
-    }
-
-    // ------------------------------------------------------------
-    // TŁUMACZENIE TEXT NODE
-    // ------------------------------------------------------------
-
-    function translateTextNode(node, targetLanguage) {
-        if (!shouldIgnoreTextNode(node)) {
-            return;
-        }
-
-        const original = normalizeText(node.nodeValue);
-
-        if (!original) return;
-
-        // Nie tłumacz ponownie już przetłumaczonego elementu.
-        if (node.parentElement?.hasAttribute(BBC_AUTO_I18N.originalAttr)) {
-            return;
-        }
-
-        queueTranslation(async () => {
-            const translated = await translateText(
-                original,
-                targetLanguage
-            );
-
-            if (!translated) return;
-
-            // Tekst mógł się zmienić podczas oczekiwania.
-            if (
-                normalizeText(node.nodeValue) !== original
-            ) {
-                return;
-            }
-
-            node.parentElement?.setAttribute(
-                BBC_AUTO_I18N.originalAttr,
-                original
-            );
-
-            node.nodeValue = node.nodeValue.replace(
-                original,
-                translated
-            );
-        });
-    }
-
-    // ------------------------------------------------------------
-    // SKANOWANIE DOM
-    // ------------------------------------------------------------
-
-    function scanElement(root, targetLanguage) {
-        if (!BBC_AUTO_I18N.enabled) return;
-        if (!root) return;
-
-        if (root.nodeType === Node.TEXT_NODE) {
-            translateTextNode(root, targetLanguage);
-            return;
-        }
-
-        if (root.nodeType !== Node.ELEMENT_NODE) return;
-
-        if (shouldIgnoreElement(root)) return;
-
-        const walker = document.createTreeWalker(
-            root,
-            NodeFilter.SHOW_TEXT,
-            {
-                acceptNode(node) {
-                    return shouldIgnoreTextNode(node)
-                        ? NodeFilter.FILTER_ACCEPT
-                        : NodeFilter.FILTER_REJECT;
-                }
-            }
-        );
-
-        const nodes = [];
-
-        let node;
-
-        while ((node = walker.nextNode())) {
-            nodes.push(node);
-        }
-
-        for (const textNode of nodes) {
-            translateTextNode(textNode, targetLanguage);
-        }
-    }
-
-    // ------------------------------------------------------------
-    // PRZYWRACANIE ORYGINAŁÓW
-    // ------------------------------------------------------------
-
-    function restoreAutoTranslations() {
-        document
-            .querySelectorAll(
-                `[${BBC_AUTO_I18N.originalAttr}]`
-            )
-            .forEach((el) => {
-                const original = el.getAttribute(
-                    BBC_AUTO_I18N.originalAttr
-                );
-
-                if (!original) return;
-
-                el.textContent = original;
-
-                el.removeAttribute(
-                    BBC_AUTO_I18N.originalAttr
-                );
-            });
-    }
-
-    // ------------------------------------------------------------
-    // OBSŁUGA ZMIANY JĘZYKA
-    // ------------------------------------------------------------
-
-    async function handleLanguageChange() {
-        restoreAutoTranslations();
-
-        // Daj ręcznemu i18n chwilę na wykonanie swojej pracy.
-        setTimeout(() => {
-            scanElement(
-                document.body,
-                getCurrentTargetLanguage()
-            );
-        }, 50);
-    }
-
-    // ------------------------------------------------------------
-    // MUTATION OBSERVER
-    // ------------------------------------------------------------
-
-    let observer = null;
-
-    function startObserver() {
-        if (observer) return;
-
-        observer = new MutationObserver((mutations) => {
-            if (!BBC_AUTO_I18N.enabled) return;
-
-            const targetLanguage =
-                getCurrentTargetLanguage();
-
-            for (const mutation of mutations) {
-                if (mutation.type === "childList") {
-                    mutation.addedNodes.forEach((node) => {
-                        if (
-                            node.nodeType === Node.TEXT_NODE ||
-                            node.nodeType === Node.ELEMENT_NODE
-                        ) {
-                            scanElement(
-                                node,
-                                targetLanguage
-                            );
-                        }
-                    });
-                }
-            }
         });
 
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-    }
 
-    // ------------------------------------------------------------
-    // STATUS
-    // ------------------------------------------------------------
+    nav.appendChild(wrapper);
 
-    function createStatusIndicator() {
-        if (document.getElementById("bbc-auto-i18n-status")) {
-            return;
-        }
 
-        const status = document.createElement("span");
+    /* STYLE */
 
-        status.id = "bbc-auto-i18n-status";
+    if (
+        !document.getElementById(
+            "bbc-i18n-style"
+        )
+    ) {
 
-        status.textContent = "AUTO";
+        const style =
+            document.createElement("style");
 
-        status.title =
-            "BitBudCoin automatic translation";
 
-        status.style.cssText = `
-            display:inline-flex;
-            align-items:center;
-            margin-left:6px;
-            padding:2px 5px;
-            border:1px solid var(--border,#444);
-            border-radius:4px;
-            font-size:.62rem;
-            font-family:var(--font-mono,monospace);
-            opacity:.55;
-            user-select:none;
+        style.id =
+            "bbc-i18n-style";
+
+
+        style.textContent = `
+
+            .lang-switch-btn {
+                transition:
+                    background .15s ease,
+                    color .15s ease,
+                    border-color .15s ease;
+            }
+
+            .lang-switch-btn:hover {
+                filter:brightness(1.15);
+            }
+
+            .lang-switch-btn.active {
+                background:
+                    var(--leaf,#8bd450) !important;
+
+                color:
+                    #0b0f0d !important;
+
+                border-color:
+                    var(--leaf,#8bd450) !important;
+            }
+
         `;
 
-        const nav = document.querySelector(".nav");
 
-        if (nav) {
-            nav.appendChild(status);
-        }
+        document.head.appendChild(style);
+    }
+}
+
+
+/* ============================================================
+   PUBLIC API
+   ============================================================ */
+
+window.BbCI18n = {
+
+    t,
+
+    setLanguage,
+
+    applyTranslations,
+
+    getLanguage() {
+        return currentLang;
+    },
+
+    getTranslations() {
+        return translations;
+    },
+
+    refresh() {
+
+        mountLangSwitcher();
+        applyTranslations(currentLang);
+
     }
 
-    // ------------------------------------------------------------
-    // PUBLIC API
-    // ------------------------------------------------------------
+};
 
-    window.BbCAutoTranslator = {
-        enable() {
-            BBC_AUTO_I18N.enabled = true;
-            scanElement(
-                document.body,
-                getCurrentTargetLanguage()
-            );
-        },
 
-        disable() {
-            BBC_AUTO_I18N.enabled = false;
-        },
+/* ============================================================
+   INITIALIZATION
+   ============================================================ */
 
-        clearCache() {
-            translationCache = {};
+function initI18n() {
 
-            try {
-                localStorage.removeItem(
-                    BBC_AUTO_I18N.cacheKey
-                );
-            } catch (_) {}
-        },
+    currentLang =
+        detectLanguage();
 
-        rescan() {
-            scanElement(
-                document.body,
-                getCurrentTargetLanguage()
-            );
-        }
-    };
 
-    // ------------------------------------------------------------
-    // START
-    // ------------------------------------------------------------
+    mountLangSwitcher();
 
-    function startAutoTranslator() {
-        if (!document.body) return;
 
-        createStatusIndicator();
-        startObserver();
-
-        // Ręczne i18n musi wykonać się pierwsze.
-        setTimeout(() => {
-            scanElement(
-                document.body,
-                getCurrentTargetLanguage()
-            );
-        }, 250);
-    }
-
-    document.addEventListener(
-        "bbc:langchange",
-        handleLanguageChange
+    applyTranslations(
+        currentLang
     );
 
-    if (document.readyState === "loading") {
-        document.addEventListener(
-            "DOMContentLoaded",
-            startAutoTranslator
-        );
-    } else {
-        startAutoTranslator();
-    }
-})();
+}
+
+
+/* ============================================================
+   START
+   ============================================================ */
+
+if (
+    document.readyState ===
+    "loading"
+) {
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        initI18n,
+        {
+            once: true
+        }
+    );
+
+} else {
+
+    initI18n();
+
+}
