@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#07130d">
 
 <title>BitBudCoin — sieć BbC</title>
 
@@ -17,291 +16,8 @@
 <style>
 
 /* =====================================================
-   BitBudCoin vMax INDEX
-   ===================================================== */
-
-:root {
-    --bbl-green: #39ff88;
-    --bbl-green-soft: rgba(57,255,136,.12);
-    --bbl-green-glow: rgba(57,255,136,.22);
-    --bbl-dark: #07130d;
-}
-
-/* -----------------------------------------------------
-   TŁO KONOPNE
-   ----------------------------------------------------- */
-
-body {
-    position: relative;
-    overflow-x: hidden;
-    background:
-        radial-gradient(
-            circle at 50% 15%,
-            rgba(57,255,136,.055),
-            transparent 32%
-        ),
-        var(--bg, #07130d);
-}
-
-body::before,
-body::after {
-    content: "";
-    position: fixed;
-    z-index: -1;
-    pointer-events: none;
-
-    width: 420px;
-    height: 420px;
-
-    opacity: .035;
-
-    background-repeat: no-repeat;
-    background-size: contain;
-}
-
-/*
- * Prosty liść CSS.
- * Nie wymaga dodatkowych obrazków ani bibliotek.
- */
-
-body::before {
-    top: 8%;
-    left: -130px;
-
-    transform: rotate(-18deg);
-
-    background-image:
-        radial-gradient(
-            ellipse at center,
-            transparent 0 25%,
-            var(--bbl-green) 26% 27%,
-            transparent 28%
-        ),
-        linear-gradient(
-            45deg,
-            transparent 45%,
-            var(--bbl-green) 46% 48%,
-            transparent 49%
-        ),
-        linear-gradient(
-            -45deg,
-            transparent 45%,
-            var(--bbl-green) 46% 48%,
-            transparent 49%
-        );
-}
-
-body::after {
-    right: -140px;
-    bottom: 5%;
-
-    transform: rotate(22deg) scale(.9);
-
-    background-image:
-        radial-gradient(
-            ellipse at center,
-            transparent 0 25%,
-            var(--bbl-green) 26% 27%,
-            transparent 28%
-        ),
-        linear-gradient(
-            45deg,
-            transparent 45%,
-            var(--bbl-green) 46% 48%,
-            transparent 49%
-        ),
-        linear-gradient(
-            -45deg,
-            transparent 45%,
-            var(--bbl-green) 46% 48%,
-            transparent 49%
-        );
-}
-
-/* -----------------------------------------------------
-   LIVE STATUS
-   ----------------------------------------------------- */
-
-.live-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-
-    margin-top: 14px;
-    padding: 6px 12px;
-
-    border: 1px solid rgba(255,255,255,.08);
-    border-radius: 999px;
-
-    background: rgba(0,0,0,.22);
-
-    font-family: var(--font-mono);
-    font-size: .72rem;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-
-    color: var(--text-dim);
-}
-
-.live-dot {
-    width: 8px;
-    height: 8px;
-
-    border-radius: 50%;
-
-    background: #777;
-
-    transition:
-        background .2s ease,
-        box-shadow .2s ease;
-}
-
-.live-status.live {
-    color: var(--bbl-green);
-    border-color: rgba(57,255,136,.25);
-}
-
-.live-status.live .live-dot {
-    background: var(--bbl-green);
-    box-shadow:
-        0 0 0 4px rgba(57,255,136,.08),
-        0 0 14px rgba(57,255,136,.65);
-
-    animation: livePulse 1.7s infinite;
-}
-
-.live-status.offline .live-dot {
-    background: #ff5b5b;
-}
-
-@keyframes livePulse {
-    0%,100% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: .45;
-    }
-}
-
-/* -----------------------------------------------------
-   HERO HEIGHT
-   ----------------------------------------------------- */
-
-#hero-height {
-    transition:
-        transform .18s ease,
-        text-shadow .18s ease;
-}
-
-#hero-height.block-update {
-    transform: scale(1.07);
-
-    text-shadow:
-        0 0 18px rgba(57,255,136,.35),
-        0 0 45px rgba(57,255,136,.12);
-}
-
-/* -----------------------------------------------------
-   100K MILESTONE
-   ----------------------------------------------------- */
-
-.vmax-card {
-    position: relative;
-    overflow: hidden;
-}
-
-.vmax-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-
-.vmax-title {
-    margin: 0;
-}
-
-.vmax-number {
-    font-family: var(--font-mono);
-    color: var(--bbl-green);
-    font-size: .85rem;
-    white-space: nowrap;
-}
-
-.vmax-progress {
-    height: 10px;
-
-    margin-top: 16px;
-
-    overflow: hidden;
-
-    border-radius: 999px;
-
-    background: rgba(255,255,255,.06);
-    border: 1px solid rgba(255,255,255,.05);
-}
-
-.vmax-progress-bar {
-    width: 0%;
-    height: 100%;
-
-    border-radius: inherit;
-
-    background:
-        linear-gradient(
-            90deg,
-            var(--leaf, #39ff88),
-            #a8ffca
-        );
-
-    box-shadow:
-        0 0 18px rgba(57,255,136,.35);
-
-    transition:
-        width .45s ease;
-}
-
-.vmax-meta {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-
-    margin-top: 9px;
-
-    font-family: var(--font-mono);
-    font-size: .72rem;
-
-    color: var(--text-dim);
-}
-
-.vmax-near {
-    margin-top: 12px;
-
-    color: var(--bbl-green);
-
-    font-family: var(--font-mono);
-    font-size: .78rem;
-}
-
-/* -----------------------------------------------------
-   STATS
-   ----------------------------------------------------- */
-
-.stat-live-value {
-    transition:
-        opacity .15s ease,
-        transform .15s ease;
-}
-
-.stat-live-value.flash {
-    transform: scale(1.035);
-}
-
-/* -----------------------------------------------------
    STATUS
-   ----------------------------------------------------- */
+   ===================================================== */
 
 .status-list {
     display: flex;
@@ -314,15 +30,10 @@ body::after {
     display: flex;
     align-items: center;
     gap: 10px;
-
     padding: 10px 14px;
-
     border-radius: 8px;
-
     background: var(--surface-2);
-
     border-left: 3px solid transparent;
-
     font-family: var(--font-mono);
     font-size: .92rem;
 }
@@ -345,9 +56,10 @@ body::after {
     flex-shrink: 0;
 }
 
-/* -----------------------------------------------------
+
+/* =====================================================
    MILESTONES
-   ----------------------------------------------------- */
+   ===================================================== */
 
 .milestone-list {
     display: flex;
@@ -358,9 +70,7 @@ body::after {
 
 .milestone-item {
     padding: 12px 14px;
-
     background: var(--surface-2);
-
     border-left: 3px solid var(--leaf);
     border-radius: 8px;
 }
@@ -368,9 +78,7 @@ body::after {
 .milestone-date {
     font-family: var(--font-mono);
     font-size: .72rem;
-
     color: var(--leaf);
-
     text-transform: uppercase;
     letter-spacing: .04em;
 }
@@ -382,7 +90,6 @@ body::after {
 
 .milestone-links {
     margin-top: 8px;
-
     font-family: var(--font-mono);
     font-size: .78rem;
 }
@@ -392,29 +99,190 @@ body::after {
     margin-right: 12px;
 }
 
-/* -----------------------------------------------------
-   MOBILE
-   ----------------------------------------------------- */
 
-@media (max-width: 600px) {
+/* =====================================================
+   LIVE STATUS
+   ===================================================== */
 
-    body::before,
-    body::after {
-        width: 300px;
-        height: 300px;
-        opacity: .025;
+.live-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    background: rgba(255,255,255,.05);
+}
+
+.live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-dim);
+}
+
+.live-status.online {
+    color: var(--leaf);
+}
+
+.live-status.online .live-dot {
+    background: var(--leaf);
+    box-shadow: 0 0 10px var(--leaf);
+}
+
+.live-status.offline {
+    color: var(--flame);
+}
+
+.live-status.offline .live-dot {
+    background: var(--flame);
+}
+
+
+/* =====================================================
+   100K MILESTONE
+   ===================================================== */
+
+.milestone-100k {
+    margin-top: 18px;
+    padding: 18px;
+    border: 1px solid rgba(90,126,246,.25);
+    border-radius: 12px;
+    background:
+        linear-gradient(
+            135deg,
+            rgba(90,126,246,.08),
+            rgba(0,0,0,.08)
+        );
+}
+
+.milestone-100k-title {
+    font-family: var(--font-mono);
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--leaf);
+}
+
+.milestone-100k-number {
+    margin-top: 5px;
+    font-family: var(--font-mono);
+    font-size: 1.45rem;
+    font-weight: 600;
+}
+
+.milestone-progress {
+    height: 7px;
+    margin-top: 12px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255,255,255,.08);
+}
+
+.milestone-progress-bar {
+    height: 100%;
+    width: 0%;
+    border-radius: inherit;
+    background: var(--leaf);
+    transition: width .5s ease;
+    box-shadow: 0 0 12px rgba(90,126,246,.45);
+}
+
+.milestone-remaining {
+    margin-top: 8px;
+    font-family: var(--font-mono);
+    font-size: .78rem;
+    color: var(--text-dim);
+}
+
+
+/* =====================================================
+   KONOPIE W TLE
+   ===================================================== */
+
+.cannabis-field {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+    opacity: .055;
+}
+
+.cannabis-leaf {
+    position: absolute;
+    font-size: 80px;
+    filter: grayscale(1);
+    animation: cannabisFloat 18s ease-in-out infinite;
+}
+
+.cannabis-leaf:nth-child(1) {
+    left: 4%;
+    top: 18%;
+    animation-delay: -4s;
+    transform: rotate(-15deg);
+}
+
+.cannabis-leaf:nth-child(2) {
+    right: 5%;
+    top: 38%;
+    font-size: 110px;
+    animation-delay: -10s;
+    transform: rotate(18deg);
+}
+
+.cannabis-leaf:nth-child(3) {
+    left: 10%;
+    bottom: 8%;
+    font-size: 95px;
+    animation-delay: -15s;
+    transform: rotate(8deg);
+}
+
+.cannabis-leaf:nth-child(4) {
+    right: 12%;
+    bottom: 14%;
+    font-size: 70px;
+    animation-delay: -7s;
+    transform: rotate(-20deg);
+}
+
+@keyframes cannabisFloat {
+    0%, 100% {
+        translate: 0 0;
     }
 
-    .vmax-meta {
-        font-size: .68rem;
+    50% {
+        translate: 0 -18px;
     }
+}
 
+.page,
+footer {
+    position: relative;
+    z-index: 1;
 }
 
 </style>
 </head>
 
 <body>
+
+<!-- =====================================================
+     KONOPIE W TLE
+     ===================================================== -->
+
+<div class="cannabis-field" aria-hidden="true">
+    <div class="cannabis-leaf">🌿</div>
+    <div class="cannabis-leaf">🌿</div>
+    <div class="cannabis-leaf">🌿</div>
+    <div class="cannabis-leaf">🌿</div>
+</div>
+
 
 <div class="page">
 
@@ -431,8 +299,7 @@ body::after {
                 width:200px;
                 height:200px;
                 border-radius:50%;
-                box-shadow:
-                    0 0 50px rgba(57,255,136,.18);
+                box-shadow:0 0 50px rgba(90,126,246,.3);
                 margin-bottom:12px;
             "
         >
@@ -444,12 +311,14 @@ body::after {
             proof-of-work · sieć BbC
         </div>
 
+
         <div
             class="big-number"
             id="hero-height"
         >
             —
         </div>
+
 
         <div
             class="sub"
@@ -458,17 +327,52 @@ body::after {
             bloków wykopanych od genesis
         </div>
 
-        <!-- REAL LIVE STATUS -->
+
+        <!-- LIVE -->
 
         <div
+            class="live-status offline"
             id="live-status"
-            class="live-status"
         >
             <span class="live-dot"></span>
+
             <span id="live-status-text">
-                Łączenie z siecią…
+                OFFLINE
             </span>
         </div>
+
+
+        <!-- 100K -->
+
+        <div class="milestone-100k">
+
+            <div class="milestone-100k-title">
+                Następny wielki kamień milowy
+            </div>
+
+            <div
+                class="milestone-100k-number"
+                id="milestone-100k-number"
+            >
+                —
+            </div>
+
+            <div class="milestone-progress">
+                <div
+                    class="milestone-progress-bar"
+                    id="milestone-progress-bar"
+                ></div>
+            </div>
+
+            <div
+                class="milestone-remaining"
+                id="milestone-remaining"
+            >
+                —
+            </div>
+
+        </div>
+
 
         <div
             style="
@@ -479,6 +383,7 @@ body::after {
                 flex-wrap:wrap;
             "
         >
+
             <a
                 class="btn"
                 href="miner.html"
@@ -494,77 +399,10 @@ body::after {
             >
                 Zobacz explorer
             </a>
+
         </div>
 
     </section>
-
-
-    <!-- =================================================
-         vMax / 100 000
-         ================================================= -->
-
-    <div
-        class="card vmax-card"
-        style="margin-top:20px;"
-    >
-
-        <div class="vmax-header">
-
-            <div>
-                <h2 class="vmax-title">
-                    vMax · 100 000 bloków
-                </h2>
-
-                <div
-                    class="vmax-near"
-                    id="vmax-message"
-                >
-                    Ładowanie postępu sieci…
-                </div>
-            </div>
-
-            <div
-                class="vmax-number"
-                id="vmax-percent"
-            >
-                0.00%
-            </div>
-
-        </div>
-
-        <div class="vmax-progress">
-            <div
-                id="vmax-progress-bar"
-                class="vmax-progress-bar"
-            ></div>
-        </div>
-
-        <div class="vmax-meta">
-
-            <span>
-                blok
-                <strong id="vmax-current">
-                    —
-                </strong>
-            </span>
-
-            <span>
-                cel
-                <strong>
-                    100 000
-                </strong>
-            </span>
-
-            <span>
-                pozostało
-                <strong id="vmax-remaining">
-                    —
-                </strong>
-            </span>
-
-        </div>
-
-    </div>
 
 
     <!-- =================================================
@@ -630,7 +468,7 @@ body::after {
 
 
     <!-- =================================================
-         MILESTONE
+         MILESTONES
          ================================================= -->
 
     <div
@@ -654,9 +492,8 @@ body::after {
                     class="milestone-desc"
                     data-i18n="index_milestone1_desc"
                 >
-                    Pierwszy w pełni dokończony atomic swap
-                    BTC↔BbC — ten sam hashlock po obu stronach,
-                    do sprawdzenia samemu.
+                    Pierwszy w pełni dokończony atomic swap BTC↔BbC
+                    — ten sam hashlock po obu stronach, do sprawdzenia samemu.
                 </div>
 
                 <div class="milestone-links">
@@ -687,7 +524,7 @@ body::after {
 
 
     <!-- =================================================
-         LIVE STATS
+         STATYSTYKI
          ================================================= -->
 
     <div
@@ -705,7 +542,7 @@ body::after {
             </div>
 
             <div
-                class="card-value leaf stat-live-value"
+                class="card-value leaf"
                 id="stat-supply"
             >
                 —
@@ -724,7 +561,7 @@ body::after {
             </div>
 
             <div
-                class="card-value flame stat-live-value"
+                class="card-value flame"
                 id="stat-reward"
             >
                 —
@@ -743,7 +580,7 @@ body::after {
             </div>
 
             <div
-                class="card-value stat-live-value"
+                class="card-value"
                 id="stat-difficulty"
             >
                 —
@@ -775,7 +612,7 @@ body::after {
             u siebie liczysz hashe, a sieć weryfikuje i zapisuje
             wynik. Cały ruch (przelewy, blokowanie, salda) idzie
             przez podpisy Ed25519, więc nikt poza właścicielem
-            klucza prywatnego nie ruszy jego środków.
+            klucza prywatnego nie rusza jego środków.
         </p>
 
     </div>
@@ -880,7 +717,7 @@ body::after {
 
 
 <!-- =====================================================
-     COMMON JS
+     SCRIPTS
      ===================================================== -->
 
 <script src="assets/api.js"></script>
@@ -889,561 +726,345 @@ body::after {
 <script src="assets/i18n.js"></script>
 
 
-<!-- =====================================================
-     BITBUDCOIN LIVE ENGINE
-     ===================================================== -->
-
 <script>
 
 "use strict";
 
+
+/*
+ * =====================================================
+ * NAV
+ * =====================================================
+ */
+
 setActiveNav("nav-index");
 
 
-/* -----------------------------------------------------
-   KONFIGURACJA
-   ----------------------------------------------------- */
-
-const VMAX_HEIGHT = 100000;
+/*
+ * =====================================================
+ * STATE
+ * =====================================================
+ */
 
 let lastHeight = null;
 
-let eventSource = null;
-
 let reconnectTimer = null;
 
-let pollingTimer = null;
+let currentEvents = null;
 
-let pollingStarted = false;
+let liveConnected = false;
 
 
-/* -----------------------------------------------------
-   ELEMENTY
-   ----------------------------------------------------- */
+/*
+ * =====================================================
+ * ELEMENTS
+ * =====================================================
+ */
 
 const heroHeight =
-    document.getElementById("hero-height");
-
-const statSupply =
-    document.getElementById("stat-supply");
-
-const statReward =
-    document.getElementById("stat-reward");
-
-const statDifficulty =
-    document.getElementById("stat-difficulty");
+    document.getElementById(
+        "hero-height"
+    );
 
 const liveStatus =
-    document.getElementById("live-status");
+    document.getElementById(
+        "live-status"
+    );
 
 const liveStatusText =
-    document.getElementById("live-status-text");
+    document.getElementById(
+        "live-status-text"
+    );
 
-const vmaxCurrent =
-    document.getElementById("vmax-current");
+const milestoneNumber =
+    document.getElementById(
+        "milestone-100k-number"
+    );
 
-const vmaxRemaining =
-    document.getElementById("vmax-remaining");
+const milestoneProgress =
+    document.getElementById(
+        "milestone-progress-bar"
+    );
 
-const vmaxPercent =
-    document.getElementById("vmax-percent");
-
-const vmaxProgressBar =
-    document.getElementById("vmax-progress-bar");
-
-const vmaxMessage =
-    document.getElementById("vmax-message");
+const milestoneRemaining =
+    document.getElementById(
+        "milestone-remaining"
+    );
 
 
-/* -----------------------------------------------------
-   FORMATOWANIE
-   ----------------------------------------------------- */
+/*
+ * =====================================================
+ * LIVE STATUS
+ * =====================================================
+ */
 
-function formatNumber(value, decimals = 0) {
+function setLiveStatus(
+    online
+) {
 
-    const number = Number(value);
+    liveConnected =
+        Boolean(online);
 
-    if (!Number.isFinite(number)) {
-        return "—";
+
+    if (online) {
+
+        liveStatus.classList.remove(
+            "offline"
+        );
+
+        liveStatus.classList.add(
+            "online"
+        );
+
+        liveStatusText.textContent =
+            "LIVE · POŁĄCZONO";
+
+    } else {
+
+        liveStatus.classList.remove(
+            "online"
+        );
+
+        liveStatus.classList.add(
+            "offline"
+        );
+
+        liveStatusText.textContent =
+            "OFFLINE · PONOWNE ŁĄCZENIE...";
+    }
+}
+
+
+/*
+ * =====================================================
+ * 100K
+ * =====================================================
+ */
+
+function update100K(
+    height
+) {
+
+    const target =
+        100000;
+
+
+    if (
+        !Number.isFinite(height)
+    ) {
+        return;
     }
 
-    return new Intl.NumberFormat(
-        "pl-PL",
-        {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals
-        }
-    ).format(number);
-}
 
-
-function safeFmt(value, decimals = 0) {
-
-    try {
-
-        if (typeof fmtNumber === "function") {
-            return fmtNumber(value, decimals);
-        }
-
-    } catch (e) {}
-
-    return formatNumber(value, decimals);
-}
-
-
-/* -----------------------------------------------------
-   LIVE STATUS
-   ----------------------------------------------------- */
-
-function setLive(isLive, text) {
-
-    liveStatus.classList.toggle(
-        "live",
-        isLive
-    );
-
-    liveStatus.classList.toggle(
-        "offline",
-        !isLive
-    );
-
-    liveStatusText.textContent =
-        text ||
-        (isLive
-            ? "LIVE · sieć"
-            : "OFFLINE · próba połączenia");
-}
-
-
-/* -----------------------------------------------------
-   ANIMACJA NOWEGO BLOKU
-   ----------------------------------------------------- */
-
-function animateNewBlock() {
-
-    heroHeight.classList.remove(
-        "block-update"
-    );
-
-    /*
-     * Wymuszenie reflow pozwala odtworzyć
-     * animację przy każdym kolejnym bloku.
-     */
-
-    void heroHeight.offsetWidth;
-
-    heroHeight.classList.add(
-        "block-update"
-    );
-
-    setTimeout(() => {
-
-        heroHeight.classList.remove(
-            "block-update"
-        );
-
-    }, 260);
-}
-
-
-/* -----------------------------------------------------
-   AKTUALIZACJA 100K
-   ----------------------------------------------------- */
-
-function updateVmax(height) {
-
-    const current =
+    const progress =
         Math.max(
             0,
-            Number(height) || 0
+            Math.min(
+                100,
+                (
+                    height /
+                    target
+                ) *
+                100
+            )
         );
 
-    const clamped =
-        Math.min(
-            current,
-            VMAX_HEIGHT
-        );
-
-    const percent =
-        Math.min(
-            100,
-            (clamped / VMAX_HEIGHT) * 100
-        );
 
     const remaining =
         Math.max(
             0,
-            VMAX_HEIGHT - current
+            target - height
         );
 
-    vmaxCurrent.textContent =
-        safeFmt(current, 0);
 
-    vmaxRemaining.textContent =
-        safeFmt(remaining, 0);
-
-    vmaxPercent.textContent =
-        percent.toFixed(2) + "%";
-
-    vmaxProgressBar.style.width =
-        percent + "%";
+    milestoneNumber.textContent =
+        `${fmtNumber(height, 0)} / ${fmtNumber(target, 0)}`;
 
 
-    if (current >= VMAX_HEIGHT) {
+    milestoneProgress.style.width =
+        `${progress}%`;
 
-        vmaxMessage.textContent =
-            "🚀 vMax osiągnięty — 100 000 bloków.";
 
-        vmaxMessage.style.color =
-            "var(--bbl-green)";
+    if (remaining > 0) {
 
-        return;
+        milestoneRemaining.textContent =
+            `${fmtNumber(remaining, 0)} bloków do 100 000`;
+
+    } else {
+
+        milestoneRemaining.textContent =
+            "🎉 100 000 bloków osiągnięte";
     }
-
-
-    if (current >= 99000) {
-
-        vmaxMessage.textContent =
-            "🔥 Ostatni odcinek do vMax — sieć zbliża się do 100 000.";
-
-        vmaxMessage.style.color =
-            "var(--bbl-green)";
-
-        return;
-    }
-
-
-    if (current >= 90000) {
-
-        vmaxMessage.textContent =
-            "🌿 Sieć jest już bardzo blisko vMax.";
-
-        return;
-    }
-
-
-    vmaxMessage.textContent =
-        "Postęp sieci w kierunku aktywacji vMax.";
 }
 
 
-/* -----------------------------------------------------
-   AKTUALIZACJA STATYSTYK
-   ----------------------------------------------------- */
+/*
+ * =====================================================
+ * UPDATE INDEX
+ * =====================================================
+ */
 
-function flashElement(element) {
+function updateIndex(
+    info
+) {
 
-    if (!element) return;
-
-    element.classList.remove("flash");
-
-    void element.offsetWidth;
-
-    element.classList.add("flash");
-
-    setTimeout(() => {
-
-        element.classList.remove("flash");
-
-    }, 180);
-}
-
-
-function updateIndex(info) {
-
-    if (!info || typeof info !== "object") {
+    if (!info) {
         return;
     }
 
-
-    /* HEIGHT */
 
     const height =
         Number(info.height);
 
-    if (Number.isFinite(height)) {
 
-        const heightChanged =
-            lastHeight !== null &&
-            height !== lastHeight;
+    if (
+        Number.isFinite(height)
+    ) {
 
         heroHeight.textContent =
-            safeFmt(height, 0);
+            fmtNumber(
+                height,
+                0
+            );
 
-        updateVmax(height);
+
+        update100K(
+            height
+        );
+
 
         if (
-            heightChanged &&
+            lastHeight !== null &&
             height > lastHeight
         ) {
 
-            animateNewBlock();
+            heroHeight.style.transform =
+                "scale(1.06)";
 
+
+            heroHeight.style.transition =
+                "transform .2s ease";
+
+
+            setTimeout(
+                () => {
+
+                    heroHeight.style.transform =
+                        "scale(1)";
+
+                },
+                200
+            );
         }
+
 
         lastHeight =
             height;
     }
 
 
-    /* SUPPLY */
-
     if (
-        info.circulatingSupply !== undefined
+        info.circulatingSupply !==
+        undefined
     ) {
 
-        statSupply.textContent =
-            safeFmt(
+        document.getElementById(
+            "stat-supply"
+        ).textContent =
+
+            fmtNumber(
                 info.circulatingSupply
             ) +
+
             " " +
+
             (
                 info.symbol ||
                 "BbC"
             );
-
-        flashElement(statSupply);
     }
 
-
-    /* REWARD */
 
     if (
         info.currentBlockReward !==
         undefined
     ) {
 
-        statReward.textContent =
-            safeFmt(
+        document.getElementById(
+            "stat-reward"
+        ).textContent =
+
+            fmtNumber(
                 info.currentBlockReward
             ) +
+
             " " +
+
             (
                 info.symbol ||
                 "BbC"
             );
-
-        flashElement(statReward);
     }
 
-
-    /* DIFFICULTY */
 
     if (
         info.difficulty !==
         undefined
     ) {
 
-        statDifficulty.textContent =
-            safeFmt(
+        document.getElementById(
+            "stat-difficulty"
+        ).textContent =
+
+            fmtNumber(
                 info.difficulty,
                 0
             );
-
-        flashElement(statDifficulty);
     }
 }
 
 
-/* -----------------------------------------------------
-   NORMALIZACJA DANYCH SSE
-   -----------------------------------------------------
+/*
+ * =====================================================
+ * INITIAL STATE
+ * =====================================================
+ */
 
-   Serwer może wysłać:
-
-   event: state
-   data: {...}
-
-   albo:
-
-   event: block
-   data: {...}
-
-   albo zwykłe:
-
-   data: {...}
-
-   Obsługujemy wszystkie.
-   ----------------------------------------------------- */
-
-function parseSSEData(event) {
-
-    try {
-
-        const parsed =
-            JSON.parse(
-                event.data
-            );
-
-        /*
-         * Jeżeli serwer wysyła:
-         *
-         * { height, ... }
-         *
-         * mamy gotowy /info.
-         */
-
-        if (
-            parsed &&
-            typeof parsed.height !==
-                "undefined"
-        ) {
-
-            return parsed;
-        }
-
-
-        /*
-         * Jeżeli serwer wysyła:
-         *
-         * { info: {...} }
-         */
-
-        if (
-            parsed &&
-            parsed.info
-        ) {
-
-            return parsed.info;
-        }
-
-
-        /*
-         * Jeżeli serwer wysyła:
-         *
-         * { state: {...} }
-         */
-
-        if (
-            parsed &&
-            parsed.state
-        ) {
-
-            return parsed.state;
-        }
-
-
-        /*
-         * Jeżeli serwer wysyła blok:
-         *
-         * { block: {...} }
-         *
-         * Nie zakładamy, że blok ma wszystkie
-         * pola /info.
-         *
-         * Dlatego zwracamy null i pobieramy
-         * świeże /info.
-         */
-
-        if (
-            parsed &&
-            parsed.block
-        ) {
-
-            return null;
-        }
-
-
-    } catch (e) {
-
-        console.error(
-            "BbC SSE: nieprawidłowe JSON:",
-            e
-        );
-
-    }
-
-    return null;
-}
-
-
-/* -----------------------------------------------------
-   POBRANIE AKTUALNEGO STANU
-   ----------------------------------------------------- */
-
-async function refreshState() {
+async function loadInitial() {
 
     try {
 
         const info =
             await apiGet(
-                "/info"
+                "/state"
             );
 
-        if (info) {
 
-            updateIndex(info);
+        updateIndex(
+            info
+        );
 
-        }
-
-        return true;
-
-    } catch (error) {
+    } catch (e) {
 
         console.error(
-            "BbC /info error:",
-            error
+            "BitBudCoin /state:",
+            e
         );
 
-        return false;
+        /*
+         * Nie kasujemy danych na ekranie.
+         * LIVE może jeszcze się połączyć.
+         */
+
     }
 }
 
 
-/* -----------------------------------------------------
-   POLLING FALLBACK
-   ----------------------------------------------------- */
-
-function startPollingFallback() {
-
-    if (pollingStarted) {
-        return;
-    }
-
-    pollingStarted = true;
-
-    /*
-     * Co 3 sekundy.
-     *
-     * To nie jest podstawowy tryb.
-     * Jest tylko zabezpieczeniem, jeśli SSE
-     * nie przejdzie przez proxy/hosting.
-     */
-
-    pollingTimer =
-        setInterval(
-            async () => {
-
-                await refreshState();
-
-            },
-            3000
-        );
-}
-
-
-function stopPollingFallback() {
-
-    if (
-        pollingTimer
-    ) {
-
-        clearInterval(
-            pollingTimer
-        );
-
-        pollingTimer =
-            null;
-
-    }
-
-    pollingStarted = false;
-}
-
-
-/* -----------------------------------------------------
-   SSE
-   ----------------------------------------------------- */
+/*
+ * =====================================================
+ * SSE CONNECT
+ * =====================================================
+ */
 
 function connectSSE() {
 
@@ -1452,143 +1073,89 @@ function connectSSE() {
     ) {
 
         console.warn(
-            "BbC: EventSource niedostępne."
+            "Przeglądarka nie obsługuje SSE."
         );
 
-        setLive(
-            false,
-            "OFFLINE · SSE niedostępne"
+        setLiveStatus(
+            false
         );
 
-        startPollingFallback();
+        return;
+    }
+
+
+    try {
+
+        currentEvents =
+            createBBCEventSource();
+
+    } catch (err) {
+
+        console.error(
+            "Nie można uruchomić SSE:",
+            err
+        );
+
+        setLiveStatus(
+            false
+        );
+
+        scheduleReconnect();
 
         return;
     }
 
 
     /*
-     * Jeżeli stare połączenie jeszcze istnieje,
-     * zamykamy je przed stworzeniem nowego.
+     * ================================================
+     * STATE EVENT
+     * ================================================
      */
 
-    if (eventSource) {
+    currentEvents.addEventListener(
+        "state",
+        (event) => {
 
-        try {
-            eventSource.close();
-        } catch (e) {}
+            try {
 
-        eventSource =
-            null;
-    }
+                const info =
+                    JSON.parse(
+                        event.data
+                    );
+
+
+                updateIndex(
+                    info
+                );
+
+            } catch (err) {
+
+                console.error(
+                    "Błąd parsowania SSE:",
+                    err
+                );
+            }
+        }
+    );
 
 
     /*
-     * Cache busting.
-     *
-     * Dzięki temu nie dostaniemy starego
-     * połączenia przez cache/proxy.
+     * ================================================
+     * OPEN
+     * ================================================
      */
 
-    const eventsUrl =
-        "/events?stream=index&t=" +
-        Date.now();
-
-
-    eventSource =
-        new EventSource(
-            eventsUrl
-        );
-
-
-    /* -------------------------------------------------
-       WSPÓLNA OBSŁUGA EVENTU
-       ------------------------------------------------- */
-
-    function handleEvent(event) {
-
-        const info =
-            parseSSEData(event);
-
-
-        if (info) {
-
-            updateIndex(info);
-
-            return;
-        }
-
-
-        /*
-         * Jeżeli przyszło tylko powiadomienie
-         * o nowym bloku, pobieramy jeden
-         * autorytatywny /info.
-         */
-
-        refreshState();
-    }
-
-
-    /* -------------------------------------------------
-       CUSTOM EVENT: state
-       ------------------------------------------------- */
-
-    eventSource.addEventListener(
-        "state",
-        handleEvent
-    );
-
-
-    /* -------------------------------------------------
-       CUSTOM EVENT: info
-       ------------------------------------------------- */
-
-    eventSource.addEventListener(
-        "info",
-        handleEvent
-    );
-
-
-    /* -------------------------------------------------
-       CUSTOM EVENT: block
-       ------------------------------------------------- */
-
-    eventSource.addEventListener(
-        "block",
-        handleEvent
-    );
-
-
-    /* -------------------------------------------------
-       CUSTOM EVENT: message
-       -------------------------------------------------
-
-       EventSource wysyła tu eventy bez
-       "event: ..." po stronie serwera.
-       ------------------------------------------------- */
-
-    eventSource.addEventListener(
-        "message",
-        handleEvent
-    );
-
-
-    /* -------------------------------------------------
-       OPEN
-       ------------------------------------------------- */
-
-    eventSource.onopen =
+    currentEvents.onopen =
         () => {
 
             console.log(
                 "BitBudCoin SSE: LIVE"
             );
 
-            setLive(
-                true,
-                "LIVE · sieć"
-            );
 
-            stopPollingFallback();
+            setLiveStatus(
+                true
+            );
 
 
             if (
@@ -1602,108 +1169,88 @@ function connectSSE() {
                 reconnectTimer =
                     null;
             }
-
-
-            /*
-             * Natychmiastowy /info po połączeniu.
-             *
-             * Dzięki temu nie czekamy na następny
-             * event z serwera.
-             */
-
-            refreshState();
         };
 
 
-    /* -------------------------------------------------
-       ERROR
-       ------------------------------------------------- */
+    /*
+     * ================================================
+     * ERROR
+     * ================================================
+     */
 
-    eventSource.onerror =
+    currentEvents.onerror =
         () => {
 
             console.warn(
                 "BitBudCoin SSE: połączenie utracone."
             );
 
-            setLive(
-                false,
-                "OFFLINE · ponowne łączenie…"
+
+            setLiveStatus(
+                false
             );
 
 
-            try {
-
-                eventSource.close();
-
-            } catch (e) {}
-
-
-            eventSource =
-                null;
-
-
-            /*
-             * Fallback uruchamiamy od razu.
-             *
-             * Dzięki temu UI nadal pokazuje
-             * rzeczywisty stan, nawet gdy SSE
-             * jest chwilowo niedostępne.
-             */
-
-            startPollingFallback();
-
-
             if (
-                reconnectTimer
+                currentEvents
             ) {
 
-                return;
+                currentEvents.close();
+
+                currentEvents =
+                    null;
             }
 
 
-            reconnectTimer =
-                setTimeout(
-                    () => {
-
-                        reconnectTimer =
-                            null;
-
-                        connectSSE();
-
-                    },
-                    3000
-                );
+            scheduleReconnect();
         };
 }
 
 
-/* -----------------------------------------------------
-   START
-   -----------------------------------------------------
+/*
+ * =====================================================
+ * RECONNECT
+ * =====================================================
+ */
 
-   Najpierw /info.
-   Potem SSE.
+function scheduleReconnect() {
 
-   To daje:
-   1. natychmiastowy stan,
-   2. potem real-time.
-   ----------------------------------------------------- */
-
-(async function startLive() {
-
-    setLive(
-        false,
-        "Łączenie z siecią…"
-    );
+    if (
+        reconnectTimer
+    ) {
+        return;
+    }
 
 
-    await refreshState();
+    reconnectTimer =
+        setTimeout(
+            () => {
+
+                reconnectTimer =
+                    null;
+
+                connectSSE();
+
+            },
+            3000
+        );
+}
 
 
-    connectSSE();
+/*
+ * =====================================================
+ * START
+ * =====================================================
+ */
 
-})();
+setLiveStatus(
+    false
+);
+
+
+loadInitial();
+
+connectSSE();
 
 </script>
 
