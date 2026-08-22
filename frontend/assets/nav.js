@@ -50,7 +50,12 @@ function setActiveNav(id) {
     if (el) el.classList.add("active");
 }
 
-async function mountNavStatus() {
+// NAPRAWA (dzisiaj): ta funkcja pobierała dane RAZ, przy starcie strony,
+// i nigdy wiecej - stad zamrozona odznaka "blok #" na gorze KAZDEJ z 16
+// stron, dokladnie ten objaw z dzisiejszych zrzutow ekranu. Teraz korzysta
+// z BBCLiveState (SSE + fallback), wiec aktualizuje sie na biezaco, tak
+// jak reszta kazdej strony juz to robila osobno.
+function mountNavStatus() {
     const combined = document.getElementById("navStatus");
     const splitPill = document.getElementById("nav-status");
     const splitText = document.getElementById("nav-status-text");
@@ -62,18 +67,25 @@ async function mountNavStatus() {
         else if (splitText) splitText.textContent = html;
     };
 
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch(API_BASE + "/info", { signal: controller.signal });
-        clearTimeout(timeoutId);
-        const info = await res.json();
-        if (!res.ok) throw new Error("status " + res.status);
-        pill.classList.add("lit");
-        setText(`blok #${fmtNumber(info.height, 0)}`);
-    } catch (e) {
-        pill.classList.remove("lit");
-        setText("offline");
+    if (typeof BBCLiveState === "undefined") {
+        // Awaryjnie, gdyby ten skrypt kiedys zaladowal sie bez api.js -
+        // stare zachowanie (jedno zapytanie), zeby odznaka nie zostala pusta.
+        fetch(API_BASE + "/info")
+            .then((res) => res.json())
+            .then((info) => { pill.classList.add("lit"); setText(`blok #${fmtNumber(info.height, 0)}`); })
+            .catch(() => { pill.classList.remove("lit"); setText("offline"); });
+        return;
     }
+
+    BBCLiveState.subscribe(({ state, live }) => {
+        if (!state || typeof state.height === "undefined") {
+            pill.classList.remove("lit");
+            setText("łączenie…");
+            return;
+        }
+        pill.classList.add("lit");
+        setText(`blok #${fmtNumber(state.height, 0)}${live ? "" : " ⚠️"}`);
+    });
+    BBCLiveState.init();
 }
 if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", mountNavStatus); } else { mountNavStatus(); }
