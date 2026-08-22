@@ -2,37 +2,47 @@
 
 const MAX_TARGET = (1n << 256n) - 1n;
 
-// ASERT fixed-point radix: 2^16
 const RADIX = 65536n;
+const RADIX_BITS = 16n;
 
-// aserti3-2d parameters
-const ASERT_RADIX_BITS = 16;
 const IDEAL_BLOCK_TIME = 600n;
-
-// 2 days.
-// Dla BbC możemy później dobrać własny halflife,
-// ale na tym etapie zostawiamy sprawdzony model ASERT.
 const DEFAULT_HALFLIFE = 172800n;
 
-// Cubic approximation constants z aserti3-2d.
-// Celowo zostają jako BigInt.
-// Żadnego Number / Math.pow() w konsensusie.
+// ASERT aserti3-2d polynomial constants.
 const C1 = 195766423245049n;
 const C2 = 971821376n;
 const C3 = 5127n;
 const C4 = 1n << 47n;
 
-/**
- * ASERT:
+
+/*
+ * BigInt division w JS obcina w kierunku zera.
  *
- * nextTarget =
- *   anchorTarget *
- *   2^(
- *     (timeDelta - idealBlockTime * (heightDelta + 1))
- *     / halflife
- *   )
+ * ASERT wymaga truncating division dla exponentu.
+ */
+function truncDiv(a, b) {
+    if (b === 0n) {
+        throw new Error("ASERT: dzielenie przez zero");
+    }
+
+    const negative = (a < 0n) !== (b < 0n);
+    const aa = a < 0n ? -a : a;
+    const bb = b < 0n ? -b : b;
+
+    const result = aa / bb;
+
+    return negative ? -result : result;
+}
+
+
+/*
+ * ASERT liczy target następnego bloku bez floating point.
  *
- * Obliczenia wykonywane są wyłącznie integerowo.
+ * anchorTarget:
+ *   rzeczywisty 256-bitowy target kotwicy.
+ *
+ * evalHeight/evalTime:
+ *   aktualnie zaakceptowany blok.
  */
 function asertNextTarget({
     anchorHeight,
@@ -66,62 +76,70 @@ function asertNextTarget({
     }
 
     if (idealBlockTime <= 0n) {
-        throw new Error("ASERT: idealBlockTime musi byc > 0");
+        throw new Error("ASERT: nieprawidlowy idealBlockTime");
     }
 
     if (halflife <= 0n) {
-        throw new Error("ASERT: halflife musi byc > 0");
+        throw new Error("ASERT: nieprawidlowy halflife");
     }
 
     /*
-     * timeDelta moze byc ujemne.
+     * timeDelta:
+     *
+     * czas aktualnego bloku
+     * minus czas rodzica kotwicy.
      */
     const timeDelta =
         evalTime - anchorParentTime;
 
+    /*
+     * heightDelta:
+     *
+     * aktualna wysokosc
+     * minus wysokosc kotwicy.
+     */
     const heightDelta =
         evalHeight - anchorHeight;
 
     /*
-     * Dokladnie jak w specyfikacji:
+     * KLUCZOWY WZÓR ASERT:
      *
      * exponent =
-     *   trunc(
-     *     ((timeDelta -
-     *       idealBlockTime * (heightDelta + 1))
-     *       * RADIX)
-     *     / halflife
-     *   )
      *
-     * BigInt division w JS obcina w kierunku zera,
-     * czyli odpowiada wymaganej trunc_div.
+     * ((timeDelta -
+     *   idealBlockTime * (heightDelta + 1))
+     *   * RADIX)
+     * / halflife
+     *
+     * Całość musi być integerowa.
      */
+    const scheduleError =
+        timeDelta -
+        idealBlockTime * (heightDelta + 1n);
+
     let exponent =
-        (
-            (
-                timeDelta -
-                idealBlockTime * (heightDelta + 1n)
-            ) *
-            RADIX
-        ) / halflife;
+        truncDiv(
+            scheduleError * RADIX,
+            halflife
+        );
 
     /*
-     * Arithmetic shift.
+     * exponent = integer part + fractional part.
      *
-     * BigInt >> zachowuje znak, więc działa poprawnie
-     * również dla ujemnego exponent.
+     * Arithmetic right shift jest wymagany dla liczb ujemnych.
      */
     const numShifts =
-        exponent >> BigInt(ASERT_RADIX_BITS);
+        exponent >> RADIX_BITS;
 
     exponent =
         exponent -
         numShifts * RADIX;
 
+
     /*
-     * Polynomial approximation of 2^fraction.
+     * Polynomial approximation:
      *
-     * Wszystko na BigInt.
+     * 2^(fraction)
      */
     const exponentSquared =
         exponent * exponent;
@@ -129,49 +147,55 @@ function asertNextTarget({
     const exponentCubed =
         exponentSquared * exponent;
 
-    let factor =
+    const factor =
         (
-            C1 * exponent +
-            C2 * exponentSquared +
-            C3 * exponentCubed +
-            C4
-        ) >> 48n;
+            (
+                C1 * exponent +
+                C2 * exponentSquared +
+                C3 * exponentCubed +
+                C4
+            ) >> 48n
+        ) + RADIX;
 
-    factor += RADIX;
 
     /*
-     * targetRef * factor
+     * anchorTarget * factor
      */
     let nextTarget =
         anchorTarget * factor;
 
+
     /*
-     * 2^integerExponent
+     * Potega całkowita 2^numShifts.
      */
     if (numShifts < 0n) {
         const shift = -numShifts;
 
-        if (shift >= 256n) {
+        /*
+         * Jeżeli przesunięcie jest większe niż zakres
+         * 256-bitowego targetu, wynik będzie 0.
+         */
+        if (shift >= 512n) {
             return 1n;
         }
 
         nextTarget >>= shift;
     } else if (numShifts > 0n) {
         /*
-         * Nie dopuszczamy do bezsensownego wzrostu.
-         * Jeśli wynik przekroczy maxTarget, później zostanie
-         * ograniczony do maxTarget.
+         * BigInt może rozszerzać się dowolnie,
+         * więc nie ma overflow jak przy uint256.
          */
         nextTarget <<= numShifts;
     }
 
     /*
-     * Usunięcie 16 bitów części ułamkowej.
+     * Usunięcie części fixed-point.
      */
-    nextTarget >>= 16n;
+    nextTarget >>= RADIX_BITS;
+
 
     /*
-     * Granice konsensusu.
+     * Konsensusowe granice.
      */
     if (nextTarget <= 0n) {
         return 1n;
@@ -185,10 +209,53 @@ function asertNextTarget({
 }
 
 
-/**
- * Wrapper zgodny z dotychczasowym API projektu.
+/*
+ * Zamiana starego modelu difficulty -> target.
  *
- * Zwraca BigInt target, a nie Number.
+ * Ta funkcja istnieje dla kompatybilności z obecnym
+ * blockchainem.
+ *
+ * Docelowo consensus powinien przechowywać TARGET,
+ * nie difficulty jako Number.
+ */
+function difficultyToTarget(difficulty, maxTarget = MAX_TARGET) {
+    const d = BigInt(
+        Math.max(
+            1,
+            Math.round(Number(difficulty))
+        )
+    );
+
+    return maxTarget / d;
+}
+
+
+/*
+ * Target -> difficulty.
+ *
+ * TYLKO UI / API / statystyki.
+ *
+ * Nie używać jako wartości konsensusowej.
+ */
+function targetToDifficulty(target, maxTarget = MAX_TARGET) {
+    target = BigInt(target);
+    maxTarget = BigInt(maxTarget);
+
+    if (target <= 0n) {
+        throw new Error("ASERT: target <= 0");
+    }
+
+    return Number(maxTarget / target);
+}
+
+
+/*
+ * Wrapper zachowujący obecne API:
+ *
+ * asertNextDifficulty(...)
+ *
+ * Dzięki temu obecny bbcblockchain.js nie musi
+ * zostać rozwalony jednym ruchem.
  */
 function asertNextDifficulty({
     anchorHeight,
@@ -200,56 +267,35 @@ function asertNextDifficulty({
     halflife = DEFAULT_HALFLIFE,
     maxTarget = MAX_TARGET,
 }) {
-    /*
-     * Stara wersja projektu przechowywała difficulty jako
-     * abstrakcyjną liczbę.
-     *
-     * Na tym etapie traktujemy ją jako współczynnik względem
-     * MAX_TARGET.
-     *
-     * Docelowo usuniemy całkowicie tę warstwę i wszystkie bloki
-     * będą miały prawdziwy target/nBits.
-     */
-    const difficulty =
-        BigInt(Math.max(1, Math.round(anchorDifficulty)));
-
     const anchorTarget =
-        maxTarget / difficulty;
+        difficultyToTarget(
+            anchorDifficulty,
+            maxTarget
+        );
 
-    return asertNextTarget({
-        anchorHeight,
-        anchorParentTime,
-        anchorTarget,
-        evalHeight,
-        evalTime,
-        idealBlockTime,
-        halflife,
-        maxTarget,
-    });
+    const nextTarget =
+        asertNextTarget({
+            anchorHeight,
+            anchorParentTime,
+            anchorTarget,
+            evalHeight,
+            evalTime,
+            idealBlockTime,
+            halflife,
+            maxTarget,
+        });
+
+    return targetToDifficulty(
+        nextTarget,
+        maxTarget
+    );
 }
 
 
-/**
- * Konwersja target -> difficulty tylko do UI/statystyk.
+/*
+ * Bezpośredni test PoW:
  *
- * NIE używać do consensus.
- */
-function targetToDifficulty(target, maxTarget = MAX_TARGET) {
-    target = BigInt(target);
-    maxTarget = BigInt(maxTarget);
-
-    if (target <= 0n) {
-        throw new Error("target musi byc > 0");
-    }
-
-    return Number(maxTarget / target);
-}
-
-
-/**
- * Sprawdzenie PoW.
- *
- * hashHex musi być 64-znakowym SHA-256.
+ * hash <= target
  */
 function hashMeetsTarget(hashHex, target) {
     if (
@@ -261,7 +307,10 @@ function hashMeetsTarget(hashHex, target) {
 
     target = BigInt(target);
 
-    if (target <= 0n || target > MAX_TARGET) {
+    if (
+        target <= 0n ||
+        target > MAX_TARGET
+    ) {
         return false;
     }
 
@@ -281,6 +330,8 @@ module.exports = {
     asertNextTarget,
     asertNextDifficulty,
 
+    difficultyToTarget,
     targetToDifficulty,
+
     hashMeetsTarget,
 };
