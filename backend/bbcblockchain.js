@@ -6,17 +6,31 @@ const path = require("path");
 
 const CONFIG = require("./config");
 const Storage = require("./storage");
-const { asertNextDifficulty } = require("./asert-difficulty");
 
-const MAX_TARGET = (1n << 256n) - 1n;
-const GENESIS_TIMESTAMP = Date.UTC(2026, 0, 1);
+const {
+    asertNextDifficulty
+} = require("./asert-difficulty");
 
-// Oplata protokolu - usztywniona w kodzie.
+const MAX_TARGET =
+    (1n << 256n) - 1n;
+
+const GENESIS_TIMESTAMP =
+    Date.UTC(2026, 0, 1);
+
 const PROJECT_FEE_PERCENT = 0.005;
 
 function difficultyToTargetHex(difficulty) {
-    const safe = BigInt(Math.max(1, Math.round(difficulty)));
-    return (MAX_TARGET / safe)
+    const safe =
+        BigInt(
+            Math.max(
+                1,
+                Math.round(Number(difficulty))
+            )
+        );
+
+    return (
+        MAX_TARGET / safe
+    )
         .toString(16)
         .padStart(64, "0");
 }
@@ -67,7 +81,8 @@ class Block {
             nonce
         });
 
-        this.hash = this.calculateHash();
+        this.hash =
+            this.calculateHash();
     }
 
     calculateHash() {
@@ -77,7 +92,8 @@ class Block {
     mine(targetHex) {
         while (this.hash > targetHex) {
             this.nonce++;
-            this.hash = this.calculateHash();
+            this.hash =
+                this.calculateHash();
         }
 
         return this.hash;
@@ -93,12 +109,14 @@ function emergencyStatePath() {
 
 function loadEmergencyDifficultyState() {
     try {
-        const raw = fs.readFileSync(
-            emergencyStatePath(),
-            "utf8"
-        );
+        const raw =
+            fs.readFileSync(
+                emergencyStatePath(),
+                "utf8"
+            );
 
-        const state = JSON.parse(raw);
+        const state =
+            JSON.parse(raw);
 
         if (
             typeof state.difficulty === "number" &&
@@ -136,56 +154,53 @@ function isProjectFeeActive(height) {
     return !!(
         CONFIG.PROJECT_FEE_ADDRESS &&
         CONFIG.PROJECT_FEE_ACTIVATION_HEIGHT !== undefined &&
-        height >= CONFIG.PROJECT_FEE_ACTIVATION_HEIGHT
+        height >=
+            CONFIG.PROJECT_FEE_ACTIVATION_HEIGHT
     );
 }
 
 /*
- * ASERT aktywny dla bloku:
- *
- *     height >= ASERT_ACTIVATION_HEIGHT
- *
- * Kotwica:
- *
- *     ASERT_ACTIVATION_HEIGHT - 1
- *
- * Jest to ostatni blok wykopany wedlug starego DAA.
+ * ============================================================
+ * vMax activation
+ * ============================================================
  */
+
 function isAsertActive(height) {
     return !!(
+        CONFIG.ASERT_ENABLED === true &&
         CONFIG.ASERT_ACTIVATION_HEIGHT !== undefined &&
-        height >= CONFIG.ASERT_ACTIVATION_HEIGHT
+        height >=
+            CONFIG.ASERT_ACTIVATION_HEIGHT
     );
 }
 
 class Blockchain {
     constructor() {
-        this.storage = new Storage(CONFIG.DATABASE);
+        this.storage =
+            new Storage(CONFIG.DATABASE);
 
         /*
-         * Startowa trudnosc.
-         *
-         * Przed ASERT jest to wartosc bazowa.
-         * Po zaladowaniu lancucha zostanie odtworzona z historii.
+         * Legacy DAA starts from the same deterministic value
+         * on every node.
          */
         this.difficulty =
-            Math.pow(16, CONFIG.DIFFICULTY);
+            Math.pow(
+                16,
+                CONFIG.DIFFICULTY
+            );
 
         this._asertAnchor = null;
 
         if (this.storage.hasBlocks()) {
-            this.chain = this.storage.loadChain();
+            this.chain =
+                this.storage.loadChain();
 
             this._warnIfChainHasGaps();
 
             this._recomputeDifficultyFromHistory();
 
             /*
-             * Awaryjny stan trudnosci dotyczy WYŁĄCZNIE starego
-             * systemu windowowego.
-             *
-             * Po aktywacji ASERT nie mozemy go uzyc, poniewaz
-             * ASERT musi byc deterministyczny na podstawie lancucha.
+             * Emergency state is ONLY for pre-vMax.
              */
             if (
                 !isAsertActive(
@@ -196,66 +211,227 @@ class Blockchain {
                     loadEmergencyDifficultyState();
 
                 if (emergencyState) {
-                    console.error(
-                        "Uzywam zapisanego stanu trudnosci (" +
-                        emergencyState.difficulty +
-                        ") zamiast przeliczonej z historii (" +
-                        this.difficulty +
-                        ")."
-                    );
-
                     this.difficulty =
                         emergencyState.difficulty;
                 }
             }
         } else {
             const transactions =
-                CONFIG.GENESIS_TRANSACTIONS.map((tx) => ({
-                    from: CONFIG.GENESIS_ADDRESS,
-                    to: tx.to,
-                    amount: tx.amount,
-                    type: "genesis"
-                }));
+                CONFIG.GENESIS_TRANSACTIONS.map(
+                    tx => ({
+                        from:
+                            CONFIG.GENESIS_ADDRESS,
+                        to: tx.to,
+                        amount: tx.amount,
+                        type: "genesis"
+                    })
+                );
 
-            const genesis = new Block({
-                height: 0,
-                timestamp: GENESIS_TIMESTAMP,
-                previousHash: "0".repeat(64),
-                transactions,
-                difficulty: this.difficulty
-            });
+            const genesis =
+                new Block({
+                    height: 0,
+                    timestamp:
+                        GENESIS_TIMESTAMP,
+                    previousHash:
+                        "0".repeat(64),
+                    transactions,
+                    difficulty:
+                        this.difficulty
+                });
 
-            this.chain = [genesis];
+            this.chain = [
+                genesis
+            ];
 
-            this.storage.saveBlock(genesis);
+            this.storage.saveBlock(
+                genesis
+            );
         }
 
         this._rebuildIndexes();
     }
 
     getLatestBlock() {
-        return this.chain[this.chain.length - 1];
+        return this.chain[
+            this.chain.length - 1
+        ];
     }
 
     getRewardForHeight(height) {
-        return CONFIG.BLOCK_REWARD /
+        return (
+            CONFIG.BLOCK_REWARD /
             Math.pow(
                 2,
                 Math.floor(
-                    height / CONFIG.HALVING_INTERVAL
+                    height /
+                    CONFIG.HALVING_INTERVAL
                 )
-            );
+            )
+        );
     }
+
+    /*
+     * ============================================================
+     * vMax anchor
+     * ============================================================
+     */
+
+    _getAsertAnchor() {
+        if (this._asertAnchor) {
+            return this._asertAnchor;
+        }
+
+        const anchorHeight =
+            CONFIG.ASERT_ANCHOR_HEIGHT;
+
+        const anchorBlock =
+            this.chain[
+                anchorHeight
+            ];
+
+        const anchorParent =
+            this.chain[
+                anchorHeight - 1
+            ];
+
+        if (
+            !anchorBlock ||
+            !anchorParent ||
+            anchorBlock.height !==
+                anchorHeight
+        ) {
+            return null;
+        }
+
+        this._asertAnchor = {
+            anchorHeight:
+                BigInt(anchorHeight),
+
+            anchorParentTime:
+                BigInt(
+                    Math.floor(
+                        anchorParent.timestamp /
+                        1000
+                    )
+                ),
+
+            anchorDifficulty:
+                BigInt(
+                    Math.max(
+                        1,
+                        Math.round(
+                            anchorBlock.difficulty
+                        )
+                    )
+                )
+        };
+
+        return this._asertAnchor;
+    }
+
+    _calculateAsertDifficulty(
+        evaluationBlock
+    ) {
+        const anchor =
+            this._getAsertAnchor();
+
+        if (!anchor) {
+            throw new Error(
+                "vMax: brak bloku kotwicznego #" +
+                CONFIG.ASERT_ANCHOR_HEIGHT
+            );
+        }
+
+        return asertNextDifficulty({
+            anchorHeight:
+                anchor.anchorHeight,
+
+            anchorParentTime:
+                anchor.anchorParentTime,
+
+            anchorDifficulty:
+                anchor.anchorDifficulty,
+
+            evalHeight:
+                BigInt(
+                    evaluationBlock.height
+                ),
+
+            evalTime:
+                BigInt(
+                    Math.floor(
+                        evaluationBlock.timestamp /
+                        1000
+                    )
+                ),
+
+            idealBlockTime:
+                BigInt(
+                    CONFIG
+                        .ASERT_IDEAL_BLOCK_TIME_SECONDS
+                ),
+
+            halflife:
+                BigInt(
+                    CONFIG
+                        .ASERT_HALFLIFE_SECONDS
+                ),
+
+            maxTarget:
+                MAX_TARGET
+        });
+    }
+
+    /*
+     * Difficulty required for a given block.
+     *
+     * For block #100000:
+     * evaluation block = #99999.
+     *
+     * For block #100001:
+     * evaluation block = #100000.
+     */
+    _expectedDifficultyForBlock(
+        height
+    ) {
+        if (
+            !isAsertActive(height)
+        ) {
+            return null;
+        }
+
+        const evaluationBlock =
+            this.chain[
+                height - 1
+            ];
+
+        if (!evaluationBlock) {
+            return null;
+        }
+
+        return this._calculateAsertDifficulty(
+            evaluationBlock
+        );
+    }
+
+    /*
+     * ============================================================
+     * Transaction building
+     * ============================================================
+     */
 
     buildBlockTransactions(
         rewardRecipient,
         pendingTransactions = []
     ) {
         const height =
-            this.getLatestBlock().height + 1;
+            this.getLatestBlock().height +
+            1;
 
         const reward =
-            this.getRewardForHeight(height);
+            this.getRewardForHeight(
+                height
+            );
 
         const transactions = [
             {
@@ -267,13 +443,21 @@ class Blockchain {
         ];
 
         const feeActive =
-            isProjectFeeActive(height);
+            isProjectFeeActive(
+                height
+            );
 
         let totalMinerFees = 0;
         let totalProtocolCut = 0;
 
-        for (const tx of pendingTransactions) {
-            if (tx.type === "HTLC_CREATE") {
+        for (
+            const tx of
+            pendingTransactions
+        ) {
+            if (
+                tx.type ===
+                "HTLC_CREATE"
+            ) {
                 transactions.push({
                     htlcId: tx.htlcId,
                     from: tx.from,
@@ -281,13 +465,15 @@ class Blockchain {
                     amount: tx.amount,
                     fee: tx.fee,
                     hashLock: tx.hashLock,
-                    timeoutHeight: tx.timeoutHeight,
+                    timeoutHeight:
+                        tx.timeoutHeight,
                     claimant: tx.claimant,
                     refundee: tx.refundee,
                     timestamp: tx.timestamp,
                     publicKey: tx.publicKey,
                     signature: tx.signature,
-                    type: "HTLC_CREATE"
+                    type:
+                        "HTLC_CREATE"
                 });
 
                 totalMinerFees +=
@@ -298,7 +484,11 @@ class Blockchain {
                         tx.amount *
                         PROJECT_FEE_PERCENT;
                 }
-            } else if (tx.type === "HTLC_CLAIM") {
+
+            } else if (
+                tx.type ===
+                "HTLC_CLAIM"
+            ) {
                 transactions.push({
                     htlcId: tx.htlcId,
                     claimant: tx.claimant,
@@ -308,9 +498,14 @@ class Blockchain {
                     timestamp: tx.timestamp,
                     publicKey: tx.publicKey,
                     signature: tx.signature,
-                    type: "HTLC_CLAIM"
+                    type:
+                        "HTLC_CLAIM"
                 });
-            } else if (tx.type === "HTLC_REFUND") {
+
+            } else if (
+                tx.type ===
+                "HTLC_REFUND"
+            ) {
                 transactions.push({
                     htlcId: tx.htlcId,
                     refundee: tx.refundee,
@@ -319,8 +514,10 @@ class Blockchain {
                     timestamp: tx.timestamp,
                     publicKey: tx.publicKey,
                     signature: tx.signature,
-                    type: "HTLC_REFUND"
+                    type:
+                        "HTLC_REFUND"
                 });
+
             } else {
                 transactions.push({
                     from: tx.from,
@@ -330,7 +527,8 @@ class Blockchain {
                     timestamp: tx.timestamp,
                     publicKey: tx.publicKey,
                     signature: tx.signature,
-                    type: "transfer"
+                    type:
+                        "transfer"
                 });
 
                 totalMinerFees +=
@@ -350,23 +548,36 @@ class Blockchain {
         ) {
             transactions.push({
                 from: null,
-                to: CONFIG.PROJECT_FEE_ADDRESS,
-                amount: totalMinerFees,
+                to:
+                    CONFIG.PROJECT_FEE_ADDRESS,
+                amount:
+                    totalMinerFees,
                 type: "fee"
             });
         }
 
-        if (totalProtocolCut > 0) {
+        if (
+            totalProtocolCut > 0
+        ) {
             transactions.push({
                 from: null,
-                to: CONFIG.PROJECT_FEE_ADDRESS,
-                amount: totalProtocolCut,
-                type: "protocol_fee"
+                to:
+                    CONFIG.PROJECT_FEE_ADDRESS,
+                amount:
+                    totalProtocolCut,
+                type:
+                    "protocol_fee"
             });
         }
 
         return transactions;
     }
+
+    /*
+     * ============================================================
+     * Receive block
+     * ============================================================
+     */
 
     receiveBlock(candidate) {
         const latest =
@@ -378,7 +589,8 @@ class Blockchain {
         ) {
             return {
                 accepted: false,
-                reason: "wysokosc nie pasuje"
+                reason:
+                    "wysokosc nie pasuje"
             };
         }
 
@@ -388,34 +600,76 @@ class Blockchain {
         ) {
             return {
                 accepted: false,
-                reason: "previousHash nie pasuje"
+                reason:
+                    "previousHash nie pasuje"
             };
         }
 
         if (
-            computeBlockHash(candidate) !==
-            candidate.hash
+            computeBlockHash(
+                candidate
+            ) !== candidate.hash
         ) {
             return {
                 accepted: false,
-                reason: "hash sie nie zgadza"
+                reason:
+                    "hash sie nie zgadza"
             };
         }
 
         /*
-         * Blok musi uzywac lokalnie oczekiwanej trudnosci.
-         *
-         * To jest szczegolnie wazne po aktywacji ASERT:
-         * kazdy wezel MUSI dojsc do identycznej wartosci.
+         * ========================================================
+         * vMax difficulty consensus
+         * ========================================================
          */
+
         if (
+            isAsertActive(
+                candidate.height
+            )
+        ) {
+            let expectedDifficulty;
+
+            try {
+                expectedDifficulty =
+                    this._calculateAsertDifficulty(
+                        latest
+                    );
+            } catch (err) {
+                return {
+                    accepted: false,
+                    reason:
+                        "vMax difficulty error: " +
+                        err.message
+                };
+            }
+
+            if (
+                candidate.difficulty !==
+                expectedDifficulty
+            ) {
+                return {
+                    accepted: false,
+                    reason:
+                        "nieprawidlowa vMax trudnosc " +
+                        "(oczekiwano " +
+                        expectedDifficulty +
+                        ", otrzymano " +
+                        candidate.difficulty +
+                        ")"
+                };
+            }
+
+        } else if (
             candidate.difficulty !==
             this.difficulty
         ) {
             return {
                 accepted: false,
                 reason:
-                    `nieprawidlowa trudnosc (oczekiwano ${this.difficulty}, otrzymano ${candidate.difficulty})`
+                    `nieprawidlowa trudnosc ` +
+                    `(oczekiwano ${this.difficulty}, ` +
+                    `otrzymano ${candidate.difficulty})`
             };
         }
 
@@ -427,22 +681,29 @@ class Blockchain {
         ) {
             return {
                 accepted: false,
-                reason: "nie spelnia trudnosci"
+                reason:
+                    "nie spelnia trudnosci"
             };
         }
 
         /*
-         * Ochrona przed podwojnym rozwiazaniem HTLC.
+         * ========================================================
+         * HTLC double-resolution protection
+         * ========================================================
          */
+
         const seenHtlcResolutions =
             new Set();
 
         for (
-            const tx of candidate.transactions
+            const tx of
+            candidate.transactions
         ) {
             if (
-                tx.type === "HTLC_CLAIM" ||
-                tx.type === "HTLC_REFUND"
+                tx.type ===
+                    "HTLC_CLAIM" ||
+                tx.type ===
+                    "HTLC_REFUND"
             ) {
                 const existing =
                     this.findHTLC(
@@ -476,7 +737,7 @@ class Blockchain {
                     return {
                         accepted: false,
                         reason:
-                            `blok zawiera dwa rozwiazania tego samego HTLC ${tx.htlcId} naraz`
+                            `blok zawiera dwa rozwiazania tego samego HTLC ${tx.htlcId}`
                     };
                 }
 
@@ -487,8 +748,7 @@ class Blockchain {
         }
 
         /*
-         * Najpierw zapis do bazy.
-         * Dopiero potem chain.push().
+         * Save FIRST.
          */
         try {
             this.storage.saveBlock(
@@ -503,31 +763,42 @@ class Blockchain {
             };
         }
 
-        this.chain.push(candidate);
+        this.chain.push(
+            candidate
+        );
 
         this._applyBlockToIndexes(
             candidate
         );
 
         /*
-         * ============================================================
-         * DAA
-         * ============================================================
+         * ========================================================
+         * Difficulty transition
+         * ========================================================
          *
-         * Stary retarget dziala tylko przed ASERT.
+         * Before vMax:
+         *     old DAA
          *
-         * Od momentu, kiedy nastepny blok jest ASERT,
-         * trudnosc nastepnego bloku jest wyliczana BEZPOSREDNIO
-         * z kotwicy.
+         * From #100000:
+         *     ASERT only
          */
+
         if (
             isAsertActive(
                 candidate.height + 1
             )
         ) {
-            this._applyAsertDifficulty(
-                candidate
-            );
+            try {
+                this.difficulty =
+                    this._calculateAsertDifficulty(
+                        candidate
+                    );
+            } catch (err) {
+                console.error(
+                    "vMax calculation error: " +
+                    err.message
+                );
+            }
         } else {
             this.retargetIfDue(
                 candidate
@@ -540,13 +811,18 @@ class Blockchain {
         };
     }
 
+    /*
+     * ============================================================
+     * Legacy DAA
+     * ============================================================
+     *
+     * This function is NEVER called after vMax activation.
+     */
+
     retargetIfDue(
         justAccepted,
         persist = true
     ) {
-        /*
-         * Po ASERT ta funkcja nie jest juz uzywana.
-         */
         if (
             isAsertActive(
                 justAccepted.height + 1
@@ -568,7 +844,7 @@ class Blockchain {
 
         const windowStart =
             this.chain.find(
-                (b) =>
+                b =>
                     b.height ===
                     justAccepted.height -
                     interval
@@ -582,7 +858,7 @@ class Blockchain {
             Math.max(
                 1,
                 justAccepted.timestamp -
-                    windowStart.timestamp
+                windowStart.timestamp
             );
 
         const expectedMs =
@@ -590,7 +866,8 @@ class Blockchain {
             CONFIG.TARGET_BLOCK_TIME_MS;
 
         let ratio =
-            expectedMs / actualMs;
+            expectedMs /
+            actualMs;
 
         ratio =
             Math.max(
@@ -601,7 +878,8 @@ class Blockchain {
         this.difficulty =
             Math.max(
                 1,
-                this.difficulty * ratio
+                this.difficulty *
+                ratio
             );
 
         if (persist) {
@@ -614,217 +892,29 @@ class Blockchain {
 
     /*
      * ============================================================
-     * ASERT ANCHOR
-     * ============================================================
-     *
-     * Anchor:
-     *
-     *     ASERT_ACTIVATION_HEIGHT - 1
-     *
-     * Timestamp referencyjny:
-     *
-     *     timestamp rodzica anchor block
-     *
-     * Dokladnie taki uklad opisuje specyfikacja ASERTI3-2D.
-     */
-    _getAsertAnchor() {
-        if (this._asertAnchor) {
-            return this._asertAnchor;
-        }
-
-        const activationHeight =
-            Number(
-                CONFIG.ASERT_ACTIVATION_HEIGHT
-            );
-
-        if (
-            !Number.isInteger(
-                activationHeight
-            ) ||
-            activationHeight <= 1
-        ) {
-            return null;
-        }
-
-        const anchorHeight =
-            activationHeight - 1;
-
-        const anchorBlock =
-            this.chain[anchorHeight];
-
-        const anchorParentBlock =
-            this.chain[
-                anchorHeight - 1
-            ];
-
-        if (
-            !anchorBlock ||
-            !anchorParentBlock ||
-            anchorBlock.height !==
-                anchorHeight
-        ) {
-            return null;
-        }
-
-        /*
-         * W tym projekcie timestamp bloku jest
-         * przechowywany w milisekundach.
-         *
-         * ASERT wymaga sekund.
-         */
-        const anchorParentTime =
-            BigInt(
-                Math.floor(
-                    anchorParentBlock.timestamp /
-                        1000
-                )
-            );
-
-        /*
-         * Difficulty jest obecnie Number w formacie
-         * wewnetrznym BbC.
-         *
-         * ASERT konwertuje je do BigInt dopiero
-         * w asert-difficulty.js.
-         */
-        const anchorDifficulty =
-            Math.max(
-                1,
-                Math.round(
-                    Number(
-                        anchorBlock.difficulty
-                    )
-                )
-            );
-
-        this._asertAnchor = {
-            anchorHeight:
-                BigInt(anchorHeight),
-
-            anchorParentTime,
-
-            anchorDifficulty:
-                BigInt(anchorDifficulty)
-        };
-
-        return this._asertAnchor;
-    }
-
-    /*
-     * ============================================================
-     * ASERT NEXT DIFFICULTY
+     * Rebuild difficulty after restart
      * ============================================================
      */
-    _applyAsertDifficulty(
-        latestBlock
-    ) {
-        const anchor =
-            this._getAsertAnchor();
 
-        if (!anchor) {
-            console.error(
-                "ASERT aktywny, ale kotwica nie zostala znaleziona. " +
-                "Trudnosc pozostaje bez zmian."
-            );
-
-            return;
-        }
-
-        const idealBlockTime =
-            BigInt(
-                CONFIG.BLOCK_TIME
-            );
-
-        const halflife =
-            BigInt(
-                CONFIG.ASERT_HALFLIFE_SECONDS
-            );
-
-        const nextDifficulty =
-            asertNextDifficulty({
-                anchorHeight:
-                    anchor.anchorHeight,
-
-                anchorParentTime:
-                    anchor.anchorParentTime,
-
-                anchorDifficulty:
-                    anchor.anchorDifficulty,
-
-                evalHeight:
-                    BigInt(
-                        latestBlock.height
-                    ),
-
-                evalTime:
-                    BigInt(
-                        Math.floor(
-                            latestBlock.timestamp /
-                                1000
-                        )
-                    ),
-
-                idealBlockTime,
-
-                halflife,
-
-                maxTarget:
-                    MAX_TARGET
-            });
-
-        /*
-         * ASERT zwraca juz BbC difficulty jako Number.
-         *
-         * Walidacja dodatkowa, zeby przypadkowy NaN/Infinity
-         * nigdy nie trafil do stanu konsensusu.
-         */
-        if (
-            !Number.isFinite(
-                nextDifficulty
-            ) ||
-            nextDifficulty <= 0
-        ) {
-            throw new Error(
-                "ASERT zwrocil nieprawidlowa trudnosc"
-            );
-        }
-
-        this.difficulty =
-            Math.max(
-                1,
-                Math.round(
-                    nextDifficulty
-                )
-            );
-    }
-
-    /*
-     * ============================================================
-     * RECOMPUTE DIFFICULTY
-     * ============================================================
-     */
     _recomputeDifficultyFromHistory() {
         const latestHeight =
-            this.getLatestBlock().height;
+            this.getLatestBlock()
+                .height;
 
-        const activationHeight =
+        /*
+         * Replay old DAA only until anchor.
+         */
+        const activation =
             CONFIG.ASERT_ACTIVATION_HEIGHT;
 
         const anchorHeight =
-            activationHeight !== undefined
-                ? activationHeight - 1
-                : undefined;
+            CONFIG.ASERT_ANCHOR_HEIGHT;
 
-        /*
-         * Stare okna przeliczamy tylko do anchor block.
-         */
         const preAsertCeiling =
-            (
-                anchorHeight !== undefined &&
-                anchorHeight < latestHeight
-            )
-                ? anchorHeight
-                : latestHeight;
+            Math.min(
+                latestHeight,
+                anchorHeight
+            );
 
         const interval =
             CONFIG.DIFFICULTY_ADJUSTMENT;
@@ -836,8 +926,7 @@ class Blockchain {
         ) {
             const block =
                 this.chain.find(
-                    (b) =>
-                        b.height === h
+                    b => b.height === h
                 );
 
             if (block) {
@@ -849,53 +938,33 @@ class Blockchain {
         }
 
         /*
-         * Jesli lancuch doszedl do ASERT,
-         * odtworz trudnosc z kotwicy.
+         * Once anchor exists, ASERT determines
+         * current difficulty.
          */
         if (
-            anchorHeight !== undefined &&
-            latestHeight >= anchorHeight
+            latestHeight >=
+            anchorHeight &&
+            activation !== undefined
         ) {
-            this._asertAnchor = null;
+            const latest =
+                this.getLatestBlock();
 
-            this._applyAsertDifficulty(
-                this.getLatestBlock()
-            );
-        }
-    }
-
-    /*
-     * ============================================================
-     * CHAIN GAP WARNING
-     * ============================================================
-     */
-    _warnIfChainHasGaps() {
-        for (
-            let i = 1;
-            i < this.chain.length;
-            i++
-        ) {
-            const expected =
-                this.chain[i - 1].height +
-                1;
-
-            if (
-                this.chain[i].height !==
-                expected
-            ) {
-                const missingEnd =
-                    this.chain[i].height - 1;
-
-                const label =
-                    expected === missingEnd
-                        ? `${expected}`
-                        : `${expected}-${missingEnd}`;
-
+            /*
+             * If latest is the anchor, calculate
+             * difficulty for the FIRST vMax block.
+             *
+             * Otherwise calculate difficulty
+             * for the next block.
+             */
+            try {
+                this.difficulty =
+                    this._calculateAsertDifficulty(
+                        latest
+                    );
+            } catch (err) {
                 console.error(
-                    `  DZIURA W LANCUCHU: brakuje bloku/blokow ${label} ` +
-                    `(baza przeskakuje z wysokosci ` +
-                    `${this.chain[i - 1].height} na ` +
-                    `${this.chain[i].height})`
+                    "vMax restart calculation error: " +
+                    err.message
                 );
             }
         }
@@ -903,16 +972,13 @@ class Blockchain {
 
     /*
      * ============================================================
-     * CHAIN REPLACEMENT / P2P SYNC
+     * Chain validation / replacement
      * ============================================================
      */
-    replaceChain(
-        candidateChain
-    ) {
+
+    replaceChain(candidateChain) {
         if (
-            !Array.isArray(
-                candidateChain
-            ) ||
+            !Array.isArray(candidateChain) ||
             candidateChain.length === 0
         ) {
             return {
@@ -940,7 +1006,7 @@ class Blockchain {
             return {
                 accepted: false,
                 reason:
-                    `krotszy lub rowny (${candidateChain.length} <= ${this.chain.length}) - odrzucony, nie ma powodu podmieniac`
+                    `krotszy lub rowny (${candidateChain.length} <= ${this.chain.length}) - odrzucony`
             };
         }
 
@@ -972,7 +1038,7 @@ class Blockchain {
                 return {
                     accepted: false,
                     reason:
-                        `blok #${i}: previousHash nie pasuje do bloku #${i - 1}`
+                        `blok #${i}: previousHash nie pasuje`
                 };
             }
 
@@ -998,8 +1064,120 @@ class Blockchain {
                 return {
                     accepted: false,
                     reason:
-                        `blok #${i}: nie spelnia deklarowanej trudnosci`
+                        `blok #${i}: brak poprawnego PoW`
                 };
+            }
+        }
+
+        /*
+         * Validate vMax segment deterministically
+         * using the candidate chain itself.
+         */
+        if (
+            candidateChain.length >
+            CONFIG.ASERT_ANCHOR_HEIGHT
+        ) {
+            const anchor =
+                candidateChain[
+                    CONFIG.ASERT_ANCHOR_HEIGHT
+                ];
+
+            const anchorParent =
+                candidateChain[
+                    CONFIG.ASERT_ANCHOR_HEIGHT - 1
+                ];
+
+            if (
+                !anchor ||
+                !anchorParent
+            ) {
+                return {
+                    accepted: false,
+                    reason:
+                        "vMax: brak kotwicy"
+                };
+            }
+
+            for (
+                let h =
+                    CONFIG.ASERT_ACTIVATION_HEIGHT;
+                h <
+                    candidateChain.length;
+                h++
+            ) {
+                const block =
+                    candidateChain[h];
+
+                const evalBlock =
+                    candidateChain[
+                        h - 1
+                    ];
+
+                const expected =
+                    asertNextDifficulty({
+                        anchorHeight:
+                            BigInt(
+                                CONFIG
+                                    .ASERT_ANCHOR_HEIGHT
+                            ),
+
+                        anchorParentTime:
+                            BigInt(
+                                Math.floor(
+                                    anchorParent.timestamp /
+                                    1000
+                                )
+                            ),
+
+                        anchorDifficulty:
+                            BigInt(
+                                Math.max(
+                                    1,
+                                    Math.round(
+                                        anchor.difficulty
+                                    )
+                                )
+                            ),
+
+                        evalHeight:
+                            BigInt(
+                                evalBlock.height
+                            ),
+
+                        evalTime:
+                            BigInt(
+                                Math.floor(
+                                    evalBlock.timestamp /
+                                    1000
+                                )
+                            ),
+
+                        idealBlockTime:
+                            BigInt(
+                                CONFIG
+                                    .ASERT_IDEAL_BLOCK_TIME_SECONDS
+                            ),
+
+                        halflife:
+                            BigInt(
+                                CONFIG
+                                    .ASERT_HALFLIFE_SECONDS
+                            ),
+
+                        maxTarget:
+                            MAX_TARGET
+                    });
+
+                if (
+                    block.difficulty !==
+                    expected
+                ) {
+                    return {
+                        accepted: false,
+                        reason:
+                            `vMax: blok #${h} ma nieprawidlowa trudnosc (oczekiwano ${expected}, otrzymano ${block.difficulty})`
+                    };
+                }
             }
         }
 
@@ -1021,7 +1199,7 @@ class Blockchain {
 
         this._warnIfChainHasGaps();
 
-        this._rebuildIndexes();
+        this._asertAnchor = null;
 
         this.difficulty =
             Math.pow(
@@ -1029,9 +1207,9 @@ class Blockchain {
                 CONFIG.DIFFICULTY
             );
 
-        this._asertAnchor = null;
-
         this._recomputeDifficultyFromHistory();
+
+        this._rebuildIndexes();
 
         return {
             accepted: true,
@@ -1059,7 +1237,7 @@ class Blockchain {
         ) {
             blocks =
                 blocks.filter(
-                    (b) =>
+                    b =>
                         b.height <
                         beforeHeight
                 );
@@ -1082,10 +1260,12 @@ class Blockchain {
         let resolvedStatus = null;
 
         for (
-            const block of this.chain
+            const block of
+            this.chain
         ) {
             for (
-                const tx of block.transactions
+                const tx of
+                block.transactions
             ) {
                 if (
                     tx.type ===
@@ -1292,7 +1472,8 @@ class Blockchain {
             0;
 
         for (
-            const block of this.chain
+            const block of
+            this.chain
         ) {
             this._applyBlockToIndexes(
                 block
@@ -1339,11 +1520,14 @@ class Blockchain {
             );
 
         for (
-            const tx of block.transactions
+            const tx of
+            block.transactions
         ) {
             if (
-                tx.type === "coinbase" ||
-                tx.type === "genesis"
+                tx.type ===
+                    "coinbase" ||
+                tx.type ===
+                    "genesis"
             ) {
                 this.circulatingSupply +=
                     tx.amount;
@@ -1358,7 +1542,8 @@ class Blockchain {
                 );
 
             for (
-                const addr of involved
+                const addr of
+                involved
             ) {
                 if (
                     !this.addressTransactions.has(
@@ -1381,7 +1566,8 @@ class Blockchain {
             }
 
             if (
-                tx.type === "transfer" &&
+                tx.type ===
+                    "transfer" &&
                 tx.to
             ) {
                 this._touchFirstSeen(
@@ -1392,16 +1578,15 @@ class Blockchain {
                 const credited =
                     feeActive
                         ? tx.amount *
-                            (
-                                1 -
-                                PROJECT_FEE_PERCENT
-                            )
+                          (1 -
+                              PROJECT_FEE_PERCENT)
                         : tx.amount;
 
                 this._addBalance(
                     tx.to,
                     credited
                 );
+
             } else if (
                 tx.type ===
                     "HTLC_CLAIM" &&
@@ -1416,6 +1601,7 @@ class Blockchain {
                     tx.to,
                     tx.amount
                 );
+
             } else if (
                 tx.type ===
                     "HTLC_REFUND" &&
@@ -1430,6 +1616,7 @@ class Blockchain {
                     tx.to,
                     tx.amount
                 );
+
             } else if (
                 tx.to &&
                 tx.type !==
@@ -1447,7 +1634,8 @@ class Blockchain {
             }
 
             if (
-                tx.type === "transfer" &&
+                tx.type ===
+                    "transfer" &&
                 tx.from
             ) {
                 this._touchFirstSeen(
@@ -1462,6 +1650,7 @@ class Blockchain {
                         (tx.fee || 0)
                     )
                 );
+
             } else if (
                 tx.type ===
                     "HTLC_CREATE" &&
@@ -1496,13 +1685,16 @@ class Blockchain {
             new Map();
 
         for (
-            const block of this.chain
+            const block of
+            this.chain
         ) {
             for (
-                const tx of block.transactions
+                const tx of
+                block.transactions
             ) {
                 if (
-                    tx.type === "coinbase" &&
+                    tx.type ===
+                        "coinbase" &&
                     tx.to !==
                         CONFIG.POOL_ADDRESS
                 ) {
@@ -1561,7 +1753,7 @@ class Blockchain {
         const whales =
             addresses
                 .map(
-                    (address) => ({
+                    address => ({
                         address,
                         balance:
                             this.balances.get(
@@ -1584,13 +1776,11 @@ class Blockchain {
                 this.firstSeenHeight.entries()
             )
                 .map(
-                    ([
-                        address,
-                        firstSeenHeight
-                    ]) => ({
-                        address,
-                        firstSeenHeight
-                    })
+                    ([address, firstSeenHeight]) =>
+                        ({
+                            address,
+                            firstSeenHeight
+                        })
                 )
                 .sort(
                     (a, b) =>
@@ -1637,7 +1827,9 @@ class Blockchain {
             );
 
         const result =
-            new Array(safeLimit);
+            new Array(
+                safeLimit
+            );
 
         for (
             let i = 0;
@@ -1657,11 +1849,12 @@ class Blockchain {
 
     /*
      * ============================================================
-     * MANUAL / EMERGENCY DIFFICULTY
+     * PRE-vMax emergency mechanisms
      * ============================================================
      *
-     * Te mechanizmy sa calkowicie wylaczaja po ASERT.
+     * Po #100000 są całkowicie zablokowane.
      */
+
     setDifficultyManually(
         newDifficulty
     ) {
@@ -1672,8 +1865,7 @@ class Blockchain {
             )
         ) {
             throw new Error(
-                "Reczna zmiana trudnosci zablokowana - ASERT aktywny od bloku " +
-                CONFIG.ASERT_ACTIVATION_HEIGHT
+                "vMax aktywny - reczna zmiana trudnosci jest zablokowana"
             );
         }
 
@@ -1686,7 +1878,7 @@ class Blockchain {
             !(newDifficulty > 0)
         ) {
             throw new Error(
-                "Nieprawidlowa wartosc trudnosci - musi byc liczba dodatnia"
+                "Nieprawidlowa wartosc trudnosci"
             );
         }
 
@@ -1711,7 +1903,8 @@ class Blockchain {
 
         return {
             old,
-            new: newDifficulty
+            new:
+                newDifficulty
         };
     }
 
@@ -1802,25 +1995,23 @@ class Blockchain {
 
         console.error(
             "AWARYJNE OBNIZENIE TRUDNOSCI: " +
-            Math.round(
-                msSinceLastBlock /
-                    60000
-            ) +
-            "min bez bloku (oczekiwano " +
-            Math.round(
-                target /
-                    60000
-            ) +
-            "min) - dzielone przez " +
-            divisor +
-            ": " +
             old +
             " -> " +
             this.difficulty
         );
     }
 
+    /*
+     * ============================================================
+     * INFO
+     * ============================================================
+     */
+
     getInfo() {
+        /*
+         * Emergency adjustment is allowed only
+         * before vMax.
+         */
         this.maybeEmergencyAdjust();
 
         const latest =
@@ -1885,14 +2076,75 @@ class Blockchain {
                 ),
 
             blocksUntilRetarget:
-                CONFIG.DIFFICULTY_ADJUSTMENT -
-                (
-                    height %
-                    CONFIG.DIFFICULTY_ADJUSTMENT
+                isAsertActive(
+                    height + 1
+                )
+                    ? 0
+                    : CONFIG
+                          .DIFFICULTY_ADJUSTMENT -
+                      (
+                          height %
+                          CONFIG
+                              .DIFFICULTY_ADJUSTMENT
+                      ),
+
+            asertActive:
+                isAsertActive(
+                    height + 1
                 ),
 
-            isValid: true
+            asertMode:
+                CONFIG.ASERT_MODE,
+
+            asertActivationHeight:
+                CONFIG.ASERT_ACTIVATION_HEIGHT,
+
+            asertAnchorHeight:
+                CONFIG.ASERT_ANCHOR_HEIGHT,
+
+            asertIdealBlockTime:
+                CONFIG
+                    .ASERT_IDEAL_BLOCK_TIME_SECONDS,
+
+            asertHalflife:
+                CONFIG
+                    .ASERT_HALFLIFE_SECONDS,
+
+            isValid:
+                true
         };
+    }
+
+    _warnIfChainHasGaps() {
+        for (
+            let i = 1;
+            i < this.chain.length;
+            i++
+        ) {
+            const expected =
+                this.chain[
+                    i - 1
+                ].height + 1;
+
+            if (
+                this.chain[i].height !==
+                expected
+            ) {
+                const missingEnd =
+                    this.chain[i].height -
+                    1;
+
+                const label =
+                    expected ===
+                    missingEnd
+                        ? `${expected}`
+                        : `${expected}-${missingEnd}`;
+
+                console.error(
+                    `DZIURA W LANCUCHU: brakuje bloku/blokow ${label}`
+                );
+            }
+        }
     }
 
     close() {
@@ -1900,16 +2152,21 @@ class Blockchain {
     }
 }
 
-module.exports = Blockchain;
+module.exports =
+    Blockchain;
 
-module.exports.difficultyToTargetHex =
+module.exports
+    .difficultyToTargetHex =
     difficultyToTargetHex;
 
-module.exports.computeBlockHash =
+module.exports
+    .computeBlockHash =
     computeBlockHash;
 
-module.exports.sha256Hex =
+module.exports
+    .sha256Hex =
     sha256Hex;
 
-module.exports.isAsertActive =
+module.exports
+    .isAsertActive =
     isAsertActive;
