@@ -151,19 +151,18 @@ function renderMiners(pool) {
 }
 
 async function loadJoinData() {
+    // NAPRAWA (dzisiaj): caly ten fetch dzialal RAZ, przy starcie, nigdy
+    // wiecej - strona "zaproszenie do dolaczenia" pokazujaca zamrozone
+    // liczby nowym osobom to zly pierwszy kontakt z projektem. Statystyki
+    // gorne + gornicy teraz z BBCLiveState (na biezaco), lista blokow i
+    // wzrost adresow na wlasnym, rozsadnym cyklu ponizej.
     try {
-        const [info, blocks, pool] = await Promise.all([
-            fetch(API_BASE + "/info").then((r) => r.json()),
-            fetch(API_BASE + "/blocks").then((r) => r.json()),
-            fetch(API_BASE + "/pool/status").then((r) => r.json())
+        const [blocks] = await Promise.all([
+            fetch(API_BASE + "/blocks").then((r) => r.json())
         ]);
-        renderStats(info);
         renderBlocks(blocks);
-        renderMiners(pool);
     } catch (err) {
-        const msg = `<p class="empty-note">${t("join_load_error")}</p>`;
-        document.getElementById("blocksList").innerHTML = msg;
-        document.getElementById("minersList").innerHTML = msg;
+        if (!lastBlocks) document.getElementById("blocksList").innerHTML = `<p class="empty-note">${t("join_load_error")}</p>`;
     }
     try {
         const [active, newPerDay] = await Promise.all([
@@ -172,10 +171,19 @@ async function loadJoinData() {
         ]);
         renderGrowth(active, newPerDay);
     } catch (err) {
-        document.getElementById("statActive24h").textContent = "—";
-        document.getElementById("statNew7d").textContent = "—";
+        if (!lastGrowth) { document.getElementById("statActive24h").textContent = "—"; document.getElementById("statNew7d").textContent = "—"; }
     }
 }
+
+BBCLiveState.subscribe(({ state }) => {
+    if (!state) return;
+    renderStats(state);
+    renderMiners({ activeMiners: state.activeMiners });
+});
+BBCLiveState.init();
+
+loadJoinData();
+setInterval(loadJoinData, 20000);
 
 // Tak jak explorer/dashboard - przy zmianie języka odświeżamy z tego, co już
 // mamy (bez ponownego fetchowania), żeby "Aktywni górnicy" / czasy bloków nie
@@ -184,9 +192,9 @@ document.addEventListener("bbc:langchange", () => {
     if (lastBlocks) renderBlocks(lastBlocks);
     if (lastPool) renderMiners(lastPool);
     if (lastGrowth) renderGrowth(lastGrowth.active, lastGrowth.newPerDay);
+    const s = BBCLiveState.getState();
+    if (s) renderStats(s);
 });
-
-loadJoinData();
 </script>
 </body>
 </html>
