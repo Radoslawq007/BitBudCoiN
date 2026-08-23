@@ -113,7 +113,7 @@ module.exports = {
     P2P_PORT: 6001,
 
     PEERS: [
-        "145.241.218.97:6001"
+        // "145.241.218.97:6001"  // tymczasowo wylaczone - crash przy sync, 23.08
     ],
 
     /*
