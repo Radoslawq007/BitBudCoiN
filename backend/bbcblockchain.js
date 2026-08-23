@@ -989,12 +989,15 @@ class Blockchain {
             return;
         }
 
+        // NAPRAWA (dzisiaj): PRZED - this.chain.find(b => b.height ===
+        // h) tutaj, na ZYWEJ sciezce przyjmowania kazdego nowego
+        // bloku (odpala sie co DIFFICULTY_ADJUSTMENT blokow, ale wtedy
+        // zawsze pelny O(n) skan ~99 tys.+ blokow, synchronicznie).
+        // TERAZ - O(1) z trwalego indeksu blockByHeight.
         const windowStart =
-            this.chain.find(
-                b =>
-                    b.height ===
-                    justAccepted.height -
-                    interval
+            this.blockByHeight.get(
+                justAccepted.height -
+                interval
             );
 
         if (!windowStart) {
@@ -1635,6 +1638,17 @@ class Blockchain {
         this.htlcIndex =
             new Map();
 
+        // NAPRAWA (dzisiaj, znaleziona w audycie "raz a porzadnie"):
+        // TRZECIE miejsce w tym pliku z this.chain.find(b => b.height
+        // === h) - wewnatrz retargetIfDue(), wolane z zywej sciezki
+        // przyjmowania blokow (nie tylko z juz naprawionej petli
+        // replay). Odpala sie tylko na granicy retargetu (co
+        // DIFFICULTY_ADJUSTMENT blokow) - rzadziej niz dwa pozostale,
+        // ale wciaz pelny O(n) skan ~99 tys.+ blokow, synchronicznie,
+        // na zywej sciezce. Ten sam wzorzec indeksu co ponizej.
+        this.blockByHeight =
+            new Map();
+
         this.circulatingSupply =
             0;
 
@@ -1688,6 +1702,11 @@ class Blockchain {
     _applyBlockToIndexes(
         block
     ) {
+
+        this.blockByHeight.set(
+            block.height,
+            block
+        );
 
         const feeActive =
             isProjectFeeActive(
