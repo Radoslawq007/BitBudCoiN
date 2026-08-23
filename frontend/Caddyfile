@@ -1,9 +1,17 @@
 141-147-98-57.sslip.io {
-    encode gzip zstd
+    # SSE (/events) wykluczone z kompresji - encode buforuje ramki,
+    # co koliduje z natychmiastowym dostarczaniem eventów
+    # (potwierdzony bug: caddyserver/caddy#6293).
+    @notEvents {
+        not path /events
+    }
+    encode @notEvents gzip zstd
 
     # API BitBudCoin
-    @api path /info /state /blocks* /balance* /transactions* /pool* /solo* /network* /stats* /peers /swap* /htlc* /bridge* /miners* /mine* /transactions*
-    reverse_proxy @api 127.0.0.1:5000
+    @api path /info /state /events /blocks* /balance* /transactions* /pool* /solo* /network* /stats* /peers /swap* /htlc* /bridge* /miners* /mine* /transactions*
+    reverse_proxy @api 127.0.0.1:5000 {
+        flush_interval -1
+    }
 
     # Pozostałe żądania również przekazujemy do Express,
     # dzięki czemu istniejące endpointy nie będą przypadkowo
