@@ -151,33 +151,85 @@ class Storage {
     }
 
     loadChain() {
-        const blockRows = this.db.prepare(
-            "SELECT * FROM blocks ORDER BY height ASC"
-        ).all();
 
-        const txStmt = this.db.prepare(
-            "SELECT * FROM transactions WHERE blockHeight = ? ORDER BY id ASC"
-        );
+        // NAPRAWA (dzisiaj): PRZED - osobne zapytanie SQL per blok
+        // (txStmt.all(row.height) wewnątrz .map() nad blockRows) - przy
+        // ~94 tys. bloków to ~94 tys. osobnych zapytań SQL, synchronicznie,
+        // PRZY KAŻDYM starcie procesu. Potwierdzony w pm2 logs realny
+        // powod crashu OOM (526 restartów, uptime~1s w kółko).
+        //
+        // Pierwsza wersja tej poprawki (jedno "SELECT * FROM
+        // transactions" + grupowanie w Map) była szybsza, ale ZMIERZONA
+        // jako zużywająca WIĘCEJ szczytowej pamięci niż oryginał - bo
+        // trzymała całą tabelę transactions naraz jako płaską tablicę,
+        // RÓWNOLEGLE z tworzoną z niej Mapą. Więc: merge-join przez
+        // .iterate() - oba zapytania posortowane rosnąco (blocks.height,
+        // transactions.blockHeight), czytane strumieniowo w parze,
+        // zamiast materializować całą jedną czy drugą tabelę naraz.
+        // 2 zapytania total (naprawia N+1/czas), bez skoku pamięci.
+        const blockIter =
+            this.db.prepare(
+                "SELECT * FROM blocks ORDER BY height ASC"
+            ).iterate();
 
-        return blockRows.map((row) => ({
-            height: row.height,
-            timestamp: row.timestamp,
-            previousHash: row.previousHash,
-            hash: row.hash,
-            nonce: row.nonce,
-            difficulty: row.difficulty,
+        const txIter =
+            this.db.prepare(
+                "SELECT * FROM transactions ORDER BY blockHeight ASC, id ASC"
+            ).iterate();
 
-            transactions: txStmt.all(row.height).map((tx) => ({
-                from: tx.from_address,
-                to: tx.to_address,
-                amount: tx.amount,
-                type: tx.type,
-                fee: tx.fee ?? undefined,
-                timestamp: tx.timestamp ?? undefined,
-                publicKey: tx.publicKey ?? undefined,
-                signature: tx.signature ?? undefined
-            }))
-        }));
+        let txPeek = txIter.next();
+
+        const chain = [];
+
+        for (const row of blockIter) {
+
+            // Transakcje o blockHeight mniejszym niż bieżący blok nie
+            // mogą już dopasować się do żadnego bloku (oba strumienie
+            // rosnące) - pomijamy, dokładnie tak samo jak oryginalne
+            // "WHERE blockHeight = ?" nigdy by ich nie zwróciło, bo
+            // pytało tylko o height realnie istniejących bloków.
+            while (
+                !txPeek.done &&
+                txPeek.value.blockHeight < row.height
+            ) {
+                txPeek = txIter.next();
+            }
+
+            const transactions = [];
+
+            while (
+                !txPeek.done &&
+                txPeek.value.blockHeight === row.height
+            ) {
+
+                const tx = txPeek.value;
+
+                transactions.push({
+                    from: tx.from_address,
+                    to: tx.to_address,
+                    amount: tx.amount,
+                    type: tx.type,
+                    fee: tx.fee ?? undefined,
+                    timestamp: tx.timestamp ?? undefined,
+                    publicKey: tx.publicKey ?? undefined,
+                    signature: tx.signature ?? undefined
+                });
+
+                txPeek = txIter.next();
+            }
+
+            chain.push({
+                height: row.height,
+                timestamp: row.timestamp,
+                previousHash: row.previousHash,
+                hash: row.hash,
+                nonce: row.nonce,
+                difficulty: row.difficulty,
+                transactions
+            });
+        }
+
+        return chain;
     }
 
     loadMempool() {
