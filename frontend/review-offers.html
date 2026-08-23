@@ -348,7 +348,14 @@ async function reviewFamilyMessage(id, decision) {
 document.getElementById("loadBtn").addEventListener("click", loadOffers);
 scanForRecoveredKeys();
 checkLiveErrors();
+// NAPRAWA (dzisiaj): "błędy NA ŻYWO" ładowały się raz, przy starcie strony,
+// nigdy więcej - dokładne przeciwieństwo tego, co nazwa obiecuje. Panel
+// wykrywania oszustw powinien sam sprawdzać, nie czekać na ręczne odświeżenie.
+setInterval(checkLiveErrors, 15000);
 document.getElementById("adminSecret").addEventListener("blur", checkFamilyPending);
+// To samo dla kolejki recenzji - jesli sekret juz wpisany, sprawdzaj dalej
+// same, zeby nowe zgloszenia byly widoczne bez ponownego klikania w pole.
+setInterval(() => { if (document.getElementById("adminSecret").value) checkFamilyPending(); }, 20000);
 </script>
 </body>
 </html>
