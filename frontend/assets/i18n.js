@@ -998,7 +998,72 @@ const translations = {
             "Atomic swaps (wdrażanie / testy)",
 
         index_status_next:
-            "Kolejne etapy"
+            "Kolejne etapy",
+
+        /* ========================================================
+           NAPRAWA (dzisiaj): brakujące klucze, znalezione audytem -
+           uzywane w kodzie, nigdy niezdefiniowane. 53 klucze.
+           ======================================================== */
+
+        dashboard_hashrate: "Hashrate sieci",
+        dashboard_miners_total: "Łącznie górników",
+
+        docks_h1: "Dokumentacja",
+        docks_intro: "Skrócona referencja API i parametrów sieci BitBudCoin.",
+        docks_chain_heading: "Łańcuch",
+        docks_wallets_heading: "Portfele i transakcje",
+        docks_wallets_desc: "Transakcje podpisujesz lokalnie kluczem prywatnym (Ed25519) — wallet.js i send.js w repo backendu.",
+        docks_params_heading: "Parametry protokołu (na żywo)",
+        docks_how_heading: "Jak to działa w skrócie",
+        docks_how_desc: "Proof-of-work SHA-256, trudność jako ciągła liczba (nie skoki x16), retarget co ~2028 bloków, halving nagrody co 210 000 bloków, twardy pułap podaży. Baza SQLite (node:sqlite), P2P po surowym TCP (linie JSON), pula ze share-based proof of work, transakcje podpisane Ed25519.",
+        docks_node_heading: "Uruchomienie własnego węzła",
+        docks_footer_home_link: "strona główna",
+        docks_base_reward: "Nagroda bazowa",
+        docks_node_offline: "Węzeł offline",
+
+        index_status_exchange: "Oczekiwanie na giełdę",
+        index_milestones_heading: "Kamienie milowe",
+        index_milestone1_desc: "Pierwszy w pełni dokończony atomic swap BTC↔BbC — ten sam hashlock po obu stronach, do sprawdzenia samemu.",
+        index_milestone1_btc_link: "Transakcja BTC →",
+        index_milestone1_bbc_link: "Blok BbC #3071 →",
+
+        join_h1: "Dołącz do BitBudCoin",
+        join_subtitle: "Prawdziwy blockchain, budowany od zera, bez wielkich obietnic.",
+        join_intro: "BitBudCoin (BbC) to niezależna sieć proof-of-work, którą kilka osób realnie kopie i używa już teraz. Żadnych fałszywych statystyk, żadnego marketingu — to, co widzisz niżej, dzieje się naprawdę, na żywo, na tym samym łańcuchu, który możesz sam sprawdzić w explorerze.",
+        join_live_heading: "To dzieje się właśnie teraz",
+        join_loading: "Wczytuję dane z sieci…",
+        join_growth_heading: "Rośnie",
+        join_active_24h: "Aktywne adresy (24h)",
+        join_new_7d: "Nowe adresy (7 dni)",
+        join_cta_heading: "Jak zacząć",
+        join_cta_wallet_title: "1. Załóż portfel",
+        join_cta_wallet_desc: "Klucz prywatny powstaje w Twojej przeglądarce i nigdy nigdzie nie jest wysyłany. Zajmuje dosłownie minutę.",
+        join_cta_wallet_btn: "Otwórz portfel →",
+        join_cta_mine_title: "2. Kop BbC",
+        join_cta_mine_desc: "Liczysz hashe w przeglądarce, solo albo w puli z innymi. Realny udział w nagrodzie, nie punkty.",
+        join_cta_mine_btn: "Zacznij kopać →",
+        join_cta_buy_title: "3. Albo kup za BTC",
+        join_cta_buy_desc: "Bezpośrednia wymiana z drugą osobą przez HTLC — nikt nie wysyła niczego na zaufanie.",
+        join_cta_buy_btn: "Zaproponuj wymianę →",
+        join_top_active_label: "Najbardziej aktywne adresy",
+        join_events_suffix: "zdarzeń",
+        join_no_miners: "Jeszcze nikt nie kopie. Bądź pierwszy.",
+        join_load_error: "Nie udało się wczytać danych z sieci.",
+
+        offers_heading: "📋 Oferty zakupu do Ciebie",
+        offers_intro: "Oferty, w których jesteś wskazanym sprzedającym — akceptacja/odrzucenie podpisem tego portfela, bez hasła.",
+        offers_load_btn: "Wczytaj oferty",
+        offers_none_pending: "Brak oczekujących ofert.",
+        wallet_confirm_new_address: "Potwierdź nowy adres",
+        wallet_new_address_warning: "Ten adres nigdy wcześniej nie otrzymał żadnej transakcji. Sprawdź go dokładnie:",
+        wallet_save_contact_prompt: "Zapisz jako kontakt (opcjonalnie podaj nazwę):",
+
+        swap_or_scan_qr: "albo zeskanuj:",
+        swap_err_offer_not_ready: "Ta oferta nie jest jeszcze gotowa.",
+        swap_err_lock_build_failed: "Nie udało się zbudować blokady HTLC.",
+
+        miner_threads_label: "Liczba wątków (więcej = szybciej, ale więcej baterii/ciepła)",
+        reqoffer_seller_label: "Adres BbC sprzedającego (od kogo kupujesz)"
     },
 
 
@@ -2155,7 +2220,72 @@ const translations = {
             "Atomic swaps (rolling out / testing)",
 
         index_status_next:
-            "Next stages"
+            "Next stages",
+
+        /* ========================================================
+           FIX (today): missing keys, found by audit - used in code,
+           never defined. 53 keys, matching the pl block above.
+           ======================================================== */
+
+        dashboard_hashrate: "Network hashrate",
+        dashboard_miners_total: "Total miners",
+
+        docks_h1: "Documentation",
+        docks_intro: "Short reference for the API and BitBudCoin network parameters.",
+        docks_chain_heading: "Chain",
+        docks_wallets_heading: "Wallets and transactions",
+        docks_wallets_desc: "You sign transactions locally with your private key (Ed25519) — wallet.js and send.js in the backend repo.",
+        docks_params_heading: "Protocol parameters (live)",
+        docks_how_heading: "How it works, in short",
+        docks_how_desc: "SHA-256 proof-of-work, difficulty as a continuous number (not x16 jumps), retarget every ~2028 blocks, reward halving every 210,000 blocks, hard supply cap. SQLite storage (node:sqlite), P2P over raw TCP (JSON lines), share-based pool proof of work, Ed25519-signed transactions.",
+        docks_node_heading: "Running your own node",
+        docks_footer_home_link: "home",
+        docks_base_reward: "Base reward",
+        docks_node_offline: "Node offline",
+
+        index_status_exchange: "Waiting for an exchange listing",
+        index_milestones_heading: "Milestones",
+        index_milestone1_desc: "First fully completed BTC↔BbC atomic swap — same hashlock on both sides, verifiable yourself.",
+        index_milestone1_btc_link: "BTC transaction →",
+        index_milestone1_bbc_link: "BbC block #3071 →",
+
+        join_h1: "Join BitBudCoin",
+        join_subtitle: "A real blockchain, built from scratch, without big promises.",
+        join_intro: "BitBudCoin (BbC) is an independent proof-of-work network that a few people are already really mining and using. No fake stats, no marketing — what you see below is happening for real, live, on the same chain you can verify yourself in the explorer.",
+        join_live_heading: "Happening right now",
+        join_loading: "Loading network data…",
+        join_growth_heading: "Growing",
+        join_active_24h: "Active addresses (24h)",
+        join_new_7d: "New addresses (7 days)",
+        join_cta_heading: "How to start",
+        join_cta_wallet_title: "1. Create a wallet",
+        join_cta_wallet_desc: "Your private key is generated in your browser and never sent anywhere. Takes about a minute.",
+        join_cta_wallet_btn: "Open wallet →",
+        join_cta_mine_title: "2. Mine BbC",
+        join_cta_mine_desc: "Hash in your browser, solo or pooled with others. A real share of the reward, not points.",
+        join_cta_mine_btn: "Start mining →",
+        join_cta_buy_title: "3. Or buy with BTC",
+        join_cta_buy_desc: "A direct peer-to-peer exchange via HTLC — nobody sends anything on trust.",
+        join_cta_buy_btn: "Propose a swap →",
+        join_top_active_label: "Most active addresses",
+        join_events_suffix: "events",
+        join_no_miners: "Nobody's mining yet. Be the first.",
+        join_load_error: "Couldn't load network data.",
+
+        offers_heading: "📋 Buy offers for you",
+        offers_intro: "Offers where you're the designated seller — accept/reject by signing with this wallet, no password needed.",
+        offers_load_btn: "Load offers",
+        offers_none_pending: "No pending offers.",
+        wallet_confirm_new_address: "Confirm new address",
+        wallet_new_address_warning: "This address has never received a transaction before. Check it carefully:",
+        wallet_save_contact_prompt: "Save as a contact (optionally give it a name):",
+
+        swap_or_scan_qr: "or scan:",
+        swap_err_offer_not_ready: "This offer isn't ready yet.",
+        swap_err_lock_build_failed: "Couldn't build the HTLC lock.",
+
+        miner_threads_label: "Number of threads (more = faster, but more battery/heat)",
+        reqoffer_seller_label: "Seller's BbC address (who you're buying from)"
     }
 };
 
