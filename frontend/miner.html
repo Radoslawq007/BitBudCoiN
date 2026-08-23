@@ -210,7 +210,7 @@ function showPoolStatusError(message) {
     const soloListEl = document.getElementById("activeSoloList");
     const poolListEl = document.getElementById("activePoolList");
     poolStatusEl.classList.remove("skeleton");
-    poolStatusEl.innerHTML = `<div class="error-banner">${t("common_pool_unavailable")}: ${message}</div>`;
+    poolStatusEl.innerHTML = `<div class="error-banner">${t("common_pool_unavailable")}${message ? ": " + message : ""}</div>`;
     soloListEl.classList.remove("skeleton");
     soloListEl.innerHTML = "";
     poolListEl.classList.remove("skeleton");
@@ -219,9 +219,10 @@ function showPoolStatusError(message) {
 
 BBCLiveState.subscribe(({ state, live }) => {
     if (!state || !state.pool) {
-        // Baner bledu TYLKO gdy nigdy jeszcze nie bylo zadnych danych -
-        // nie przy kazdym chwilowym zaciecu polaczenia.
-        if (!BBCLiveState.getLastGoodAt()) showPoolStatusError(t("common_pool_unavailable"));
+        // NAPRAWA: poprzednio przekazywalem juz-przetlumaczony tekst jako
+        // "message", a showPoolStatusError SAMA doklejala ten sam prefiks -
+        // stad "Pula niedostepna: Pula niedostepna". Teraz bez duplikatu.
+        if (!BBCLiveState.getLastGoodAt()) showPoolStatusError("");
         return;
     }
     renderPoolStatus({
