@@ -350,15 +350,27 @@ class Blockchain {
         const anchorHeight =
             CONFIG.ASERT_ANCHOR_HEIGHT;
 
+        // NAPRAWA (dzisiaj, PILNA): PRZED - this.chain[anchorHeight]
+        // zakladalo ze POZYCJA w tablicy = WYSOKOSC bloku. Falszywe
+        // zalozenie - caly ten czat udowodnil dziesiatki dziur w
+        // historii lancucha (_warnIfChainHasGaps). Kazda dziura PRZED
+        // pozycja 99999 przesuwa mapowanie indeks->wysokosc o 1 -
+        // this.chain[99999] wskazywal na blok o INNEJ (wyzszej)
+        // wysokosci niz 99999, wiec sprawdzenie "anchorBlock.height !==
+        // anchorHeight" ponizej poprawnie to wykrywalo i zwracalo null -
+        // ale to znaczylo ze ASERT NIGDY nie mogl wystartowac, mimo ze
+        // blok #99999 realnie istnieje w lancuchu, tylko nie na tej
+        // pozycji tablicy. Odczyt po WYSOKOSCI (blockByHeight), nie po
+        // pozycji.
         const anchorBlock =
-            this.chain[
+            this.blockByHeight.get(
                 anchorHeight
-            ];
+            );
 
         const anchorParent =
-            this.chain[
+            this.blockByHeight.get(
                 anchorHeight - 1
-            ];
+            );
 
         if (
             !anchorBlock ||
@@ -468,10 +480,12 @@ class Blockchain {
             return null;
         }
 
+        // NAPRAWA (dzisiaj, PILNA): ten sam blad co w _getAsertAnchor() -
+        // indeksowanie tablicy zamiast odczytu po wysokosci.
         const evaluationBlock =
-            this.chain[
+            this.blockByHeight.get(
                 height - 1
-            ];
+            );
 
         if (!evaluationBlock) {
             return null;
