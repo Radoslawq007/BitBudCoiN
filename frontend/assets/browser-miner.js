@@ -67,7 +67,14 @@ const BrowserMiner = (() => {
         while (mining) {
             let work;
             try {
-                const res = await fetch(`${apiBase}/pool/work?minerAddress=${encodeURIComponent(minerAddress)}`);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
+                let res;
+                try {
+                    res = await fetch(`${apiBase}/pool/work?minerAddress=${encodeURIComponent(minerAddress)}`, { signal: controller.signal });
+                } finally {
+                    clearTimeout(timeoutId);
+                }
                 work = await res.json();
                 // Jeśli serwer odpowiedział błędem (np. limit zapytań), "work" nie
                 // ma oczekiwanych pól - kopanie na takich danych kończyło się
@@ -89,11 +96,19 @@ const BrowserMiner = (() => {
             if (candidate === "expired") continue;
 
             try {
-                const res = await fetch(`${apiBase}/pool/submit`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ minerAddress, candidate })
-                });
+                const submitController = new AbortController();
+                const submitTimeoutId = setTimeout(() => submitController.abort(), 8000);
+                let res;
+                try {
+                    res = await fetch(`${apiBase}/pool/submit`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ minerAddress, candidate }),
+                        signal: submitController.signal
+                    });
+                } finally {
+                    clearTimeout(submitTimeoutId);
+                }
                 const result = await res.json();
 
                 if (result.blockFound) {
