@@ -554,6 +554,30 @@ liveSyncInterval.unref?.();
 
 
 /*
+ * NAPRAWA (dzisiaj): zamiast wielu rund "sprawdz pm2 describe jeszcze
+ * raz za chwile" - jeden, greppowalny wpis co 10s w logu. Jedna
+ * komenda (grep MEMTREND) pokazuje caly przebieg od startu, nie
+ * pojedyncze zdjecie w losowym momencie.
+ */
+const memTrendInterval =
+    setInterval(() => {
+
+        const m = process.memoryUsage();
+
+        console.log(
+            "MEMTREND " +
+            new Date().toISOString() +
+            " heapUsed=" + Math.round(m.heapUsed / 1024 / 1024) + "MB" +
+            " rss=" + Math.round(m.rss / 1024 / 1024) + "MB" +
+            " sseClients=" + sseClients.size
+        );
+
+    }, 10000);
+
+memTrendInterval.unref?.();
+
+
+/*
  * ============================================================
  * INFO / BLOCKCHAIN
  * ============================================================
