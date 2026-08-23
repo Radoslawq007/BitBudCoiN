@@ -96,6 +96,14 @@ const API_FETCH_OPTIONS = {
     cache: "no-store"
 };
 
+// NAPRAWA (dzisiaj): apiGet/apiPost nie miały ŻADNEGO timeoutu.
+// Gdy backend nie odpowiada (przeciążony, restart, DNS) - fetch()
+// wisi w nieskończoność, strona "myśli" bez końca zamiast szybko
+// przełączyć się na tryb awaryjny. 8s to margines powyżej
+// najgorszego znanego przypadku (busy_timeout=5000 na SQLite przy
+// zajętej bazie), ale wystarczająco krótki, żeby strona nie wisiała.
+const API_TIMEOUT_MS = 8000;
+
 
 /*
  * =====================================================
@@ -109,15 +117,40 @@ async function apiGet(path) {
         API_BASE +
         String(path || "");
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+        () => controller.abort(),
+        API_TIMEOUT_MS
+    );
 
-    const res =
-        await fetch(
-            url,
-            {
-                ...API_FETCH_OPTIONS,
-                method: "GET"
-            }
-        );
+    let res;
+
+    try {
+
+        res =
+            await fetch(
+                url,
+                {
+                    ...API_FETCH_OPTIONS,
+                    method: "GET",
+                    signal: controller.signal
+                }
+            );
+
+    } catch (err) {
+
+        if (err.name === "AbortError") {
+            throw new Error(
+                `Serwer nie odpowiada (timeout ${API_TIMEOUT_MS / 1000}s)`
+            );
+        }
+
+        throw err;
+
+    } finally {
+
+        clearTimeout(timeoutId);
+    }
 
 
     const data =
@@ -152,24 +185,50 @@ async function apiPost(path, body) {
         API_BASE +
         String(path || "");
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+        () => controller.abort(),
+        API_TIMEOUT_MS
+    );
 
-    const res =
-        await fetch(
-            url,
-            {
-                ...API_FETCH_OPTIONS,
+    let res;
 
-                method: "POST",
+    try {
 
-                headers: {
-                    "Content-Type":
-                        "application/json"
-                },
+        res =
+            await fetch(
+                url,
+                {
+                    ...API_FETCH_OPTIONS,
 
-                body:
-                    JSON.stringify(body)
-            }
-        );
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify(body),
+
+                    signal: controller.signal
+                }
+            );
+
+    } catch (err) {
+
+        if (err.name === "AbortError") {
+            throw new Error(
+                `Serwer nie odpowiada (timeout ${API_TIMEOUT_MS / 1000}s)`
+            );
+        }
+
+        throw err;
+
+    } finally {
+
+        clearTimeout(timeoutId);
+    }
 
 
     const data =
@@ -679,11 +738,27 @@ const BBCLiveState = (() => {
         };
 
         eventSource.onerror = () => {
-            // SSE padło - awaryjnie REST, ale połączenie samo próbuje
-            // się odbudować (natywne zachowanie EventSource), więc nie
-            // tworzymy tu duplikatu przez ręczne reconnect w kółko.
+            // SSE padło. Dwa różne przypadki, i to był realny błąd:
+            //
+            //  1. Błąd SIECIOWY (serwer chwilowo nieosiągalny) -
+            //     EventSource ma readyState=CONNECTING i przeglądarka
+            //     SAMA próbuje się odbudować co "retry: 3000" wysłane
+            //     przez serwer. Tu nic dodatkowego nie trzeba robić.
+            //
+            //  2. Błąd HTTP (serwer odpowiedział np. 404/500, albo
+            //     jeszcze nie ma /events) - przeglądarka ZAMYKA
+            //     połączenie NA STAŁE (readyState=CLOSED) i NIGDY
+            //     sama nie spróbuje ponownie. Bez obsługi tego
+            //     przypadku strona zostaje w trybie awaryjnym REST
+            //     do końca życia karty, NAWET gdy backend wróci do
+            //     zdrowia. To realnie się działo - stąd dodane
+            //     wywołanie scheduleReconnect() poniżej.
             markDegraded();
             startPolling();
+
+            if (eventSource && eventSource.readyState === EventSource.CLOSED) {
+                scheduleReconnect();
+            }
         };
     }
 
