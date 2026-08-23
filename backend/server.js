@@ -290,11 +290,34 @@ function sendSSE(eventName, data) {
  * Wywołujemy ją po zmianach stanu.
  */
 
+let _lastBroadcastAt = 0;
+const BROADCAST_THROTTLE_MS = 5000;
+
 function broadcastLiveState() {
 
     if (sseClients.size === 0) {
         return;
     }
+
+    // NAPRAWA (dzisiaj): 14 miejsc w tym pliku wolalo to bez zadnego
+    // ograniczenia czestotliwosci - w tym /solo/heartbeat, ktory kazdy
+    // AKTYWNY solo miner wysyla co 15s. Przy kilku minerach naraz to
+    // dawalo pelny getLiveState()+JSON.stringify()+zapis do wszystkich
+    // klientow SSE wielokrotnie na minute, PRZEZ CALY CZAS ZYCIA
+    // PROCESU (nie tylko przy starcie). Potwierdzone w pm2: sterta rosla
+    // w trakcie dzialania (nie tylko na starcie), a czas do OOM zalezal
+    // od ruchu miedzy identycznymi restartami (60s vs 117s - im wiecej
+    // heartbeatow/broadcastow zdazylo przejsc, tym szybciej padalo).
+    // Throttle chroni WSZYSTKICH 14 miejsc naraz, jedna zmiana. Nowy
+    // blok wciaz dotrze do przegladarki najdalej po BROADCAST_THROTTLE_MS,
+    // niezauwazalne dla czlowieka, a ogranicza czestotliwosc do bezpiecznej.
+    const now = Date.now();
+
+    if (now - _lastBroadcastAt < BROADCAST_THROTTLE_MS) {
+        return;
+    }
+
+    _lastBroadcastAt = now;
 
     // NAPRAWA (dzisiaj): wolane bez ochrony w 14 miejscach w tym pliku,
     // przy KAZDYM znalezionym bloku (solo, pula, P2P). Jesli cokolwiek
