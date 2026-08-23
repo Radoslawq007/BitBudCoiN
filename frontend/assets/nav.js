@@ -70,10 +70,15 @@ function mountNavStatus() {
     if (typeof BBCLiveState === "undefined") {
         // Awaryjnie, gdyby ten skrypt kiedys zaladowal sie bez api.js -
         // stare zachowanie (jedno zapytanie), zeby odznaka nie zostala pusta.
-        fetch(API_BASE + "/info")
+        // NAPRAWA (dzisiaj): timeout, zeby nawet ta rzadka awaryjna sciezka
+        // nie wisiala bez konca, spojnie z apiGet() w api.js.
+        const navFetchController = new AbortController();
+        const navFetchTimeout = setTimeout(() => navFetchController.abort(), 8000);
+        fetch(API_BASE + "/info", { signal: navFetchController.signal })
             .then((res) => res.json())
             .then((info) => { pill.classList.add("lit"); setText(`blok #${fmtNumber(info.height, 0)}`); })
-            .catch(() => { pill.classList.remove("lit"); setText("offline"); });
+            .catch(() => { pill.classList.remove("lit"); setText("offline"); })
+            .finally(() => clearTimeout(navFetchTimeout));
         return;
     }
 
