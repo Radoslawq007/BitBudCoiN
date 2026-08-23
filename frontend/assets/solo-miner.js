@@ -558,6 +558,15 @@ const SoloMiner = (() => {
         apiBase,
         mySession
     ) {
+        // NAPRAWA (dzisiaj): staly 50ms backoff po odrzuceniu jako
+        // "stale" (ktos inny znalazl blok pierwszy) - przy duzej
+        // realnej mocy i wciaz za niskiej trudnosci (bloki lecace co
+        // ulamek sekundy) to bombardowanie /solo/work non-stop, az do
+        // wlasnego rate-limitera serwera ("Zbyt wiele zapytan").
+        // Rosnacy backoff: reset przy kazdym sukcesie, rosnie tylko
+        // przy kolejnych stale pod rzad.
+        let consecutiveStale = 0;
+
         try {
             while (
                 mining &&
@@ -668,6 +677,8 @@ const SoloMiner = (() => {
                 ) {
                     sessionStats.blocksFound++;
 
+                    consecutiveStale = 0;
+
                     log(
                         `🎉🎉🎉 BLOK #${result.blockHeight} ZNALEZIONY SOLO! Nagroda: ${result.reward} BbC — CAŁA TWOJA!`,
                         "block"
@@ -703,11 +714,19 @@ const SoloMiner = (() => {
 
                 safeUpdate();
 
+                consecutiveStale++;
+
+                const staleBackoffMs =
+                    Math.min(
+                        300 + consecutiveStale * 200,
+                        WORK_RETRY_DELAY_MS
+                    );
+
                 /*
                  * Nie kopiemy starego nagłówka.
                  * vMax zawsze wraca po aktualny chain tip.
                  */
-                await sleep(50);
+                await sleep(staleBackoffMs);
             }
         } finally {
             if (
