@@ -1063,6 +1063,22 @@ class Blockchain {
         const interval =
             CONFIG.DIFFICULTY_ADJUSTMENT;
 
+        // NAPRAWA (dzisiaj): PRZED - this.chain.find(b => b.height === h)
+        // wewnątrz tej pętli robiło pełny liniowy skan całego this.chain
+        // (~94 tys. elementów) PRZY KAŻDEJ iteracji pętli - O(n) wewnątrz
+        // O(m), przy każdym starcie procesu. Wiemy, że w chain są dziury
+        // (patrz _warnIfChainHasGaps), więc nie da się bezpiecznie zrobić
+        // this.chain[h] po indeksie - stąd Map budowana raz, O(n), zamiast
+        // wielokrotnego .find(). Semantyka identyczna: ten sam blok albo
+        // undefined dla brakującej wysokości - logika retargetIfDue() i
+        // wynik obliczeń trudności w ogóle nietknięte.
+        const blockByHeight =
+            new Map(
+                this.chain.map(
+                    b => [b.height, b]
+                )
+            );
+
         for (
             let h = interval;
             h <= preAsertCeiling;
@@ -1070,10 +1086,7 @@ class Blockchain {
         ) {
 
             const block =
-                this.chain.find(
-                    b =>
-                        b.height === h
-                );
+                blockByHeight.get(h);
 
             if (block) {
 
