@@ -1339,9 +1339,17 @@ class P2PNode {
                 /*
                  * Peer jest przed nami.
                  */
+                // NAPRAWA (dzisiaj): DRUGIE, niezalezne miejsce z tym
+                // samym problemem co w HELLO - "ourHeight + 1" to
+                // praktycznie kazda roznica >=2, wystarczy zwykla
+                // propagacja miedzy dwoma aktywnie kopiacymi wezlami
+                // zeby to odpalic. Ta sciezka calkowicie omijala
+                // CHAIN_SYNC_MIN_LEAD dodany w HELLO - to tlumaczy,
+                // czemu heap dalej rosl mimo tamtej poprawki. Ten sam
+                // prog, ta sama logika, konsekwentnie.
                 if (
                     b.height >
-                    ourHeight + 1
+                    ourHeight + CHAIN_SYNC_MIN_LEAD
                 ) {
                     console.log(
                         remoteAddr +
