@@ -344,6 +344,8 @@ function broadcastLiveState() {
  * ============================================================
  */
 
+const MAX_SSE_CONNECTION_MS = 10 * 60 * 1000;
+
 app.get(
     "/events",
     (req, res) => {
@@ -433,6 +435,32 @@ app.get(
          * przekazywany jako normalny event do EventSource,
          * ale utrzymuje połączenie aktywne.
          */
+        // NAPRAWA (dzisiaj): active handles rosly (35->69) mimo throttle
+        // na broadcastach - podejrzenie, ze req.on("close") czasem nie
+        // odpala niezawodnie przez Caddy (proxy moze nie przekazywac
+        // zamkniecia polaczenia klienta do Node'a). Zamiast zgadywac
+        // dlaczego - twardy limit, niezalezny od przyczyny: po
+        // MAX_SSE_CONNECTION_MS serwer SAM zamyka polaczenie.
+        // EventSource w przegladarce laczy sie od nowa automatycznie
+        // (native, tanie) - dla uzytkownika niewidoczne, ale serwer
+        // gwarantowanie nie trzyma gniazd bez konca.
+        const maxAgeTimer =
+            setTimeout(() => {
+
+                clearInterval(heartbeat);
+                sseClients.delete(client);
+
+                try {
+                    if (!res.writableEnded) {
+                        res.end();
+                    }
+                } catch (_) {}
+
+            }, MAX_SSE_CONNECTION_MS);
+
+        maxAgeTimer.unref?.();
+
+
         const heartbeat =
             setInterval(() => {
 
@@ -442,6 +470,7 @@ app.get(
                 ) {
 
                     clearInterval(heartbeat);
+                    clearTimeout(maxAgeTimer);
                     sseClients.delete(client);
                     return;
                 }
@@ -455,6 +484,7 @@ app.get(
                 } catch (err) {
 
                     clearInterval(heartbeat);
+                    clearTimeout(maxAgeTimer);
                     sseClients.delete(client);
 
                     try {
@@ -478,6 +508,7 @@ app.get(
             () => {
 
                 clearInterval(heartbeat);
+                clearTimeout(maxAgeTimer);
 
                 sseClients.delete(client);
 
