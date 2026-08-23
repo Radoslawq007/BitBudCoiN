@@ -129,6 +129,15 @@ const SoloMiner = (() => {
         attemptsAtLastHeartbeat =
             sessionStats.attempts;
 
+        const heartbeatController =
+            new AbortController();
+
+        const heartbeatTimeoutId =
+            setTimeout(
+                () => heartbeatController.abort(),
+                8000
+            );
+
         fetch(`${currentApiBase}/solo/heartbeat`, {
             method: "POST",
             headers: {
@@ -138,12 +147,15 @@ const SoloMiner = (() => {
                 minerAddress: currentMinerAddress,
                 attempts: attemptsSinceLast,
                 intervalSeconds
-            })
+            }),
+            signal: heartbeatController.signal
         }).catch(() => {
             /*
              * Heartbeat jest informacyjny.
              * Brak API nie zatrzymuje PoW.
              */
+        }).finally(() => {
+            clearTimeout(heartbeatTimeoutId);
         });
     }
 
@@ -404,15 +416,45 @@ const SoloMiner = (() => {
                 minerAddress
             );
 
-        const response =
-            await fetch(url, {
-                method: "GET",
-                cache: "no-store",
-                headers: {
-                    "Cache-Control":
-                        "no-cache"
-                }
-            });
+        const controller =
+            new AbortController();
+
+        const timeoutId =
+            setTimeout(
+                () => controller.abort(),
+                8000
+            );
+
+        let response;
+
+        try {
+
+            response =
+                await fetch(url, {
+                    method: "GET",
+                    cache: "no-store",
+                    headers: {
+                        "Cache-Control":
+                            "no-cache"
+                    },
+                    signal:
+                        controller.signal
+                });
+
+        } catch (err) {
+
+            if (err.name === "AbortError") {
+                throw new Error(
+                    "Serwer nie odpowiada (timeout 8s)"
+                );
+            }
+
+            throw err;
+
+        } finally {
+
+            clearTimeout(timeoutId);
+        }
 
         let data = null;
 
@@ -511,23 +553,53 @@ const SoloMiner = (() => {
             };
         }
 
-        const response =
-            await fetch(
-                `${apiBase}/solo/submit`,
-                {
-                    method: "POST",
-                    cache: "no-store",
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-                        "Cache-Control":
-                            "no-cache"
-                    },
-                    body: JSON.stringify({
-                        candidate
-                    })
-                }
+        const submitController =
+            new AbortController();
+
+        const submitTimeoutId =
+            setTimeout(
+                () => submitController.abort(),
+                8000
             );
+
+        let response;
+
+        try {
+
+            response =
+                await fetch(
+                    `${apiBase}/solo/submit`,
+                    {
+                        method: "POST",
+                        cache: "no-store",
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                            "Cache-Control":
+                                "no-cache"
+                        },
+                        body: JSON.stringify({
+                            candidate
+                        }),
+                        signal:
+                            submitController.signal
+                    }
+                );
+
+        } catch (err) {
+
+            if (err.name === "AbortError") {
+                throw new Error(
+                    "Serwer nie odpowiada (timeout 8s)"
+                );
+            }
+
+            throw err;
+
+        } finally {
+
+            clearTimeout(submitTimeoutId);
+        }
 
         let result = null;
 
