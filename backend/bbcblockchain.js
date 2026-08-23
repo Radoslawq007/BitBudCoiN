@@ -1426,69 +1426,32 @@ class Blockchain {
 
     findHTLC(htlcId) {
 
-        let created = null;
-        let resolvedStatus = null;
+        // NAPRAWA (dzisiaj): PRZED - podwojna petla po CALYM this.chain
+        // i kazdej transakcji w kazdym bloku, PRZY KAZDYM wywolaniu.
+        // TERAZ - odczyt z htlcIndex (Map), budowanego raz w
+        // _rebuildIndexes() i aktualizowanego przyrostowo w
+        // _applyBlockToIndexes() - dokladnie ten sam wzorzec co
+        // balances/addressTransactions ponizej w tym pliku. Kontrakt
+        // zwracanej wartosci identyczny co przed zmiana.
 
-        for (
-            const block of
-            this.chain
+        const entry =
+            this.htlcIndex.get(
+                htlcId
+            );
+
+        if (
+            !entry ||
+            !entry.created
         ) {
-
-            for (
-                const tx of
-                block.transactions
-            ) {
-
-                if (
-                    tx.type ===
-                        "HTLC_CREATE" &&
-                    tx.htlcId ===
-                        htlcId
-                ) {
-
-                    created = {
-
-                        ...tx,
-
-                        createdAtHeight:
-                            block.height
-                    };
-                }
-
-                if (
-                    tx.type ===
-                        "HTLC_CLAIM" &&
-                    tx.htlcId ===
-                        htlcId
-                ) {
-
-                    resolvedStatus =
-                        "claimed";
-                }
-
-                if (
-                    tx.type ===
-                        "HTLC_REFUND" &&
-                    tx.htlcId ===
-                        htlcId
-                ) {
-
-                    resolvedStatus =
-                        "refunded";
-                }
-            }
-        }
-
-        if (!created) {
             return null;
         }
 
         return {
 
-            ...created,
+            ...entry.created,
 
             status:
-                resolvedStatus ||
+                entry.resolvedStatus ||
                 "locked"
         };
     }
@@ -1660,6 +1623,18 @@ class Blockchain {
         this.addressTransactions =
             new Map();
 
+        // NAPRAWA (dzisiaj): htlcId -> { created, resolvedStatus } -
+        // ten sam wzorzec co balances/addressTransactions ponizej.
+        // findHTLC() robilo PELNY skan calego lancucha (zagniezdzone
+        // for-of po this.chain i po transactions w kazdym bloku) PRZY
+        // KAZDYM wywolaniu - a wola je receiveBlock() dla kazdej
+        // HTLC_CLAIM/HTLC_REFUND. Na ~98 tys. blokow to kosztowne przy
+        // kazdym takim bloku, caly czas dzialania procesu, nie tylko
+        // na starcie - niezalezne od SSE/broadcast/P2P, wiec zadna z
+        // wczesniejszych poprawek tego nie chronila.
+        this.htlcIndex =
+            new Map();
+
         this.circulatingSupply =
             0;
 
@@ -1723,6 +1698,46 @@ class Blockchain {
             const tx of
             block.transactions
         ) {
+
+            if (
+                tx.type ===
+                    "HTLC_CREATE"
+            ) {
+
+                this.htlcIndex.set(
+                    tx.htlcId,
+                    {
+                        created: {
+                            ...tx,
+                            createdAtHeight:
+                                block.height
+                        },
+                        resolvedStatus:
+                            null
+                    }
+                );
+
+            } else if (
+                tx.type ===
+                    "HTLC_CLAIM" ||
+                tx.type ===
+                    "HTLC_REFUND"
+            ) {
+
+                const entry =
+                    this.htlcIndex.get(
+                        tx.htlcId
+                    );
+
+                if (entry) {
+
+                    entry.resolvedStatus =
+                        tx.type ===
+                        "HTLC_CLAIM"
+                            ? "claimed"
+                            : "refunded";
+                }
+            }
 
             if (
                 tx.type ===
