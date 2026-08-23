@@ -41,6 +41,13 @@ const HANDSHAKE_TIMEOUT_MS = 15000;
 
 const CHAIN_SYNC_TIMEOUT_MS = 120000;
 
+// NAPRAWA (dzisiaj): minimalna przewaga wysokosci zanim zolamy pelny
+// resync calego lancucha. Normalna propagacja miedzy zywymi, polaczonymi
+// wezlami to roznica rzedu pojedynczych blokow - nie powinna nigdy
+// wywolywac pelnego GET_CHAIN. 25 to margines bezpieczny na chwilowe
+// opoznienia sieciowe, ale wciaz reaguje na realna, dluzsza przerwe.
+const CHAIN_SYNC_MIN_LEAD = 25;
+
 const MAX_PEERS = 64;
 
 const PROTOCOL_VERSION = "vMax-1";
@@ -1078,6 +1085,18 @@ class P2PNode {
                         .getLatestBlock()
                         .height;
 
+                // NAPRAWA (dzisiaj): "message.height > ourHeight" (kazda
+                // roznica, choc o 1 blok) wyzwalalo pelny GET_CHAIN -
+                // caly lancuch od peera, zwalidowany od zera przez
+                // replaceChain() (SHA256+JSON.stringify per blok +
+                // ASERT dla calego zakresu). To dotyczylo KAZDEGO
+                // polaczenia - wychodzacego (CONFIG.PEERS) I
+                // PRZYCHODZACEGO (net.createServer, _handleConnection) -
+                // wyczyszczenie CONFIG.PEERS blokowalo tylko wychodzace,
+                // przychodzace (np. drugi wezel znajomego) szly ta sama
+                // sciezka bez zadnego ograniczenia. Prog: realna luka
+                // (np. po dluzszej przerwie), nie normalne opoznienie
+                // propagacji miedzy dwoma zywymi, polaczonymi wezlami.
                 if (
                     typeof message.height ===
                         "number" &&
@@ -1085,7 +1104,7 @@ class P2PNode {
                         message.height
                     ) &&
                     message.height >
-                        ourHeight
+                        ourHeight + CHAIN_SYNC_MIN_LEAD
                 ) {
                     /*
                      * Nowa synchronizacja zastępuje starą.
