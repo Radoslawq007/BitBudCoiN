@@ -3,29 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>BitBudCoin — sieć BbC</title>
-
 <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-
 <link rel="stylesheet" href="assets/theme.css">
-
 <style>
-
 /* =====================================================
    STATUS
    ===================================================== */
-
 .status-list {
     display: flex;
     flex-direction: column;
     gap: 8px;
     margin-top: 14px;
 }
-
 .status-item {
     display: flex;
     align-items: center;
@@ -37,44 +29,35 @@
     font-family: var(--font-mono);
     font-size: .92rem;
 }
-
 .status-item.done {
     border-left-color: var(--leaf);
 }
-
 .status-item.testing {
     border-left-color: var(--flame);
 }
-
 .status-item.upcoming {
     border-left-color: var(--text-dim);
     color: var(--text-dim);
 }
-
 .status-icon {
     font-size: 1.05rem;
     flex-shrink: 0;
 }
-
-
 /* =====================================================
    MILESTONES
    ===================================================== */
-
 .milestone-list {
     display: flex;
     flex-direction: column;
     gap: 14px;
     margin-top: 14px;
 }
-
 .milestone-item {
     padding: 12px 14px;
     background: var(--surface-2);
     border-left: 3px solid var(--leaf);
     border-radius: 8px;
 }
-
 .milestone-date {
     font-family: var(--font-mono);
     font-size: .72rem;
@@ -82,28 +65,22 @@
     text-transform: uppercase;
     letter-spacing: .04em;
 }
-
 .milestone-desc {
     margin-top: 4px;
     font-size: .92rem;
 }
-
 .milestone-links {
     margin-top: 8px;
     font-family: var(--font-mono);
     font-size: .78rem;
 }
-
 .milestone-links a {
     color: var(--leaf);
     margin-right: 12px;
 }
-
-
 /* =====================================================
    LIVE STATUS
    ===================================================== */
-
 .live-status {
     display: inline-flex;
     align-items: center;
@@ -117,36 +94,28 @@
     text-transform: uppercase;
     background: rgba(255,255,255,.05);
 }
-
 .live-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
     background: var(--text-dim);
 }
-
 .live-status.online {
     color: var(--leaf);
 }
-
 .live-status.online .live-dot {
     background: var(--leaf);
     box-shadow: 0 0 10px var(--leaf);
 }
-
 .live-status.offline {
     color: var(--flame);
 }
-
 .live-status.offline .live-dot {
     background: var(--flame);
 }
-
-
 /* =====================================================
    100K MILESTONE
    ===================================================== */
-
 .milestone-100k {
     margin-top: 18px;
     padding: 18px;
@@ -159,7 +128,6 @@
             rgba(0,0,0,.08)
         );
 }
-
 .milestone-100k-title {
     font-family: var(--font-mono);
     font-size: .78rem;
@@ -167,14 +135,12 @@
     letter-spacing: .08em;
     color: var(--leaf);
 }
-
 .milestone-100k-number {
     margin-top: 5px;
     font-family: var(--font-mono);
     font-size: 1.45rem;
     font-weight: 600;
 }
-
 .milestone-progress {
     height: 7px;
     margin-top: 12px;
@@ -182,7 +148,6 @@
     border-radius: 999px;
     background: rgba(255,255,255,.08);
 }
-
 .milestone-progress-bar {
     height: 100%;
     width: 0%;
@@ -191,19 +156,15 @@
     transition: width .5s ease;
     box-shadow: 0 0 12px rgba(90,126,246,.45);
 }
-
 .milestone-remaining {
     margin-top: 8px;
     font-family: var(--font-mono);
     font-size: .78rem;
     color: var(--text-dim);
 }
-
-
 /* =====================================================
    KONOPIE W TLE
    ===================================================== */
-
 .cannabis-field {
     position: fixed;
     inset: 0;
@@ -212,21 +173,18 @@
     z-index: 0;
     opacity: .055;
 }
-
 .cannabis-leaf {
     position: absolute;
     font-size: 80px;
     filter: grayscale(1);
     animation: cannabisFloat 18s ease-in-out infinite;
 }
-
 .cannabis-leaf:nth-child(1) {
     left: 4%;
     top: 18%;
     animation-delay: -4s;
     transform: rotate(-15deg);
 }
-
 .cannabis-leaf:nth-child(2) {
     right: 5%;
     top: 38%;
@@ -234,7 +192,6 @@
     animation-delay: -10s;
     transform: rotate(18deg);
 }
-
 .cannabis-leaf:nth-child(3) {
     left: 10%;
     bottom: 8%;
@@ -242,7 +199,6 @@
     animation-delay: -15s;
     transform: rotate(8deg);
 }
-
 .cannabis-leaf:nth-child(4) {
     right: 12%;
     bottom: 14%;
@@ -250,48 +206,36 @@
     animation-delay: -7s;
     transform: rotate(-20deg);
 }
-
 @keyframes cannabisFloat {
     0%, 100% {
         translate: 0 0;
     }
-
     50% {
         translate: 0 -18px;
     }
 }
-
 .page,
 footer {
     position: relative;
     z-index: 1;
 }
-
 </style>
 </head>
-
 <body>
-
 <!-- =====================================================
      KONOPIE W TLE
      ===================================================== -->
-
 <div class="cannabis-field" aria-hidden="true">
     <div class="cannabis-leaf">🌿</div>
     <div class="cannabis-leaf">🌿</div>
     <div class="cannabis-leaf">🌿</div>
     <div class="cannabis-leaf">🌿</div>
 </div>
-
-
 <div class="page">
-
     <!-- =================================================
          HERO
          ================================================= -->
-
     <section class="hero">
-
         <img
             src="assets/coin-hero.jpg"
             alt="Moneta BitBudCoin"
@@ -303,77 +247,66 @@ footer {
                 margin-bottom:12px;
             "
         >
-
         <div
             class="kicker"
             data-i18n="index_kicker"
         >
             proof-of-work · sieć BbC
         </div>
-
-
         <div
             class="big-number"
             id="hero-height"
         >
             —
         </div>
-
-
         <div
             class="sub"
             data-i18n="index_sub"
         >
             bloków wykopanych od genesis
         </div>
-
-
         <!-- LIVE -->
-
         <div
             class="live-status offline"
             id="live-status"
         >
             <span class="live-dot"></span>
-
             <span id="live-status-text">
                 OFFLINE
             </span>
         </div>
-
-
-        <!-- 100K -->
-
+        <!-- NASTEPNY KAMIEN MILOWY: GORNICY -->
+        <!--
+             NAPRAWA (dzisiaj): to miejsce sledzilo bloki do 100000,
+             na sztywno, bez pojecia co ma sie dziac PO osiagnieciu
+             celu - stad rownoczesnie "100186/100000" i "osiagniete"
+             na ekranie. 100k przeniesione ponizej do listy "Kamienie
+             milowe" jako osiagniety wpis. Ten sam slot, styl i klasy
+             CSS dostaja nowy cel: prawdziwi gornicy.
+        -->
         <div class="milestone-100k">
-
             <div class="milestone-100k-title">
                 Następny wielki kamień milowy
             </div>
-
             <div
                 class="milestone-100k-number"
-                id="milestone-100k-number"
+                id="milestone-miners-number"
             >
                 —
             </div>
-
             <div class="milestone-progress">
                 <div
                     class="milestone-progress-bar"
-                    id="milestone-progress-bar"
+                    id="milestone-miners-progress-bar"
                 ></div>
             </div>
-
             <div
                 class="milestone-remaining"
-                id="milestone-remaining"
+                id="milestone-miners-remaining"
             >
                 —
             </div>
-
         </div>
-
-
         <div
             style="
                 margin-top:28px;
@@ -383,7 +316,6 @@ footer {
                 flex-wrap:wrap;
             "
         >
-
             <a
                 class="btn"
                 href="miner.html"
@@ -391,7 +323,6 @@ footer {
             >
                 Zacznij kopać
             </a>
-
             <a
                 class="btn secondary"
                 href="explorer.html"
@@ -399,95 +330,72 @@ footer {
             >
                 Zobacz explorer
             </a>
-
         </div>
-
     </section>
-
-
     <!-- =================================================
          STATUS PROJEKTU
          ================================================= -->
-
     <div
         class="card"
         style="margin-top:20px;"
     >
-
         <h2 data-i18n="index_status_heading">
             Status projektu
         </h2>
-
         <div class="status-list">
-
             <div class="status-item done">
-                <span class="status-icon">✅</span>
+                <span class="status-icon">✅ </span>
                 <span data-i18n="index_status_mainnet">
                     Mainnet
                 </span>
             </div>
-
             <div class="status-item done">
-                <span class="status-icon">✅</span>
+                <span class="status-icon">✅ </span>
                 <span data-i18n="index_status_wallet">
                     Portfel
                 </span>
             </div>
-
             <div class="status-item done">
-                <span class="status-icon">✅</span>
+                <span class="status-icon">✅ </span>
                 <span data-i18n="index_status_explorer">
                     Explorer
                 </span>
             </div>
-
             <div class="status-item done">
-                <span class="status-icon">✅</span>
+                <span class="status-icon">✅ </span>
                 <span data-i18n="index_status_mining">
                     Kopanie
                 </span>
             </div>
-
             <div class="status-item done">
-                <span class="status-icon">✅</span>
+                <span class="status-icon">✅ </span>
                 <span data-i18n="index_status_swaps">
                     Atomic swaps
                 </span>
             </div>
-
             <div class="status-item testing">
-                <span class="status-icon">⏳</span>
+                <span class="status-icon">⏳ </span>
                 <span data-i18n="index_status_exchange">
                     Oczekiwanie na giełdę
                 </span>
             </div>
-
         </div>
-
     </div>
-
-
     <!-- =================================================
          MILESTONES
          ================================================= -->
-
     <div
         class="card"
         style="margin-top:20px;"
     >
-
         <h2 data-i18n="index_milestones_heading">
             Kamienie milowe
         </h2>
-
         <div class="milestone-list">
-
             <div class="milestone-item">
-
                 <div class="milestone-date">
                     30.07.2026
                 </div>
-
                 <div
                     class="milestone-desc"
                     data-i18n="index_milestone1_desc"
@@ -495,115 +403,104 @@ footer {
                     Pierwszy w pełni dokończony atomic swap BTC↔BbC
                     — ten sam hashlock po obu stronach, do sprawdzenia samemu.
                 </div>
-
                 <div class="milestone-links">
-
                     <a
                         href="https://mempool.space/tx/26559e15d0e3d98389900c7747f07aea935bf90849d8b64bfd895cdd8109dfd0"
                         target="_blank"
                         rel="noopener"
-                        data-i18n="index_milestone1_btc_link"
-                    >
+                        data-i18n="index_milestone1_btc_link"                    >
                         Transakcja BTC →
                     </a>
-
                     <a
                         href="block.html?height=3071"
-                        data-i18n="index_milestone1_bbc_link"
-                    >
+                        data-i18n="index_milestone1_bbc_link"                    >
                         Blok BbC #3071 →
                     </a>
-
                 </div>
-
             </div>
-
+            <!-- NAPRAWA (dzisiaj): przeniesione tutaj z widgetu w hero -
+                 patrz komentarz przy "NASTEPNY KAMIEN MILOWY" wyzej.
+                 Bez data-i18n - klucze index_milestone2_* nie istnieja
+                 w slowniku i18n.js, wymyslanie nowych mogloby go
+                 wywalic na nieznanym kluczu (ten sam problem co
+                 opisany w nav.js przy etykietach bez i18n). -->
+            <div class="milestone-item">
+                <div class="milestone-date">
+                    24.08.2026
+                </div>
+                <div class="milestone-desc">
+                    Sieć osiągnęła wysokość 100 000 bloków — aktywacja
+                    algorytmu trudności vMax (ASERT), który zastąpił
+                    dotychczasowy mechanizm dostosowania trudności.
+                </div>
+                <div class="milestone-links">
+                    <a href="block.html?height=100000">
+                        Blok BbC #100 000 →
+                    </a>
+                </div>
+            </div>
         </div>
-
     </div>
-
-
     <!-- =================================================
          STATYSTYKI
          ================================================= -->
-
     <div
         class="grid cols-3"
         style="margin-top:20px;"
     >
-
         <div class="card">
-
             <div
                 class="card-label"
                 data-i18n="index_stat_supply"
             >
                 Podaż w obiegu
             </div>
-
             <div
                 class="card-value leaf"
                 id="stat-supply"
             >
                 —
             </div>
-
         </div>
-
-
         <div class="card">
-
             <div
                 class="card-label"
                 data-i18n="index_stat_reward"
             >
                 Aktualna nagroda
             </div>
-
             <div
                 class="card-value flame"
                 id="stat-reward"
             >
                 —
             </div>
-
         </div>
-
-
         <div class="card">
-
             <div
                 class="card-label"
                 data-i18n="index_stat_difficulty"
             >
                 Trudność
             </div>
-
             <div
                 class="card-value"
                 id="stat-difficulty"
             >
                 —
             </div>
-
         </div>
-
     </div>
-
-
     <!-- =================================================
          ABOUT
          ================================================= -->
-
     <div
         class="card"
         style="margin-top:32px;"
     >
-
         <h2 data-i18n="index_about_heading">
             Czym jest BitBudCoin?
         </h2>
-
         <p data-i18n="index_about_text">
             BbC to niezależna sieć blockchain z klasycznym
             proof-of-work (SHA-256), premine'em założycielskim,
@@ -614,522 +511,386 @@ footer {
             przez podpisy Ed25519, więc nikt poza właścicielem
             klucza prywatnego nie rusza jego środków.
         </p>
-
     </div>
-
-
     <!-- =================================================
          CARDS
          ================================================= -->
-
     <div
         class="grid cols-3"
         style="margin-top:20px;"
     >
-
         <div class="card">
-
             <h3 data-i18n="nav_mining">
                 Kopanie
             </h3>
-
             <p data-i18n="index_card_mining_desc">
                 Solo albo w puli, z realnym udziałem w nagrodzie
                 proporcjonalnym do zgłoszonych shares.
             </p>
-
             <a
                 href="miner.html"
                 data-i18n="index_card_mining_link"
             >
                 Zobacz jak →
             </a>
-
         </div>
-
-
         <div class="card">
-
             <h3 data-i18n="nav_explorer">
                 Explorer
             </h3>
-
             <p data-i18n="index_card_explorer_desc">
                 Każdy blok, każda transakcja, jawnie i do
                 sprawdzenia w dowolnej chwili.
             </p>
-
             <a
                 href="explorer.html"
                 data-i18n="index_card_explorer_link"
             >
                 Przeglądaj →
             </a>
-
         </div>
-
-
         <div class="card">
-
             <h3 data-i18n="nav_wallet">
                 Portfel
             </h3>
-
             <p data-i18n="index_card_wallet_desc">
                 Sprawdź saldo dowolnego adresu i historię jego
                 transakcji.
             </p>
-
             <a
                 href="address.html"
                 data-i18n="index_card_wallet_link"
             >
                 Sprawdź adres →
             </a>
-
         </div>
-
     </div>
-
 </div>
-
-
 <!-- =====================================================
      FOOTER
      ===================================================== -->
-
 <footer>
-
     <span data-i18n="footer_text">
         BitBudCoin (BbC) · sieć proof-of-work
     </span>
-
     ·
-
     <a
         href="docks.html"
         data-i18n="footer_docs_link"
     >
         dokumentacja
     </a>
-
 </footer>
-
-
 <!-- =====================================================
      SCRIPTS
      ===================================================== -->
-
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
 <script src="assets/i18n.js"></script>
-
-
 <script>
-
 "use strict";
-
-
 /*
  * =====================================================
  * NAV
  * =====================================================
  */
-
 setActiveNav("nav-index");
-
-
 /*
  * =====================================================
  * STATE
  * =====================================================
  */
-
 let lastHeight = null;
-
 let reconnectTimer = null;
-
 let currentEvents = null;
-
 let liveConnected = false;
-
-
 /*
  * =====================================================
  * ELEMENTS
  * =====================================================
  */
-
 const heroHeight =
     document.getElementById(
         "hero-height"
     );
-
 const liveStatus =
     document.getElementById(
         "live-status"
     );
-
 const liveStatusText =
     document.getElementById(
         "live-status-text"
     );
-
-const milestoneNumber =
+const milestoneMinersNumber =
     document.getElementById(
-        "milestone-100k-number"
+        "milestone-miners-number"
     );
-
-const milestoneProgress =
+const milestoneMinersProgress =
     document.getElementById(
-        "milestone-progress-bar"
+        "milestone-miners-progress-bar"
     );
-
-const milestoneRemaining =
+const milestoneMinersRemaining =
     document.getElementById(
-        "milestone-remaining"
+        "milestone-miners-remaining"
     );
-
-
 /*
  * =====================================================
  * LIVE STATUS
  * =====================================================
  */
-
 function setLiveStatus(
     online
 ) {
-
     liveConnected =
         Boolean(online);
-
-
     if (online) {
-
         liveStatus.classList.remove(
             "offline"
         );
-
         liveStatus.classList.add(
             "online"
         );
-
         liveStatusText.textContent =
             "LIVE · POŁĄCZONO";
-
     } else {
-
         liveStatus.classList.remove(
             "online"
         );
-
         liveStatus.classList.add(
             "offline"
         );
-
         liveStatusText.textContent =
             "OFFLINE · PONOWNE ŁĄCZENIE...";
     }
 }
-
-
 /*
  * =====================================================
- * 100K
+ * GÓRNICY — kamień milowy
  * =====================================================
+ *
+ * NAPRAWA (dzisiaj): filtr formatu identyczny jak w payout.js
+ * i server.js (patch-address-validation.js) - smieci typu "AbC",
+ * "test", sklejony status urzadzenia (usuniete dzisiaj z bazy)
+ * nie licza sie jako gornicy, tak samo jak nie licza sie jako
+ * adresy do wyplaty. Dwa wyjatki nadal widoczne w /network/miners
+ * ("AbC", "gpusolo1") sa trwale wpisane w prawdziwe, juz zahashowane
+ * bloki (coinbase.to) - nie da sie ich usunac bez przepisania
+ * historii lancucha, ale ten filtr i tak wyklucza je z liczby tutaj.
+ * Pobierane raz przy starcie strony, nie na kazdy SSE push - liczba
+ * gornikow nie zmienia sie w rytmie blokow.
  */
-
-function update100K(
-    height
-) {
-
-    const target =
-        100000;
-
-
-    if (
-        !Number.isFinite(height)
-    ) {
+const MINER_ADDRESS_FORMAT =
+    /^BbC[0-9a-fA-F]{40}$/;
+const MINERS_MILESTONE_TARGET = 500;
+async function loadMinersMilestone() {
+    if (!milestoneMinersNumber) {
         return;
     }
-
-
-    const progress =
-        Math.max(
-            0,
-            Math.min(
-                100,
-                (
-                    height /
-                    target
-                ) *
-                100
-            )
+    try {
+        const miners =
+            await apiGet(
+                "/network/miners"
+            );
+        const distinct =
+            new Set(
+                miners
+                    .map((m) => m.address)
+                    .filter((a) =>
+                        MINER_ADDRESS_FORMAT.test(a)
+                    )
+            );
+        const count =
+            distinct.size;
+        const progress =
+            Math.max(
+                0,
+                Math.min(
+                    100,
+                    (
+                        count /
+                        MINERS_MILESTONE_TARGET
+                    ) * 100
+                )
+            );
+        const remaining =
+            Math.max(
+                0,
+                MINERS_MILESTONE_TARGET - count
+            );
+        milestoneMinersNumber.textContent =
+            `${fmtNumber(count, 0)} / ${fmtNumber(MINERS_MILESTONE_TARGET, 0)}`;
+        milestoneMinersProgress.style.width =
+            `${progress}%`;
+        milestoneMinersRemaining.textContent =
+            remaining > 0
+                ? `${fmtNumber(remaining, 0)} górników do ${fmtNumber(MINERS_MILESTONE_TARGET, 0)}`
+                : "🎉 500 górników osiągnięte";
+    } catch (e) {
+        console.error(
+            "BitBudCoin /network/miners:",
+            e
         );
-
-
-    const remaining =
-        Math.max(
-            0,
-            target - height
-        );
-
-
-    milestoneNumber.textContent =
-        `${fmtNumber(height, 0)} / ${fmtNumber(target, 0)}`;
-
-
-    milestoneProgress.style.width =
-        `${progress}%`;
-
-
-    if (remaining > 0) {
-
-        milestoneRemaining.textContent =
-            `${fmtNumber(remaining, 0)} bloków do 100 000`;
-
-    } else {
-
-        milestoneRemaining.textContent =
-            "🎉 100 000 bloków osiągnięte";
     }
 }
-
-
 /*
  * =====================================================
  * UPDATE INDEX
  * =====================================================
  */
-
 function updateIndex(
     info
 ) {
-
     if (!info) {
         return;
     }
-
-
     const height =
         Number(info.height);
-
-
     if (
         Number.isFinite(height)
     ) {
-
         heroHeight.textContent =
             fmtNumber(
                 height,
                 0
             );
-
-
-        update100K(
-            height
-        );
-
-
         if (
             lastHeight !== null &&
             height > lastHeight
         ) {
-
             heroHeight.style.transform =
                 "scale(1.06)";
-
-
             heroHeight.style.transition =
                 "transform .2s ease";
-
-
             setTimeout(
                 () => {
-
                     heroHeight.style.transform =
                         "scale(1)";
-
                 },
                 200
             );
         }
-
-
         lastHeight =
             height;
     }
-
-
     if (
         info.circulatingSupply !==
         undefined
     ) {
-
         document.getElementById(
             "stat-supply"
         ).textContent =
-
             fmtNumber(
                 info.circulatingSupply
             ) +
-
             " " +
-
             (
                 info.symbol ||
                 "BbC"
             );
     }
-
-
     if (
         info.currentBlockReward !==
         undefined
     ) {
-
         document.getElementById(
             "stat-reward"
         ).textContent =
-
             fmtNumber(
                 info.currentBlockReward
             ) +
-
             " " +
-
             (
                 info.symbol ||
                 "BbC"
             );
     }
-
-
     if (
         info.difficulty !==
         undefined
     ) {
-
         document.getElementById(
             "stat-difficulty"
         ).textContent =
-
             fmtNumber(
                 info.difficulty,
                 0
             );
     }
 }
-
-
 /*
  * =====================================================
  * INITIAL STATE
  * =====================================================
  */
-
 async function loadInitial() {
-
     try {
-
         const info =
             await apiGet(
                 "/state"
             );
-
-
         updateIndex(
             info
         );
-
     } catch (e) {
-
         console.error(
             "BitBudCoin /state:",
             e
         );
-
         /*
          * Nie kasujemy danych na ekranie.
          * LIVE może jeszcze się połączyć.
          */
-
     }
 }
-
-
 /*
  * =====================================================
  * SSE CONNECT
  * =====================================================
  */
-
 function connectSSE() {
-
     if (
         !window.EventSource
     ) {
-
         console.warn(
             "Przeglądarka nie obsługuje SSE."
         );
-
         setLiveStatus(
             false
         );
-
         return;
     }
-
-
     try {
-
         currentEvents =
             createBBCEventSource();
-
     } catch (err) {
-
         console.error(
             "Nie można uruchomić SSE:",
             err
         );
-
         setLiveStatus(
             false
         );
-
         scheduleReconnect();
-
         return;
     }
-
-
     /*
      * ================================================
      * STATE EVENT
      * ================================================
      */
-
     currentEvents.addEventListener(
         "state",
         (event) => {
-
             try {
-
                 const info =
                     JSON.parse(
                         event.data
                     );
-
-
                 updateIndex(
                     info
                 );
-
             } catch (err) {
-
                 console.error(
                     "Błąd parsowania SSE:",
                     err
@@ -1137,122 +898,84 @@ function connectSSE() {
             }
         }
     );
-
-
     /*
      * ================================================
      * OPEN
      * ================================================
      */
-
     currentEvents.onopen =
         () => {
-
             console.log(
                 "BitBudCoin SSE: LIVE"
             );
-
-
             setLiveStatus(
                 true
             );
-
-
             if (
                 reconnectTimer
             ) {
-
                 clearTimeout(
                     reconnectTimer
                 );
-
                 reconnectTimer =
                     null;
             }
         };
-
-
     /*
      * ================================================
      * ERROR
      * ================================================
      */
-
     currentEvents.onerror =
         () => {
-
             console.warn(
                 "BitBudCoin SSE: połączenie utracone."
             );
-
-
             setLiveStatus(
                 false
             );
-
-
             if (
                 currentEvents
             ) {
-
                 currentEvents.close();
-
                 currentEvents =
                     null;
             }
-
-
             scheduleReconnect();
         };
 }
-
-
 /*
  * =====================================================
  * RECONNECT
  * =====================================================
  */
-
 function scheduleReconnect() {
-
     if (
         reconnectTimer
     ) {
         return;
     }
-
-
     reconnectTimer =
         setTimeout(
             () => {
-
                 reconnectTimer =
                     null;
-
                 connectSSE();
-
             },
             3000
         );
 }
-
-
 /*
  * =====================================================
  * START
  * =====================================================
  */
-
 setLiveStatus(
     false
 );
-
-
 loadInitial();
-
+loadMinersMilestone();
 connectSSE();
-
 </script>
-
 </body>
 </html>
