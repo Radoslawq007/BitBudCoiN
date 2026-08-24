@@ -1,6 +1,5 @@
-# BitBudCoin (BbC) — Whitepaper
-
-*Wersja 1.0 · 28.07.2026*
+BitBudCoin (BbC) — Whitepaper
+Wersja 1.0 · 28.07.2026
 
 ## 1. Wprowadzenie
 
@@ -18,13 +17,17 @@ BitBudCoin (BbC) to niezależny, proof-of-work blockchain zbudowany od zera — 
 | Persystencja | SQLite |
 | Backend | Node.js / Express |
 
-Trudność kopania dostosowuje się okresowo do rzeczywistego tempa wydobycia sieci. Kopanie odbywa się solo albo przez pulę (z proporcjonalnym udziałem w nagrodzie wg zgłoszonych shares i automatycznymi wypłatami).
+Trudność kopania dostosowuje się do rzeczywistego tempa wydobycia sieci. Do bloku #99999 dostosowanie następowało okresowo, co 2028 bloków. Od bloku #100000 kontrolę przejął **vMax (ASERT)** — deterministyczny algorytm liczący nową trudność dla każdego bloku z osobna, na podstawie czasu od bloku kotwicznego, bez okresowych skoków.
+
+**Anomalia przy aktywacji (24.08.2026):** w momencie przejścia na vMax sieć miała za sobą ~15,5-godzinną przerwę operacyjną, podczas której żaden blok nie mógł zostać przyjęty. Zgodnie z formułą ASERT trudność po wznowieniu obniżyła się proporcjonalnie do tego opóźnienia, pozwalając sieci nadrobić harmonogram — kosztem krótkiego okna (~8 minut, ~130 bloków) przyspieszonej emisji, zanim trudność wróciła do poziomu odpowiadającego realnej mocy sieci. Efekt jednorazowy, wynikający z przerwy w działaniu backendu, nie z błędu w samej formule.
+
+Kopanie odbywa się solo albo przez pulę (z proporcjonalnym udziałem w nagrodzie wg zgłoszonych shares i automatycznymi wypłatami).
 
 Portfel działa w całości w przeglądarce — klucz prywatny nigdy nie opuszcza urządzenia użytkownika i nigdy nie trafia na serwer.
 
 ## 3. Tokenomika
 
-Dane poniżej pochodzą bezpośrednio z żywego węzła sieci (`/info`), zweryfikowane 28.07.2026:
+Dane poniżej pochodzą bezpośrednio z żywego węzła sieci (`/info`), zweryfikowane 24.08.2026:
 
 | Parametr | Wartość |
 |---|---|
@@ -33,8 +36,8 @@ Dane poniżej pochodzą bezpośrednio z żywego węzła sieci (`/info`), zweryfi
 | Premine | 700 BbC |
 | Aktualna nagroda za blok | 50 BbC |
 | Interwał halvingu | co 210 000 bloków |
-| Podaż w obiegu (28.07.2026, blok ~2700) | 135 900 BbC |
-| Opłata protokołu | 0,5% od przelewu (aktywowana od zadanej wysokości bloku) |
+| Podaż w obiegu (24.08.2026, blok 100 256) | 5 007 000 BbC |
+| Opłata protokołu | 2% od przelewu (aktywowana od zadanej wysokości bloku) |
 
 **Premine — pełna przejrzystość:** 700 BbC z premine jest zapisane w bloku genesis (#0), jawnie oznaczone typem `genesis`, z publicznie widocznymi adresami odbiorców. Każdy może to zweryfikować samodzielnie w explorerze, otwierając blok #0 — nic nie jest ukryte poza kodem.
 
@@ -63,6 +66,7 @@ Nic w tym dokumencie nie wymaga zaufania na słowo:
 Zgodnie z tym, co widać na stronie głównej projektu:
 
 - ✅ Mainnet, portfel, explorer, kopanie — działają, sprawdzone
+- ✅ vMax (ASERT) — aktywowany od bloku #100 000
 - 🧪 Atomic swap BTC↔BbC — działa technicznie, wciąż budowana historia prawdziwych transakcji
 - 🚧 Kolejne etapy — kapsuła czasu, rozbudowa mostu BCH, dalsze narzędzia dla adresu/portfela
 
