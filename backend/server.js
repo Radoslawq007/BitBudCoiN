@@ -1788,6 +1788,49 @@ app.get(
         const difficulty =
             blockchain.difficulty;
 
+        // NAPRAWA (dzisiaj, PILNA): "Do not know how to serialize a
+        // BigInt" na produkcji, tuz po aktywacji ASERT (wysokosc 100k).
+        // Przeczytalem difficulty, blockTarget, buildBlockTransactions()
+        // w zrodle - kazde z nich POWINNO zwracac Number/string, nie
+        // BigInt. Nie znalazlem jednoznacznie ktore konkretnie pole i w
+        // jakich warunkach wycieka - zamiast dalej zgadywac, jawna,
+        // bezpieczna konwersja tutaj, na granicy odpowiedzi. Dziala
+        // niezaleznie od dokladnego mechanizmu wewnatrz.
+        const safeDifficulty =
+            typeof difficulty === "bigint"
+                ? Number(difficulty)
+                : difficulty;
+
+        let safeBlockTarget;
+
+        try {
+
+            safeBlockTarget =
+                difficultyToTargetHex(
+                    safeDifficulty
+                );
+
+            if (
+                typeof safeBlockTarget !==
+                "string"
+            ) {
+
+                safeBlockTarget =
+                    String(
+                        safeBlockTarget
+                    );
+            }
+
+        } catch (err) {
+
+            console.error(
+                "difficultyToTargetHex() zawiodlo w /solo/work: " +
+                err.message
+            );
+
+            safeBlockTarget = null;
+        }
+
         res.json({
 
             height:
@@ -1805,12 +1848,11 @@ app.get(
                     pendingTxs
                 ),
 
-            difficulty,
+            difficulty:
+                safeDifficulty,
 
             blockTarget:
-                difficultyToTargetHex(
-                    difficulty
-                )
+                safeBlockTarget
         });
     }
 );
