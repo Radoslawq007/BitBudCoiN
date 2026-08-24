@@ -246,17 +246,13 @@ class Blockchain {
 
             this._warnIfChainHasGaps();
 
-            // NAPRAWA (dzisiaj, PILNA - moj wlasny blad z wczesniejszej
-            // poprawki tej samej nocy): _recomputeDifficultyFromHistory()
-            // wola retargetIfDue(), ktore teraz uzywa this.blockByHeight -
-            // ale ten indeks powstaje WYLACZNIE w _rebuildIndexes(), ktore
-            // bylo wolane DOPIERO na koncu konstruktora, PO tym wywolaniu.
-            // Stad "Cannot read properties of undefined (reading 'get')"
-            // przy KAZDYM starcie z istniejacym lancuchem - proces nie
-            // mogl sie w ogole podniesc. _rebuildIndexes() przesuniete
-            // TUTAJ, przed uzyciem indeksu. Nie zalezy od this.difficulty
-            // (ustawione wczesniej, linia ~231) ani odwrotnie - bezpieczna
-            // zamiana kolejnosci.
+            // NAPRAWA (2026-08-24, PILNA - blad zlapany tej samej nocy):
+            // _recomputeDifficultyFromHistory() wola retargetIfDue(),
+            // ktore uzywa this.blockByHeight - ale ten indeks powstaje
+            // WYLACZNIE w _rebuildIndexes(). Musi byc wywolane PRZED
+            // _recomputeDifficultyFromHistory(), inaczej
+            // "Cannot read properties of undefined (reading 'get')"
+            // przy kazdym starcie z istniejacym lancuchem.
             this._rebuildIndexes();
 
             this._recomputeDifficultyFromHistory();
@@ -365,16 +361,9 @@ class Blockchain {
 
         // NAPRAWA (dzisiaj, PILNA): PRZED - this.chain[anchorHeight]
         // zakladalo ze POZYCJA w tablicy = WYSOKOSC bloku. Falszywe
-        // zalozenie - caly ten czat udowodnil dziesiatki dziur w
-        // historii lancucha (_warnIfChainHasGaps). Kazda dziura PRZED
-        // pozycja 99999 przesuwa mapowanie indeks->wysokosc o 1 -
-        // this.chain[99999] wskazywal na blok o INNEJ (wyzszej)
-        // wysokosci niz 99999, wiec sprawdzenie "anchorBlock.height !==
-        // anchorHeight" ponizej poprawnie to wykrywalo i zwracalo null -
-        // ale to znaczylo ze ASERT NIGDY nie mogl wystartowac, mimo ze
-        // blok #99999 realnie istnieje w lancuchu, tylko nie na tej
-        // pozycji tablicy. Odczyt po WYSOKOSCI (blockByHeight), nie po
-        // pozycji.
+        // zalozenie - cala ta noc udowodnila dziesiatki dziur w
+        // historii lancucha (_warnIfChainHasGaps). Odczyt po WYSOKOSCI
+        // (blockByHeight), nie po pozycji.
         const anchorBlock =
             this.blockByHeight.get(
                 anchorHeight
@@ -439,45 +428,65 @@ class Blockchain {
             );
         }
 
-        return asertNextDifficulty({
+        // NAPRAWA (2026-08-24): asertNextDifficulty() (asert-difficulty.js)
+        // zwraca BigInt CELOWO - cala matematyka ASERT jest na BigInt,
+        // zeby kazdy node liczyl identyczny wynik co do bita. Ale
+        // this.difficulty, block.difficulty (kolumna REAL w SQLite) i
+        // kazde miejsce ktore ich uzywa (Math.round, JSON.stringify,
+        // porownania z candidate.difficulty) oczekuja Number. Ten BigInt
+        // nigdy nie byl konwertowany z powrotem - wchodzil surowy do
+        // this.difficulty w receiveBlock() i _recomputeDifficultyFromHistory()
+        // w chwili gdy blok #99999 (kotwica) zostal przyjety. Stad trzy
+        // rozne stack trace'y (pool.js:87 Math.round, bbcblockchain.js
+        // getInfo Math.round, server.js JSON.stringify w getWork) - jedno
+        // zrodlo, ta granica. Konwersja TUTAJ naprawia wszystkie 4
+        // wywolania tej funkcji naraz (_expectedDifficultyForBlock,
+        // receiveBlock walidacja, receiveBlock przypisanie this.difficulty,
+        // _recomputeDifficultyFromHistory).
+        const rawDifficulty =
+            asertNextDifficulty({
 
-            anchorHeight:
-                anchor.anchorHeight,
+                anchorHeight:
+                    anchor.anchorHeight,
 
-            anchorParentTime:
-                anchor.anchorParentTime,
+                anchorParentTime:
+                    anchor.anchorParentTime,
 
-            anchorDifficulty:
-                anchor.anchorDifficulty,
+                anchorDifficulty:
+                    anchor.anchorDifficulty,
 
-            evalHeight:
-                BigInt(
-                    evaluationBlock.height
-                ),
+                evalHeight:
+                    BigInt(
+                        evaluationBlock.height
+                    ),
 
-            evalTime:
-                BigInt(
-                    Math.floor(
-                        evaluationBlock.timestamp /
-                        1000
-                    )
-                ),
+                evalTime:
+                    BigInt(
+                        Math.floor(
+                            evaluationBlock.timestamp /
+                            1000
+                        )
+                    ),
 
-            idealBlockTime:
-                BigInt(
-                    CONFIG
-                        .ASERT_IDEAL_BLOCK_TIME_SECONDS
-                ),
+                idealBlockTime:
+                    BigInt(
+                        CONFIG
+                            .ASERT_IDEAL_BLOCK_TIME_SECONDS
+                    ),
 
-            halflife:
-                BigInt(
-                    CONFIG
-                        .ASERT_HALFLIFE_SECONDS
-                ),
+                halflife:
+                    BigInt(
+                        CONFIG
+                            .ASERT_HALFLIFE_SECONDS
+                    ),
 
-            maxTarget:
-                MAX_TARGET
-        });
+                maxTarget:
+                    MAX_TARGET
+            });
+
+        return Number(
+            rawDifficulty
+        );
     }
 
 
@@ -1016,10 +1025,8 @@ class Blockchain {
             return;
         }
 
-        // NAPRAWA (dzisiaj): PRZED - this.chain.find(b => b.height ===
-        // h) tutaj, na ZYWEJ sciezce przyjmowania kazdego nowego
-        // bloku (odpala sie co DIFFICULTY_ADJUSTMENT blokow, ale wtedy
-        // zawsze pelny O(n) skan ~99 tys.+ blokow, synchronicznie).
+        // NAPRAWA (dzisiaj): PRZED - this.chain.find(b => b.height === h)
+        // tutaj, na ZYWEJ sciezce przyjmowania kazdego nowego bloku.
         // TERAZ - O(1) z trwalego indeksu blockByHeight.
         const windowStart =
             this.blockByHeight.get(
@@ -1094,14 +1101,8 @@ class Blockchain {
             CONFIG.DIFFICULTY_ADJUSTMENT;
 
         // NAPRAWA (dzisiaj): PRZED - this.chain.find(b => b.height === h)
-        // wewnątrz tej pętli robiło pełny liniowy skan całego this.chain
-        // (~94 tys. elementów) PRZY KAŻDEJ iteracji pętli - O(n) wewnątrz
-        // O(m), przy każdym starcie procesu. Wiemy, że w chain są dziury
-        // (patrz _warnIfChainHasGaps), więc nie da się bezpiecznie zrobić
-        // this.chain[h] po indeksie - stąd Map budowana raz, O(n), zamiast
-        // wielokrotnego .find(). Semantyka identyczna: ten sam blok albo
-        // undefined dla brakującej wysokości - logika retargetIfDue() i
-        // wynik obliczeń trudności w ogóle nietknięte.
+        // wewnatrz tej petli robilo pelny liniowy skan calego this.chain
+        // PRZY KAZDEJ iteracji petli. TERAZ - Map budowana raz, O(n).
         const blockByHeight =
             new Map(
                 this.chain.map(
@@ -1305,61 +1306,73 @@ class Blockchain {
                         h - 1
                     ];
 
+                // NAPRAWA (2026-08-24): asertNextDifficulty() zwraca
+                // BigInt, block.difficulty jest Number (kolumna REAL).
+                // W JS "Number !== BigInt" jest ZAWSZE true, niezaleznie
+                // od wartosci - skutek: KAZDY blok po aktywacji ASERT w
+                // dowolnym lancuchu od peera odrzucalby sam siebie tutaj,
+                // zawsze. Jeszcze nieuruchomione (zaden blok >=100000 nie
+                // istnieje w bazie), ale wybuchloby natychmiast po
+                // pierwszym takim bloku od drugiego node'a - czyli zaraz
+                // po wlaczeniu CONFIG.PEERS. Konwersja na Number przed
+                // porownaniem, ten sam wzorzec co w _calculateAsertDifficulty().
                 const expected =
-                    asertNextDifficulty({
+                    Number(
+                        asertNextDifficulty({
 
-                        anchorHeight:
-                            BigInt(
-                                CONFIG
-                                    .ASERT_ANCHOR_HEIGHT
-                            ),
+                            anchorHeight:
+                                BigInt(
+                                    CONFIG
+                                        .ASERT_ANCHOR_HEIGHT
+                                ),
 
-                        anchorParentTime:
-                            BigInt(
-                                Math.floor(
-                                    anchorParent.timestamp /
-                                    1000
-                                )
-                            ),
-
-                        anchorDifficulty:
-                            BigInt(
-                                Math.max(
-                                    1,
-                                    Math.round(
-                                        anchor.difficulty
+                            anchorParentTime:
+                                BigInt(
+                                    Math.floor(
+                                        anchorParent.timestamp /
+                                        1000
                                     )
-                                )
-                            ),
+                                ),
 
-                        evalHeight:
-                            BigInt(
-                                evalBlock.height
-                            ),
+                            anchorDifficulty:
+                                BigInt(
+                                    Math.max(
+                                        1,
+                                        Math.round(
+                                            anchor.difficulty
+                                        )
+                                    )
+                                ),
 
-                        evalTime:
-                            BigInt(
-                                Math.floor(
-                                    evalBlock.timestamp /
-                                    1000
-                                )
-                            ),
+                            evalHeight:
+                                BigInt(
+                                    evalBlock.height
+                                ),
 
-                        idealBlockTime:
-                            BigInt(
-                                CONFIG
-                                    .ASERT_IDEAL_BLOCK_TIME_SECONDS
-                            ),
+                            evalTime:
+                                BigInt(
+                                    Math.floor(
+                                        evalBlock.timestamp /
+                                        1000
+                                    )
+                                ),
 
-                        halflife:
-                            BigInt(
-                                CONFIG
-                                    .ASERT_HALFLIFE_SECONDS
-                            ),
+                            idealBlockTime:
+                                BigInt(
+                                    CONFIG
+                                        .ASERT_IDEAL_BLOCK_TIME_SECONDS
+                                ),
 
-                        maxTarget:
-                            MAX_TARGET
-                    });
+                            halflife:
+                                BigInt(
+                                    CONFIG
+                                        .ASERT_HALFLIFE_SECONDS
+                                ),
+
+                            maxTarget:
+                                MAX_TARGET
+                        })
+                    );
 
                 if (
                     block.difficulty !==
@@ -1406,8 +1419,8 @@ class Blockchain {
                 CONFIG.DIFFICULTY
             );
 
-        // NAPRAWA (dzisiaj, PILNA): ta sama kolejność co w konstruktorze -
-        // _rebuildIndexes() musi być PRZED _recomputeDifficultyFromHistory(),
+        // NAPRAWA (dzisiaj, PILNA): ta sama kolejnosc co w konstruktorze -
+        // _rebuildIndexes() musi byc PRZED _recomputeDifficultyFromHistory(),
         // bo retargetIfDue() potrzebuje this.blockByHeight.
         this._rebuildIndexes();
 
@@ -1463,10 +1476,8 @@ class Blockchain {
         // i kazdej transakcji w kazdym bloku, PRZY KAZDYM wywolaniu.
         // TERAZ - odczyt z htlcIndex (Map), budowanego raz w
         // _rebuildIndexes() i aktualizowanego przyrostowo w
-        // _applyBlockToIndexes() - dokladnie ten sam wzorzec co
-        // balances/addressTransactions ponizej w tym pliku. Kontrakt
-        // zwracanej wartosci identyczny co przed zmiana.
-
+        // _applyBlockToIndexes(). Kontrakt zwracanej wartosci
+        // identyczny co przed zmiana.
         const entry =
             this.htlcIndex.get(
                 htlcId
@@ -1658,24 +1669,13 @@ class Blockchain {
 
         // NAPRAWA (dzisiaj): htlcId -> { created, resolvedStatus } -
         // ten sam wzorzec co balances/addressTransactions ponizej.
-        // findHTLC() robilo PELNY skan calego lancucha (zagniezdzone
-        // for-of po this.chain i po transactions w kazdym bloku) PRZY
-        // KAZDYM wywolaniu - a wola je receiveBlock() dla kazdej
-        // HTLC_CLAIM/HTLC_REFUND. Na ~98 tys. blokow to kosztowne przy
-        // kazdym takim bloku, caly czas dzialania procesu, nie tylko
-        // na starcie - niezalezne od SSE/broadcast/P2P, wiec zadna z
-        // wczesniejszych poprawek tego nie chronila.
         this.htlcIndex =
             new Map();
 
         // NAPRAWA (dzisiaj, znaleziona w audycie "raz a porzadnie"):
         // TRZECIE miejsce w tym pliku z this.chain.find(b => b.height
         // === h) - wewnatrz retargetIfDue(), wolane z zywej sciezki
-        // przyjmowania blokow (nie tylko z juz naprawionej petli
-        // replay). Odpala sie tylko na granicy retargetu (co
-        // DIFFICULTY_ADJUSTMENT blokow) - rzadziej niz dwa pozostale,
-        // ale wciaz pelny O(n) skan ~99 tys.+ blokow, synchronicznie,
-        // na zywej sciezce. Ten sam wzorzec indeksu co ponizej.
+        // przyjmowania blokow. Ten sam wzorzec indeksu co ponizej.
         this.blockByHeight =
             new Map();
 
