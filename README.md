@@ -8,7 +8,7 @@ Własny blockchain proof-of-work, zbudowany od zera. Bez frameworków blockchain
 
 ## Czym to jest
 
-- Proof-of-work, SHA-256, dostosowywalna trudność
+- Proof-of-work, SHA-256, dostosowywalna trudność (legacy DAA do bloku #99999, od #100000 algorytm vMax/ASERT)
 - Kryptografia podpisów: Ed25519
 - Portfel działający w całości w przeglądarce — klucz prywatny nigdy nie dotyka serwera
 - Kopanie: solo albo przez pulę (z automatycznymi wypłatami)
@@ -21,11 +21,13 @@ Własny blockchain proof-of-work, zbudowany od zera. Bez frameworków blockchain
 BitBudCoin umożliwia wymianę BbC za prawdziwe BTC przez **HTLC (Hash Time-Locked Contracts)** — ten sam mechanizm co w prawdziwych, produkcyjnych atomic swapach. Ani sprzedający, ani kupujący nie muszą ufać drugiej stronie ani żadnemu pośrednikowi — bezpieczeństwo wynika z matematyki, nie z zaufania.
 
 **Co to naprawdę oznacza:**
+
 - Cała kryptografia BTC (adresy, podpisy, budowa i wykonanie skryptu HTLC) działa **w przeglądarce kupującego**, nie na serwerze
 - Nadawanie transakcji do prawdziwej sieci Bitcoin — bezpośrednio z przeglądarki, przez publiczne API
 - Sprawdzone na prawdziwej sieci Bitcoin (mainnet) — nie tylko w symulacji
 
 **Uczciwie o stanie dzisiejszym:**
+
 - Mechanizm HTLC po stronie BTC wymaga portfela, który pozwala samodzielnie skonstruować i podpisać niestandardową transakcję — większość popularnych portfeli mobilnych (custodialne, jak Wallet of Satoshi) tego nie potrafi. To realne ograniczenie, nie błąd w kodzie.
 - System ofert (`create-offer.html` → akceptacja → `swap.html`) jest nowy i przeszedł jeden prawdziwy test z realnymi pieniędzmi, nie setki.
 - Strona BCH mostu (poza BTC) jest mniej dojrzała niż strona BTC.
@@ -53,4 +55,4 @@ Backend na serwerze **nie synchronizuje się automatycznie** z tym repo — każ
 
 ---
 
-*Ostatnia aktualizacja: 28.07.2026*
+*Ostatnia aktualizacja: 24.08.2026*
