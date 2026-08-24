@@ -113,7 +113,13 @@ module.exports = {
     P2P_PORT: 6001,
 
     PEERS: [
-        // "145.241.218.97:6001"  // tymczasowo wylaczone - crash przy sync, 23.08
+        // NAPRAWA (2026-08-24): przywrocone. Wylaczone tymczasowo 23.08
+        // przy podejrzeniu o crash przy sync - realna przyczyna byla
+        // brakujacy prog CHAIN_SYNC_MIN_LEAD w p2p.js (naprawiony tej
+        // nocy) plus BigInt/Number w ASERT-owej walidacji replaceChain()
+        // (naprawiony w tej samej sesji). Realne polaczenie z peerem
+        // kolegi jeszcze nie przetestowane po tych poprawkach.
+        "145.241.218.97:6001"
     ],
 
     /*
