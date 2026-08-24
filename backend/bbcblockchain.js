@@ -246,6 +246,19 @@ class Blockchain {
 
             this._warnIfChainHasGaps();
 
+            // NAPRAWA (dzisiaj, PILNA - moj wlasny blad z wczesniejszej
+            // poprawki tej samej nocy): _recomputeDifficultyFromHistory()
+            // wola retargetIfDue(), ktore teraz uzywa this.blockByHeight -
+            // ale ten indeks powstaje WYLACZNIE w _rebuildIndexes(), ktore
+            // bylo wolane DOPIERO na koncu konstruktora, PO tym wywolaniu.
+            // Stad "Cannot read properties of undefined (reading 'get')"
+            // przy KAZDYM starcie z istniejacym lancuchem - proces nie
+            // mogl sie w ogole podniesc. _rebuildIndexes() przesuniete
+            // TUTAJ, przed uzyciem indeksu. Nie zalezy od this.difficulty
+            // (ustawione wczesniej, linia ~231) ani odwrotnie - bezpieczna
+            // zamiana kolejnosci.
+            this._rebuildIndexes();
+
             this._recomputeDifficultyFromHistory();
 
             if (
@@ -310,9 +323,9 @@ class Blockchain {
             this.storage.saveBlock(
                 genesis
             );
-        }
 
-        this._rebuildIndexes();
+            this._rebuildIndexes();
+        }
     }
 
 
@@ -1393,9 +1406,12 @@ class Blockchain {
                 CONFIG.DIFFICULTY
             );
 
-        this._recomputeDifficultyFromHistory();
-
+        // NAPRAWA (dzisiaj, PILNA): ta sama kolejność co w konstruktorze -
+        // _rebuildIndexes() musi być PRZED _recomputeDifficultyFromHistory(),
+        // bo retargetIfDue() potrzebuje this.blockByHeight.
         this._rebuildIndexes();
+
+        this._recomputeDifficultyFromHistory();
 
         return {
             accepted: true,
