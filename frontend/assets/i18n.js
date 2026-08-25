@@ -1027,6 +1027,12 @@ const translations = {
         index_milestone1_btc_link: "Transakcja BTC →",
         index_milestone1_bbc_link: "Blok BbC #3071 →",
 
+        index_milestone_next_title: "Następny wielki kamień milowy",
+        index_milestone2_desc: "Sieć osiągnęła wysokość 100 000 bloków — aktywacja algorytmu trudności vMax (ASERT), który zastąpił dotychczasowy mechanizm dostosowania trudności.",
+        index_milestone2_bbc_link: "Blok BbC #100 000 →",
+        index_miners_remaining_label: "górników do",
+        index_miners_achieved: "🎉 500 górników osiągnięte",
+
         join_h1: "Dołącz do BitBudCoin",
         join_subtitle: "Prawdziwy blockchain, budowany od zera, bez wielkich obietnic.",
         join_intro: "BitBudCoin (BbC) to niezależna sieć proof-of-work, którą kilka osób realnie kopie i używa już teraz. Żadnych fałszywych statystyk, żadnego marketingu — to, co widzisz niżej, dzieje się naprawdę, na żywo, na tym samym łańcuchu, który możesz sam sprawdzić w explorerze.",
@@ -2248,6 +2254,12 @@ const translations = {
         index_milestone1_desc: "First fully completed BTC↔BbC atomic swap — same hashlock on both sides, verifiable yourself.",
         index_milestone1_btc_link: "BTC transaction →",
         index_milestone1_bbc_link: "BbC block #3071 →",
+
+        index_milestone_next_title: "Next big milestone",
+        index_milestone2_desc: "The network reached a height of 100,000 blocks — activation of the vMax (ASERT) difficulty algorithm, which replaced the previous difficulty adjustment mechanism.",
+        index_milestone2_bbc_link: "BbC block #100,000 →",
+        index_miners_remaining_label: "miners to",
+        index_miners_achieved: "🎉 500 miners reached",
 
         join_h1: "Join BitBudCoin",
         join_subtitle: "A real blockchain, built from scratch, without big promises.",
