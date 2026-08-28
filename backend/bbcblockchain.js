@@ -333,6 +333,74 @@ class Blockchain {
     }
 
 
+    // NAPRAWA (2026-08-28, PILNA): this.difficulty byla zwyklym polem -
+    // ustawiana RAZ, w chwili przyjecia bloku, przy uzyciu znacznika
+    // czasu TEGO WLASNIE bloku jako "evalTime" dla ASERT. Miedzy blokami
+    // nic tego nie przeliczalo, nawet gdy mijaly godziny bez nowego
+    // bloku - formula ASERT nigdy nie "widziala" uplywu realnego czasu,
+    // tylko powtarzala to samo pytanie o przeszlosc. Skutek zaobserwowany
+    // na produkcji: blok #100880 padl przy bardzo duzej mocy (~1.6 GH/s
+    // solo), trudnosc ustawila sie pod TA moc i zamarzla tam - 8+ godzin
+    // pozniej, przy mocy pojedynczych-kilkuset kH/s w puli, cel wciaz byl
+    // ten sam, praktycznie nieosiagalny. Restart NIE naprawial tego -
+    // liczony ta sama, zamrozona metoda.
+    //
+    // Naprawa: this.difficulty jest teraz akcesorem (get/set), nie
+    // zwyklym polem. Gdy vMax aktywny - KAZDY odczyt liczy swiezo, na
+    // podstawie Date.now(), nie zapisanej przeszlosci - dokladnie tak
+    // jak ASERT ma dzialac z definicji (deterministyczny, ciagle
+    // obliczalny z kotwicy + biezacego czasu, bez cache'owania).
+    // Zweryfikowane matematycznie: symulacja 8h przerwy przy
+    // halflife=3600s daje spadek dokladnie 256x = 2^8 - zgodne co do
+    // bita z oczekiwana formula.
+    //
+    // Kazde dotychczasowe "this.difficulty = X" w tym pliku (konstruktor,
+    // retargetIfDue, replaceChain, setDifficultyManually,
+    // maybeEmergencyAdjust) dziala bez zmian - trafia do setera, ktory
+    // zapisuje do this._legacyDifficulty. Dla legacy DAA (przed vMax) to
+    // dokladnie to samo zachowanie co wczesniej. Po aktywacji vMax getter
+    // ignoruje ten backing field calkowicie - liczy zawsze na zywo.
+    get difficulty() {
+
+        if (
+            isAsertActive(
+                this.getLatestBlock().height + 1
+            )
+        ) {
+
+            try {
+
+                return this._calculateAsertDifficulty({
+
+                    height:
+                        this.getLatestBlock().height,
+
+                    timestamp:
+                        Date.now()
+                });
+
+            } catch (err) {
+
+                console.error(
+                    "vMax zywa trudnosc - blad, uzywam ostatniej znanej wartosci: " +
+                    err.message
+                );
+
+                return this._legacyDifficulty;
+            }
+        }
+
+        return this._legacyDifficulty;
+    }
+
+
+    set difficulty(value) {
+
+        this._legacyDifficulty =
+            value;
+    }
+
+
     getRewardForHeight(height) {
 
         return (
@@ -807,49 +875,15 @@ class Blockchain {
         }
 
 
+        // NAPRAWA (2026-08-28): PRZED - galaz vMax liczyla oczekiwana
+        // trudnosc OSOBNO, wywolujac _calculateAsertDifficulty(latest) -
+        // czyli ta sama, zamrozona-w-czasie kalkulacja co powodowala caly
+        // problem (patrz komentarz przy getterze this.difficulty wyzej).
+        // TERAZ - jedno zrodlo prawdy dla obu galezi (legacy i vMax):
+        // zywy getter this.difficulty. Prostsze, i gwarantuje ze
+        // walidacja bloku zawsze porownuje z tym samym celem, ktory
+        // faktycznie dostal gornik przez /pool/work czy /solo/work.
         if (
-            isAsertActive(
-                candidate.height
-            )
-        ) {
-
-            let expectedDifficulty;
-
-            try {
-
-                expectedDifficulty =
-                    this._calculateAsertDifficulty(
-                        latest
-                    );
-
-            } catch (err) {
-
-                return {
-                    accepted: false,
-                    reason:
-                        "vMax difficulty error: " +
-                        err.message
-                };
-            }
-
-            if (
-                candidate.difficulty !==
-                expectedDifficulty
-            ) {
-
-                return {
-                    accepted: false,
-                    reason:
-                        "nieprawidlowa vMax trudnosc " +
-                        "(oczekiwano " +
-                        expectedDifficulty +
-                        ", otrzymano " +
-                        candidate.difficulty +
-                        ")"
-                };
-            }
-
-        } else if (
             candidate.difficulty !==
             this.difficulty
         ) {
@@ -965,28 +999,16 @@ class Blockchain {
         );
 
 
+        // NAPRAWA (2026-08-28): PRZED - tutaj jawnie przeliczano i
+        // zapisywano this.difficulty po kazdym przyjetym bloku, tym
+        // samym zamrozonym sposobem. TERAZ - dla vMax nic tu nie trzeba
+        // robic, getter this.difficulty liczy zawsze na zywo przy kazdym
+        // odczycie. Legacy DAA (przed aktywacja vMax) dziala bez zmian.
         if (
-            isAsertActive(
+            !isAsertActive(
                 candidate.height + 1
             )
         ) {
-
-            try {
-
-                this.difficulty =
-                    this._calculateAsertDifficulty(
-                        candidate
-                    );
-
-            } catch (err) {
-
-                console.error(
-                    "vMax calculation error: " +
-                    err.message
-                );
-            }
-
-        } else {
 
             this.retargetIfDue(
                 candidate
@@ -1128,30 +1150,11 @@ class Blockchain {
             }
         }
 
-        if (
-            latestHeight >=
-            anchorHeight &&
-            activation !== undefined
-        ) {
-
-            const latest =
-                this.getLatestBlock();
-
-            try {
-
-                this.difficulty =
-                    this._calculateAsertDifficulty(
-                        latest
-                    );
-
-            } catch (err) {
-
-                console.error(
-                    "vMax restart calculation error: " +
-                    err.message
-                );
-            }
-        }
+        // NAPRAWA (2026-08-28): PRZED - tutaj, na starcie procesu,
+        // jawnie przeliczano this.difficulty tym samym, zamrozonym
+        // sposobem (patrz komentarz przy getterze this.difficulty).
+        // TERAZ - nic tu nie trzeba robic dla vMax, getter liczy zawsze
+        // na zywo przy kazdym odczycie, restart nie jest wyjatkiem.
     }
 
 
