@@ -10,6 +10,21 @@
  * - exponent division uses truncation toward zero
  * - no floating point arithmetic is used inside the ASERT calculation
  * - target is calculated from the fixed vMax anchor
+ *
+ * NAPRAWA (wykryta przez test-asert.js, ktory importowal nieistniejaca
+ * asertNextTarget): rdzen obliczen ASERT dzialal WYLACZNIE wewnatrz
+ * asertNextDifficulty, sparametryzowany anchorDifficulty. Test potrzebuje
+ * osobnej funkcji dzialajacej bezposrednio w przestrzeni target (tak jak
+ * oryginalny aserti3-2d jest zdefiniowany matematycznie) - do testowania
+ * bez posredniej konwersji difficulty->target->difficulty, ktora psuje
+ * precyzje przy sprawdzaniu np. dokladnej rownosci wyniku.
+ *
+ * asertNextTarget teraz zawiera caly rdzen. asertNextDifficulty jest
+ * cienkim wrapperem: difficulty->target (difficultyToTarget), wolanie
+ * asertNextTarget, target->difficulty (targetToDifficulty) na wyjsciu.
+ * Zachowanie asertNextDifficulty dla tych samych wejsc jest identyczne
+ * jak przed ta zmiana - zweryfikowane regresja na losowych wejsciach
+ * przeciwko oryginalnej wersji, patrz regression-check.js.
  */
 
 const RADIX = 1n << 16n;
@@ -76,7 +91,7 @@ function targetToDifficulty(target, maxTarget) {
 
 /*
  * ============================================================
- * vMax ASERT
+ * vMax ASERT - rdzeń w przestrzeni TARGET
  * ============================================================
  *
  * anchorHeight
@@ -85,8 +100,8 @@ function targetToDifficulty(target, maxTarget) {
  * anchorParentTime
  *     timestamp rodzica kotwicy, sekundy
  *
- * anchorDifficulty
- *     difficulty bloku kotwicznego
+ * anchorTarget
+ *     target bloku kotwicznego (BigInt, NIE difficulty)
  *
  * evalHeight
  *     wysokość aktualnego bloku
@@ -102,11 +117,13 @@ function targetToDifficulty(target, maxTarget) {
  *
  * maxTarget
  *     maksymalny target
+ *
+ * Zwraca: BigInt (następny target).
  */
-function asertNextDifficulty({
+function asertNextTarget({
     anchorHeight,
     anchorParentTime,
-    anchorDifficulty,
+    anchorTarget,
     evalHeight,
     evalTime,
     idealBlockTime,
@@ -115,13 +132,7 @@ function asertNextDifficulty({
 }) {
     anchorHeight = BigInt(anchorHeight);
     anchorParentTime = BigInt(anchorParentTime);
-
-    anchorDifficulty = BigInt(
-        Math.max(
-            1,
-            Math.trunc(Number(anchorDifficulty))
-        )
-    );
+    anchorTarget = BigInt(anchorTarget);
 
     evalHeight = BigInt(evalHeight);
     evalTime = BigInt(evalTime);
@@ -136,9 +147,9 @@ function asertNextDifficulty({
         );
     }
 
-    if (anchorDifficulty <= 0n) {
+    if (anchorTarget <= 0n) {
         throw new Error(
-            "ASERT: anchorDifficulty musi byc dodatnie"
+            "ASERT: anchorTarget musi byc dodatni"
         );
     }
 
@@ -165,15 +176,6 @@ function asertNextDifficulty({
             "ASERT: maxTarget musi byc dodatni"
         );
     }
-
-    /*
-     * Anchor target.
-     */
-    const anchorTarget =
-        difficultyToTarget(
-            anchorDifficulty,
-            maxTarget
-        );
 
     /*
      * ASERT:
@@ -267,6 +269,63 @@ function asertNextDifficulty({
         nextTarget = maxTarget;
     }
 
+    return nextTarget;
+}
+
+/*
+ * ============================================================
+ * vMax ASERT - wrapper w przestrzeni DIFFICULTY
+ * ============================================================
+ *
+ * Identyczne parametry jak asertNextTarget, ale anchorDifficulty
+ * zamiast anchorTarget. Zwraca Number (difficulty), nie BigInt.
+ *
+ * Zachowanie na zewnątrz NIEZMIENIONE względem wersji sprzed naprawy
+ * - to tylko przepakowanie tej samej matematyki, teraz przez
+ * asertNextTarget zamiast duplikowania jej tutaj.
+ */
+function asertNextDifficulty({
+    anchorHeight,
+    anchorParentTime,
+    anchorDifficulty,
+    evalHeight,
+    evalTime,
+    idealBlockTime,
+    halflife,
+    maxTarget
+}) {
+    anchorDifficulty = BigInt(
+        Math.max(
+            1,
+            Math.trunc(Number(anchorDifficulty))
+        )
+    );
+
+    maxTarget = BigInt(maxTarget);
+
+    if (anchorDifficulty <= 0n) {
+        throw new Error(
+            "ASERT: anchorDifficulty musi byc dodatnie"
+        );
+    }
+
+    const anchorTarget =
+        difficultyToTarget(
+            anchorDifficulty,
+            maxTarget
+        );
+
+    const nextTarget = asertNextTarget({
+        anchorHeight,
+        anchorParentTime,
+        anchorTarget,
+        evalHeight,
+        evalTime,
+        idealBlockTime,
+        halflife,
+        maxTarget
+    });
+
     return targetToDifficulty(
         nextTarget,
         maxTarget
@@ -274,6 +333,7 @@ function asertNextDifficulty({
 }
 
 module.exports = {
+    asertNextTarget,
     asertNextDifficulty,
     difficultyToTarget,
     targetToDifficulty,
