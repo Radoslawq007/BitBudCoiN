@@ -156,10 +156,10 @@ const ANCHOR_PARENT_TIME = 1_800_000_000n; // dowolna referencyjna epoka
 // TEST 11: round-trip difficulty -> target -> difficulty (musi wrócić blisko oryginału)
 {
   const maxTarget = 2n ** 64n;
-  const originalDifficulty = 54993750n; // realna wartość z Waszego explorera
+  const originalDifficulty = 54993750; // Number, nie BigInt - targetToDifficulty zwraca Number, mieszanie typów w arytmetyce rzuca TypeError
   const target = difficultyToTarget(originalDifficulty, maxTarget);
   const roundTrip = targetToDifficulty(target, maxTarget);
-  const errPct = Number(((roundTrip > originalDifficulty ? roundTrip - originalDifficulty : originalDifficulty - roundTrip) * 10000n) / originalDifficulty) / 100;
+  const errPct = Math.abs(roundTrip - originalDifficulty) / originalDifficulty * 100;
   check('round-trip difficulty->target->difficulty (54993750)', errPct < 0.01, `oryginał=${originalDifficulty}, po round-trip=${roundTrip}, błąd ${errPct}%`);
 }
 
