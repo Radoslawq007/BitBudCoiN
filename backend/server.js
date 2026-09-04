@@ -35,6 +35,18 @@ const {
 
 
 /*
+ * NAPRAWA (dzisiaj): 821 wierszy w pool_credits mialo jako
+ * "minerAddress" smieci ("AbC", "test", sklejony status urzadzenia,
+ * a raz nawet fraze 12 slow portfela) - zaden z punktow przyjmowania
+ * minerAddress ponizej nie sprawdzal formatu. payout.js juz mial ten
+ * regex i dzieki temu nigdy nic z tego nie wyplacil - ten sam check
+ * teraz na granicy API, zanim smiec w ogole trafi do bazy albo (w
+ * /solo/work) na stale do coinbase w prawdziwym bloku.
+ */
+const ADDRESS_FORMAT = /^BbC[0-9a-fA-F]{40}$/;
+
+
+/*
  * ============================================================
  * BITBUDCOIN SERVER
  * vMax FINAL
@@ -1664,6 +1676,14 @@ app.get(
             });
         }
 
+        if (!ADDRESS_FORMAT.test(minerAddress)) {
+
+            return res.status(400).json({
+                error:
+                    "Nieprawidlowy format adresu"
+            });
+        }
+
         res.json(
             pool.getWork(
                 minerAddress
@@ -1699,6 +1719,14 @@ app.post(
             return res.status(400).json({
                 error:
                     "Brak adresu minera"
+            });
+        }
+
+        if (!ADDRESS_FORMAT.test(minerAddress)) {
+
+            return res.status(400).json({
+                error:
+                    "Nieprawidlowy format adresu"
             });
         }
 
@@ -1776,6 +1804,14 @@ app.get(
             return res.status(400).json({
                 error:
                     "Brak adresu"
+            });
+        }
+
+        if (!ADDRESS_FORMAT.test(minerAddress)) {
+
+            return res.status(400).json({
+                error:
+                    "Nieprawidlowy format adresu"
             });
         }
 
@@ -1952,6 +1988,14 @@ app.post(
             return res.status(400).json({
                 error:
                     "Brak adresu"
+            });
+        }
+
+        if (!ADDRESS_FORMAT.test(minerAddress)) {
+
+            return res.status(400).json({
+                error:
+                    "Nieprawidlowy format adresu"
             });
         }
 
