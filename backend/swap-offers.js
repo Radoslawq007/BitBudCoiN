@@ -45,6 +45,15 @@ function createOffer(info) {
             throw new Error(`createOffer: brak pola "${field}"`);
         }
     }
+    // NAPRAWA (dzisiaj, PILNA): ten sam problem co tx.to/coinbase/claimant/
+    // refundee dzisiaj wczesniej - targetSellerAddress mial tylko check "nie
+    // puste". Literowka przy tworzeniu oferty = oferta ktorej NIKT nigdy nie
+    // bedzie w stanie zaakceptowac ani odrzucic (podpis nigdy nie wyprowadzi
+    // sie do smiecia) - cicho zawieszona na zawsze, mylaca dla drugiej strony
+    // proby prawdziwego swapa.
+    if (!/^BbC[0-9a-fA-F]{40}$/.test(info.targetSellerAddress)) {
+        throw new Error(`createOffer: nieprawidlowy format targetSellerAddress`);
+    }
     const offerId = crypto.randomBytes(8).toString("hex");
     const offer = { offerId, ...info, status: "pending", createdAt: Date.now() };
     const offers = load();
