@@ -154,6 +154,82 @@ function signingPayload({
 
 /*
  * =====================================================
+ * CANONICAL HTLC PAYLOADS
+ * =====================================================
+ *
+ * DODANE (dzisiaj): brakowało tych trzech funkcji - wallet.html już
+ * zawierał komentarz "kolejność pól MUSI się zgadzać z htlcCreatePayload()
+ * w backend/wallet.js", ale sama funkcja nigdy tu nie powstała, a
+ * htlc-wallet.js (verifyHtlcCreateSignature i spółka) w ogóle nie istniał
+ * w repo - server.js nie mógł wystartować.
+ *
+ * Kolejność pól w każdej funkcji skopiowana DOKŁADNIE z tego, co realnie
+ * konstruuje i podpisuje frontend/wallet.html (żeby JSON.stringify dawał
+ * identyczny string po obu stronach - to jest część konsensusu podpisów,
+ * tak samo jak signingPayload wyżej):
+ *
+ *   HTLC_CREATE: htlcId, from, amount, fee, hashLock, timeoutHeight,
+ *                claimant, refundee, timestamp
+ *   HTLC_CLAIM:  htlcId, claimant, secret, timestamp
+ *   HTLC_REFUND: htlcId, refundee, timestamp
+ */
+
+function htlcCreatePayload({
+    htlcId,
+    from,
+    amount,
+    fee,
+    hashLock,
+    timeoutHeight,
+    claimant,
+    refundee,
+    timestamp
+}) {
+
+    return JSON.stringify({
+        htlcId,
+        from,
+        amount,
+        fee,
+        hashLock,
+        timeoutHeight,
+        claimant,
+        refundee,
+        timestamp
+    });
+}
+
+function htlcClaimPayload({
+    htlcId,
+    claimant,
+    secret,
+    timestamp
+}) {
+
+    return JSON.stringify({
+        htlcId,
+        claimant,
+        secret,
+        timestamp
+    });
+}
+
+function htlcRefundPayload({
+    htlcId,
+    refundee,
+    timestamp
+}) {
+
+    return JSON.stringify({
+        htlcId,
+        refundee,
+        timestamp
+    });
+}
+
+
+/*
+ * =====================================================
  * SIGN TRANSACTION
  * =====================================================
  */
@@ -423,6 +499,12 @@ module.exports = {
     verifyTransactionSignature,
 
     signingPayload,
+
+    htlcCreatePayload,
+
+    htlcClaimPayload,
+
+    htlcRefundPayload,
 
     validateWallet
 };
