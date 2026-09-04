@@ -842,17 +842,35 @@ document.getElementById("htlcCheckBtn").addEventListener("click", async () => {
 let offerGeneratedKeys = {};
 let offerUnsavedKeys = new Set();
 
-function saveOfferKeyToLocalStorage(offerId, privHex, pubKeyHash) {
+// NAPRAWA (dzisiaj, PILNA): przechowywalo privHex JAWNYM TEKSTEM w
+// localStorage. Ten sam mechanizm co "zapamietaj portfel" (AES-256-GCM,
+// capsule-crypto.js) ponizej, teraz i tutaj - localStorage jest czytelne
+// dla kazdego JS na tej samej domenie, kazdy XSS gdziekolwiek na stronie
+// = kradziez klucza BTC. Haslo opcjonalne - pusty backup jest pomijany
+// (uzytkownik polega wtedy wylacznie na pobranym pliku), ale jesli juz
+// zapisujemy, to tylko zaszyfrowane.
+async function saveOfferKeyToLocalStorage(offerId, privHex, pubKeyHash, password) {
+    if (!password) return;
     try {
+        const encrypted = await encryptCapsuleMessage(privHex, password);
         localStorage.setItem("btc_key_backup_" + offerId, JSON.stringify({
-            offerId, privateKeyHex: privHex, pubKeyHash, savedAt: Date.now()
+            offerId, encryptedPrivateKey: encrypted, pubKeyHash, savedAt: Date.now()
         }));
     } catch (err) { /* localStorage niedostępny - reszta zabezpieczeń nadal działa */ }
 }
-function loadOfferKeyFromLocalStorage(offerId) {
+async function loadOfferKeyFromLocalStorage(offerId, password) {
     try {
         const raw = localStorage.getItem("btc_key_backup_" + offerId);
-        return raw ? JSON.parse(raw) : null;
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed.encryptedPrivateKey) return null;
+        const privateKeyHex = await decryptCapsuleMessage(
+            parsed.encryptedPrivateKey.ciphertext,
+            parsed.encryptedPrivateKey.salt,
+            parsed.encryptedPrivateKey.iv,
+            password
+        );
+        return { offerId, privateKeyHex, pubKeyHash: parsed.pubKeyHash, savedAt: parsed.savedAt };
     } catch (err) { return null; }
 }
 function downloadOfferKeyFile(offerId, privHex, pubKeyHash) {
@@ -936,19 +954,46 @@ async function showOfferAcceptForm(offerId) {
         // Sprawdzamy NAJPIERW localStorage, zanim wylosujemy cokolwiek nowego -
         // dokładnie ta poprawka, którą dziś zrobiliśmy w starym review-offers.html,
         // od razu wbudowana tutaj, żeby nigdy nie trzeba jej było powtarzać.
-        const existing = loadOfferKeyFromLocalStorage(offerId);
-        if (existing && existing.privateKeyHex && existing.pubKeyHash) {
-            offerGeneratedKeys[offerId] = { privHex: existing.privateKeyHex, pubKeyHash: existing.pubKeyHash };
-            document.getElementById("offer-priv-" + offerId).textContent = existing.privateKeyHex;
-            document.getElementById("offer-recovered-" + offerId).style.display = "block";
-        } else {
+        const rawBackup = localStorage.getItem("btc_key_backup_" + offerId);
+        let existing = null;
+        if (rawBackup) {
+            let parsedBackup = null;
+            try { parsedBackup = JSON.parse(rawBackup); } catch (e) {}
+            if (parsedBackup && parsedBackup.privateKeyHex && !parsedBackup.encryptedPrivateKey) {
+                // NAPRAWA (dzisiaj, PILNA): stary wpis sprzed poprawki szyfrowania -
+                // jawny klucz siedzacy w localStorage. Usuwamy go stad niezaleznie
+                // od tego co uzytkownik zrobi dalej - nie zostawiamy jawnego klucza
+                // lezacego bezczynnie.
+                offerGeneratedKeys[offerId] = { privHex: parsedBackup.privateKeyHex, pubKeyHash: parsedBackup.pubKeyHash };
+                document.getElementById("offer-priv-" + offerId).textContent = parsedBackup.privateKeyHex;
+                document.getElementById("offer-recovered-" + offerId).style.display = "block";
+                localStorage.removeItem("btc_key_backup_" + offerId);
+                alert("Znaleziono starą, niezaszyfrowaną kopię tego klucza w pamięci przeglądarki - usunięto ją. Klucz nadal widoczny poniżej, pobierz go teraz.");
+                existing = offerGeneratedKeys[offerId];
+            } else if (parsedBackup && parsedBackup.encryptedPrivateKey) {
+                const pw = prompt("Ten klucz ma zaszyfrowaną kopię lokalną - podaj hasło użyte przy zapisie (Anuluj = wygeneruj nowy klucz):");
+                if (pw) {
+                    const decrypted = await loadOfferKeyFromLocalStorage(offerId, pw);
+                    if (decrypted && decrypted.privateKeyHex) {
+                        offerGeneratedKeys[offerId] = { privHex: decrypted.privateKeyHex, pubKeyHash: decrypted.pubKeyHash };
+                        document.getElementById("offer-priv-" + offerId).textContent = decrypted.privateKeyHex;
+                        document.getElementById("offer-recovered-" + offerId).style.display = "block";
+                        existing = offerGeneratedKeys[offerId];
+                    } else {
+                        alert("Złe hasło albo uszkodzona kopia - generuję nowy klucz zamiast tego.");
+                    }
+                }
+            }
+        }
+        if (!existing) {
             const priv = randomPrivKeyBigInt();
             const pubPoint = scalarMult(priv, G);
             const pubKeyHash = bytesToHex(await hash160(compressPubKey(pubPoint)));
             const privHex = priv.toString(16).padStart(64, "0");
             offerGeneratedKeys[offerId] = { privHex, pubKeyHash };
             document.getElementById("offer-priv-" + offerId).textContent = privHex;
-            saveOfferKeyToLocalStorage(offerId, privHex, pubKeyHash);
+            const savePw = prompt("Opcjonalnie: ustaw hasło, żeby zapisać zaszyfrowaną kopię tego klucza lokalnie na wypadek zamknięcia karty (Anuluj albo puste = pomiń, polegaj tylko na pobranym pliku):");
+            if (savePw) await saveOfferKeyToLocalStorage(offerId, privHex, pubKeyHash, savePw);
         }
         offerUnsavedKeys.add(offerId);
     }
