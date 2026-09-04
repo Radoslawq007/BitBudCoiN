@@ -909,6 +909,38 @@ class Blockchain {
                             "nieprawidlowy format adresu w coinbase"
                     };
                 }
+
+                continue;
+            }
+
+            // NAPRAWA (dzisiaj, PILNA): ten sam problem, jedna warstwa
+            // niezej - zwykle przelewy (bez tx.type, odrozniajace je od
+            // coinbase/HTLC_*/genesis) tez nie mialy zadnej walidacji
+            // tx.to. Mempool (addTransaction) to teraz lapie przy wejsciu
+            // do kolejki, ale blok przyjety przez P2P od innego wezla
+            // omija mempool tego wezla calkowicie - receiveBlock() musi
+            // sam to sprawdzic, niezaleznie od zrodla.
+            if (
+                tx.type ===
+                    undefined &&
+                tx.to !==
+                    undefined
+            ) {
+
+                if (
+                    typeof tx.to !==
+                        "string" ||
+                    !/^BbC[0-9a-fA-F]{40}$/.test(
+                        tx.to
+                    )
+                ) {
+
+                    return {
+                        accepted: false,
+                        reason:
+                            "nieprawidlowy format adresu odbiorcy"
+                    };
+                }
             }
         }
 
