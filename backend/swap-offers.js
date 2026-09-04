@@ -54,6 +54,16 @@ function createOffer(info) {
     if (!/^BbC[0-9a-fA-F]{40}$/.test(info.targetSellerAddress)) {
         throw new Error(`createOffer: nieprawidlowy format targetSellerAddress`);
     }
+    // NAPRAWA (dzisiaj, PILNA): bbcAmount/expectedAmount/timeoutHours mialy
+    // tylko check obecnosci (required), nie ze to sensowne, dodatnie liczby.
+    // Ujemna albo NaN kwota przechodzila i ladowala sie jako "pending"
+    // oferta - myląca (albo gorzej) dla kazdego kto pozniej probowalby ja
+    // zaakceptowac.
+    for (const field of ["bbcAmount", "expectedAmount", "timeoutHours"]) {
+        if (typeof info[field] !== "number" || !Number.isFinite(info[field]) || !(info[field] > 0)) {
+            throw new Error(`createOffer: "${field}" musi byc dodatnia, skonczona liczba`);
+        }
+    }
     const offerId = crypto.randomBytes(8).toString("hex");
     const offer = { offerId, ...info, status: "pending", createdAt: Date.now() };
     const offers = load();
