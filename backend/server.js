@@ -2022,6 +2022,7 @@ app.post(
 
 app.post(
     "/solo/heartbeat",
+    strictLimiter,
     (req, res) => {
 
         const {
