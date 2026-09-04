@@ -45,6 +45,15 @@ class Mempool {
         if (!tx.from || !tx.to) {
             return { accepted: false, reason: "Brak adresu nadawcy/odbiorcy" };
         }
+        // NAPRAWA (dzisiaj, PILNA): tx.from jest posrednio chronione (podpis
+        // musi pasowac do adresu wyprowadzonego z klucza publicznego -
+        // verifyTransactionSignature nizej to wymusi), ale tx.to nie mialo
+        // ZADNEJO zakotwiczenia. Literowka albo zepsuty klient portfela ->
+        // srodki wyslane na adres, ktorego nikt nigdy nie odbierze. Ten sam
+        // regex co payout.js/server.js/receiveBlock().
+        if (!/^BbC[0-9a-fA-F]{40}$/.test(tx.to)) {
+            return { accepted: false, reason: "Nieprawidlowy format adresu odbiorcy" };
+        }
         if (tx.from === tx.to) {
             return { accepted: false, reason: "Nadawca i odbiorca są tacy sami" };
         }
