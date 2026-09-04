@@ -268,6 +268,19 @@ class Transaction {
             return false;
         }
 
+        // NAPRAWA (dzisiaj, PILNA): ta sama kategoria co mempool.js/
+        // bbcblockchain.js dzisiaj wczesniej - obecnosc/typ sprawdzane,
+        // format nigdy. mempool.js i tak by to zlapal przy /transactions/
+        // send, ale lepiej zeby wallet-cli.js zlapal to LOKALNIE, od razu,
+        // niz po nieudanej probie przez siec.
+        if (
+            !/^BbC[0-9a-fA-F]{40}$/.test(
+                this.to
+            )
+        ) {
+            return false;
+        }
+
         if (
             typeof this.amount !==
                 "number" ||
