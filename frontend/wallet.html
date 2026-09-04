@@ -764,7 +764,7 @@ document.getElementById("htlcCreateBtn").addEventListener("click", async () => {
     // Kolejność pól MUSI się zgadzać z htlcCreatePayload() w backend/wallet.js -
     // podpis liczony jest z JSON.stringify tego dokładnego obiektu.
     try {
-        if (!currentWallet) { resultEl.innerHTML = `<span style="color:var(--danger)">❌ Portfel nie jest wczytany na tej stronie — wróć do "Mam już portfel" i zaloguj się ponownie.</span>`; return; }
+        if (!currentWallet) { resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${t("htlc_wallet_not_loaded")}</span>`; return; }
 
         // Ostatnia linia obrony: sprawdzamy NA ŻYWO czy termin ma sensowny zapas,
         // niezależnie od tego czy pochodzi z auto-przeliczenia czy ręcznej edycji.
@@ -785,7 +785,7 @@ document.getElementById("htlcCreateBtn").addEventListener("click", async () => {
         const signature = await signPayload(currentWallet.privateKey, payload);
         const tx = { ...payload, type: "HTLC_CREATE", publicKey: currentWallet.publicKeyPem, signature };
         const result = await apiPost("/htlc/submit", tx);
-        resultEl.innerHTML = `<span style="color:var(--leaf)">✅ Utworzono, czeka na wykopanie bloku.</span>`;
+        resultEl.innerHTML = `<span style="color:var(--leaf)">✅ ${t("htlc_create_success")}</span>`;
         await refreshHtlcCreateDefaults();
     } catch (err) {
         resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${escapeHtml(err.message)}</span>`;
@@ -803,7 +803,7 @@ document.getElementById("htlcClaimBtn").addEventListener("click", async () => {
         const signature = await signPayload(currentWallet.privateKey, payload);
         const tx = { ...payload, type: "HTLC_CLAIM", publicKey: currentWallet.publicKeyPem, signature };
         await apiPost("/htlc/submit", tx);
-        resultEl.innerHTML = `<span style="color:var(--leaf)">✅ Zgłoszono odbiór, czeka na wykopanie bloku.</span>`;
+        resultEl.innerHTML = `<span style="color:var(--leaf)">✅ ${t("htlc_claim_success")}</span>`;
     } catch (err) {
         resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${escapeHtml(err.message)}</span>`;
     }
@@ -819,7 +819,7 @@ document.getElementById("htlcRefundBtn").addEventListener("click", async () => {
         const signature = await signPayload(currentWallet.privateKey, payload);
         const tx = { ...payload, type: "HTLC_REFUND", publicKey: currentWallet.publicKeyPem, signature };
         await apiPost("/htlc/submit", tx);
-        resultEl.innerHTML = `<span style="color:var(--leaf)">✅ Zgłoszono zwrot, czeka na wykopanie bloku.</span>`;
+        resultEl.innerHTML = `<span style="color:var(--leaf)">✅ ${t("htlc_refund_success")}</span>`;
     } catch (err) {
         resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${escapeHtml(err.message)}</span>`;
     }
@@ -924,6 +924,18 @@ async function loadMyOffers() {
                 </div>
             </div>
         `).join("");
+
+        // NAPRAWA (dzisiaj): nowo wstrzykniete karty ofert maja data-i18n,
+        // ale nic tu nie wolalo applyTranslations() ponownie - jesli
+        // uzytkownik przelaczyl jezyk PO zaladowaniu strony, ta konkretna
+        // tresc zostawala zamrozona w jezyku sprzed przelaczenia (reszta
+        // strony aktualizowala sie poprawnie, tylko dynamicznie
+        // wstrzykiwane fragmenty jak ten - nie). Przyciski i tak renderuja
+        // sie poprawnie PRZY WSTAWIENIU (szablon woli t() bezposrednio) -
+        // to tylko domyka przypadek "przelacz jezyk, potem otworz liste".
+        if (typeof applyTranslations === "function") {
+            applyTranslations(currentLang);
+        }
 
         listEl.querySelectorAll('[data-offer-action="accept"]').forEach((btn) => {
             btn.addEventListener("click", () => showOfferAcceptForm(btn.dataset.id));
