@@ -1408,6 +1408,36 @@ app.post(
                 });
             }
 
+            // NAPRAWA (dzisiaj, PILNA): to samo ryzyko co przy tx.to zwyklych
+            // przelewow i adresie w coinbase - jesli claimant albo refundee
+            // sa smieciem, srodki zablokowane w tym HTLC nie beda mogly
+            // zostac odebrane PRZEZ NIKOGO, ani sciezka sekretu ani sciezka
+            // zwrotu po terminie. Calkowita, trwala strata. Ten sam regex co
+            // wszedzie indziej dzisiaj.
+            if (
+                !ADDRESS_FORMAT.test(
+                    tx.claimant
+                )
+            ) {
+
+                return res.status(400).json({
+                    error:
+                        "Nieprawidlowy format adresu claimant"
+                });
+            }
+
+            if (
+                !ADDRESS_FORMAT.test(
+                    tx.refundee
+                )
+            ) {
+
+                return res.status(400).json({
+                    error:
+                        "Nieprawidlowy format adresu refundee"
+                });
+            }
+
             if (
                 !verifyHtlcCreateSignature(
                     tx
