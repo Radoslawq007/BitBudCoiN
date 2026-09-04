@@ -1069,7 +1069,13 @@ const translations = {
         swap_err_lock_build_failed: "Nie udało się zbudować blokady HTLC.",
 
         miner_threads_label: "Liczba wątków (więcej = szybciej, ale więcej baterii/ciepła)",
-        reqoffer_seller_label: "Adres BbC sprzedającego (od kogo kupujesz)"
+        reqoffer_seller_label: "Adres BbC sprzedającego (od kogo kupujesz)",
+
+        /* HTLC - status po create/claim/refund (dzisiaj: byly na sztywno po polsku, pomijaly caly system tlumaczen) */
+        htlc_wallet_not_loaded: "Portfel nie jest wczytany na tej stronie — wróć do \"Mam już portfel\" i zaloguj się ponownie.",
+        htlc_create_success: "Utworzono, czeka na wykopanie bloku.",
+        htlc_claim_success: "Zgłoszono odbiór, czeka na wykopanie bloku.",
+        htlc_refund_success: "Zgłoszono zwrot, czeka na wykopanie bloku."
     },
 
 
@@ -2297,7 +2303,13 @@ const translations = {
         swap_err_lock_build_failed: "Couldn't build the HTLC lock.",
 
         miner_threads_label: "Number of threads (more = faster, but more battery/heat)",
-        reqoffer_seller_label: "Seller's BbC address (who you're buying from)"
+        reqoffer_seller_label: "Seller's BbC address (who you're buying from)",
+
+        /* HTLC - status after create/claim/refund */
+        htlc_wallet_not_loaded: "Wallet isn't loaded on this page — go back to \"I already have a wallet\" and log in again.",
+        htlc_create_success: "Created — waiting to be mined into a block.",
+        htlc_claim_success: "Claim submitted — waiting to be mined into a block.",
+        htlc_refund_success: "Refund submitted — waiting to be mined into a block."
     }
 };
 
