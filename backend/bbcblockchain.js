@@ -875,6 +875,44 @@ class Blockchain {
         }
 
 
+        // NAPRAWA (dzisiaj, PILNA): fix w server.js (ADDRESS_FORMAT na
+        // /pool/work, /pool/submit, /solo/work, /solo/heartbeat) chronil
+        // tylko ZAPYTANIE o prace - miner mial dostac szablon z juz
+        // poprawnym adresem, ale receiveBlock() TUTAJ, ktora faktycznie
+        // przyjmuje gotowy blok (i z API, i z P2P od innych wezlow), w
+        // ogole nie sprawdzala co naprawde ladowalo sie do coinbase przy
+        // submicie. Nic nie stalo na przeszkodzie, zeby zly klient (albo
+        // zepsuty miner-client) wyslal dowolny tekst jako odbiorce
+        // nagrody - dokladnie ten scenariusz ("smieci na stale w
+        // coinbase w prawdziwym bloku"), tylko o warstwe glebiej.
+        for (
+            const tx of
+            candidate.transactions
+        ) {
+
+            if (
+                tx.type ===
+                "coinbase"
+            ) {
+
+                if (
+                    typeof tx.to !==
+                        "string" ||
+                    !/^BbC[0-9a-fA-F]{40}$/.test(
+                        tx.to
+                    )
+                ) {
+
+                    return {
+                        accepted: false,
+                        reason:
+                            "nieprawidlowy format adresu w coinbase"
+                    };
+                }
+            }
+        }
+
+
         // NAPRAWA (dzisiaj, PILNA): poprawka z 2026-08-28 (porownanie z
         // zywym this.difficulty) zamienila jeden problem na drugi. this.difficulty
         // liczy sie na Date.now() W MOMENCIE ODCZYTU - miedzy /pool/work
