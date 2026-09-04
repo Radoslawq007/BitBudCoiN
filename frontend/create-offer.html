@@ -80,7 +80,8 @@ document.getElementById("createBtn").addEventListener("click", async () => {
         document.getElementById("resultCard").scrollIntoView({ behavior: "smooth" });
         resultEl.textContent = "";
     } catch (err) {
-        resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${err.message}</span>`;
+        resultEl.textContent = "❌ " + err.message;
+        resultEl.style.color = "var(--danger)";
     } finally {
         btn.disabled = false;
     }
