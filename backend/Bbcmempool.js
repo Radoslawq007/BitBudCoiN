@@ -35,8 +35,20 @@ class Mempool {
     }
 
     addTransaction(tx) {
-        if (!tx || typeof tx.amount !== "number" || !(tx.amount > 0)) {
+        if (!tx || typeof tx.amount !== "number" || !Number.isFinite(tx.amount) || !(tx.amount > 0)) {
             return { accepted: false, reason: "Nieprawidłowa kwota" };
+        }
+        // NAPRAWA (dzisiaj, PILNA): "typeof tx.fee === 'number' ? tx.fee : 0"
+        // NIE lapalo NaN - typeof NaN === "number" jest true w JS, wiec NaN
+        // przechodzilo NIEZMIENIONE. Skutek: "fee < CONFIG.MIN_FEE" i
+        // "available < tx.amount + fee" sa OBIE zawsze false gdy fee=NaN
+        // (kazde porownanie z NaN jest false) - prog minimalnej oplaty I
+        // sprawdzenie salda omijane naraz, jednym polem. Transakcja bez
+        // pokrycia mogla zostac przyjeta. Number.isFinite lapie to jawnie,
+        // zamiast polegac na tym, ze akurat pozniejsze porownania tak sie
+        // zlozy ze zlapia skutek uboczny.
+        if (tx.fee !== undefined && (typeof tx.fee !== "number" || !Number.isFinite(tx.fee))) {
+            return { accepted: false, reason: "Nieprawidłowa opłata" };
         }
         const fee = typeof tx.fee === "number" ? tx.fee : 0;
         if (fee < CONFIG.MIN_FEE) {
