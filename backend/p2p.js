@@ -689,6 +689,28 @@ class P2PNode {
         }
 
         if (!buf) {
+            // NAPRAWA (dzisiaj, PILNA): CHAIN_SYNC_TIMEOUT_MS istniala od
+            // dawna, buf.timer byl czyszczony w _clearChainSync - ale
+            // NIGDZIE nie byl ustawiany. Peer ktory wyslal czesc paczek i
+            // po prostu przestal (bez zamkniecia socketu) zostawial ten
+            // bufor w pamieci NA ZAWSZE - jedyne sprzatanie to bylo
+            // rozlaczenie socketu. Na 1GB RAM, dlugo dzialajacym wezle,
+            // to dokladnie kategoria powolnego wycieku ktora juz raz
+            // spowodowala OOM (patrz MEMTREND).
+            const timer = setTimeout(() => {
+                console.warn(
+                    "Timeout synchronizacji lancucha od " +
+                    remoteAddr +
+                    " - porzucam niekompletny bufor"
+                );
+
+                this._clearChainSync(
+                    remoteAddr
+                );
+            }, CHAIN_SYNC_TIMEOUT_MS);
+
+            timer.unref();
+
             buf = {
                 totalChunks,
 
@@ -700,7 +722,9 @@ class P2PNode {
                 startedAt:
                     Date.now(),
 
-                totalBlocks: 0
+                totalBlocks: 0,
+
+                timer
             };
 
             this.chainSyncBuffers.set(
@@ -747,6 +771,17 @@ class P2PNode {
                     chunk !== null
             )
         ) {
+            // Czyscimy timer PRZED usunieciem - bez tego, martwy timer
+            // wciaz odpali sie za CHAIN_SYNC_TIMEOUT_MS i skasuje
+            // (przez _clearChainSync) cokolwiek ten sam peer zdazy
+            // zaczac w miedzyczasie, nawet zupelnie nowy, prawidlowo
+            // postepujacy sync.
+            if (buf.timer) {
+                clearTimeout(
+                    buf.timer
+                );
+            }
+
             this.chainSyncBuffers.delete(
                 remoteAddr
             );
