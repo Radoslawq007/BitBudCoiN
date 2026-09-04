@@ -913,6 +913,49 @@ class Blockchain {
                 continue;
             }
 
+            if (
+                tx.type ===
+                "HTLC_CREATE"
+            ) {
+
+                // NAPRAWA (dzisiaj, PILNA): ten sam problem co tx.to i
+                // coinbase, jeszcze jedna warstwa - jesli claimant albo
+                // refundee sa smieciem, zablokowane srodki nie do odebrania
+                // PRZEZ NIKOGO, ani sekretem ani zwrotem po terminie. Fix w
+                // server.js (/htlc/submit) chroni API, to tu chroni P2P.
+                if (
+                    typeof tx.claimant !==
+                        "string" ||
+                    !/^BbC[0-9a-fA-F]{40}$/.test(
+                        tx.claimant
+                    )
+                ) {
+
+                    return {
+                        accepted: false,
+                        reason:
+                            "nieprawidlowy format adresu claimant"
+                    };
+                }
+
+                if (
+                    typeof tx.refundee !==
+                        "string" ||
+                    !/^BbC[0-9a-fA-F]{40}$/.test(
+                        tx.refundee
+                    )
+                ) {
+
+                    return {
+                        accepted: false,
+                        reason:
+                            "nieprawidlowy format adresu refundee"
+                    };
+                }
+
+                continue;
+            }
+
             // NAPRAWA (dzisiaj, PILNA): ten sam problem, jedna warstwa
             // niezej - zwykle przelewy (bez tx.type, odrozniajace je od
             // coinbase/HTLC_*/genesis) tez nie mialy zadnej walidacji
