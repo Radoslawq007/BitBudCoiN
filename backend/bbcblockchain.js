@@ -875,24 +875,104 @@ class Blockchain {
         }
 
 
-        // NAPRAWA (2026-08-28): PRZED - galaz vMax liczyla oczekiwana
-        // trudnosc OSOBNO, wywolujac _calculateAsertDifficulty(latest) -
-        // czyli ta sama, zamrozona-w-czasie kalkulacja co powodowala caly
-        // problem (patrz komentarz przy getterze this.difficulty wyzej).
-        // TERAZ - jedno zrodlo prawdy dla obu galezi (legacy i vMax):
-        // zywy getter this.difficulty. Prostsze, i gwarantuje ze
-        // walidacja bloku zawsze porownuje z tym samym celem, ktory
-        // faktycznie dostal gornik przez /pool/work czy /solo/work.
+        // NAPRAWA (dzisiaj, PILNA): poprawka z 2026-08-28 (porownanie z
+        // zywym this.difficulty) zamienila jeden problem na drugi. this.difficulty
+        // liczy sie na Date.now() W MOMENCIE ODCZYTU - miedzy /pool/work
+        // (ktore TEZ czyta je na zywo, w chwili wydania pracy) a odeslaniem
+        // znalezionego bloku mija realny czas liczenia hashy, a ASERT jest
+        // ciagly w czasie. "Teraz" przy walidacji to juz INNA wartosc niz
+        // "teraz" przy wydaniu pracy. Na produkcji: kilkanascie kolejnych
+        // odrzucen na tej samej wysokosci, za kazdym razem z inna
+        // "oczekiwana" trudnoscia, malejaca w miare uplywu czasu (dokladnie
+        // to co przewiduje ten mechanizm gdy blok nie ląduje).
+        //
+        // Naprawa: licz oczekiwana trudnosc dla WLASNEGO znacznika czasu
+        // kandydata (candidate.timestamp) - tego samego pola, ktore
+        // dostal w tresci pracy i ktorego nie mogl zmienic bez zepsucia
+        // hasha (juz zweryfikowanego wyzej). To NIE jest powrot do
+        // zamrozonej trudnosci sprzed 2026-08-28 - kazde wywolanie nadal
+        // liczy swiezo, tylko dla WLASCIWEGO momentu w czasie zamiast
+        // ciagle przesuwajacego sie "teraz". Dla legacy (nie-vMax) bez
+        // zmian - this.difficulty tam to zwykle pole, nie zywy zegar.
+        //
+        // Domkniete jednoczesnie: candidate.timestamp nie mial ZADNEGO
+        // ograniczenia sensownosci nigdzie w tej funkcji. Bez gornej
+        // granicy w przyszlosc powyzsza zmiana otwiera realny wektor -
+        // gornik moglby zadeklarowac dowolnie odlegly czas w przyszlosci,
+        // zeby ASERT "zobaczyl" wiecej uplynionego czasu i policzyl
+        // sztucznie nizsza trudnosc. Dwa warunki ponizej to zamykaja -
+        // analogiczne do standardowego "max N w przyszlosc" z innych
+        // lancuchow PoW. Dolna granica: musi byc pozniejszy niz poprzedni
+        // blok (monotonicznosc) - bez gornego ograniczenia "jak bardzo w
+        // przeszlosc", bo przeliczenie ASERT dla dowolnego momentu w
+        // przeszlosci jest samo-spojne niezaleznie od tego jak stare.
+
+        if (
+            candidate.timestamp <=
+            latest.timestamp
+        ) {
+
+            return {
+                accepted: false,
+                reason:
+                    "znacznik czasu bloku nie jest pozniejszy niz poprzedni blok"
+            };
+        }
+
+        const MAX_FUTURE_DRIFT_MS =
+            10000;
+
+        if (
+            candidate.timestamp >
+            Date.now() +
+                MAX_FUTURE_DRIFT_MS
+        ) {
+
+            return {
+                accepted: false,
+                reason:
+                    "znacznik czasu bloku jest zbyt daleko w przyszlosci"
+            };
+        }
+
+        let expectedDifficulty;
+
+        try {
+
+            expectedDifficulty =
+                isAsertActive(
+                    candidate.height
+                )
+                    ? this._calculateAsertDifficulty({
+
+                          height:
+                              latest.height,
+
+                          timestamp:
+                              candidate.timestamp
+                      })
+                    : this.difficulty;
+
+        } catch (err) {
+
+            return {
+                accepted: false,
+                reason:
+                    "nie udalo sie policzyc oczekiwanej trudnosci: " +
+                    err.message
+            };
+        }
+
         if (
             candidate.difficulty !==
-            this.difficulty
+            expectedDifficulty
         ) {
 
             return {
                 accepted: false,
                 reason:
                     `nieprawidlowa trudnosc ` +
-                    `(oczekiwano ${this.difficulty}, ` +
+                    `(oczekiwano ${expectedDifficulty} dla czasu bloku, ` +
                     `otrzymano ${candidate.difficulty})`
             };
         }
