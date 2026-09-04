@@ -64,7 +64,26 @@ class MiningPool {
                 paidNow = shareValue;
             }
         }
-        const blockTargetHex = difficultyToTargetHex(this.blockchain.difficulty);
+        // NAPRAWA (dzisiaj, PILNA): byla tu ta sama choroba co w
+        // receiveBlock() - "czy to juz pelny blok" sprawdzalo sie wzgledem
+        // ZYWEJ this.blockchain.difficulty (Date.now() w chwili TEGO checku),
+        // a nie wzgledem candidate.difficulty (to co gornik faktycznie
+        // dostal i wobec czego liczyl hashe). Skutek: ta brama i
+        // receiveBlock() PONIZEJ oceniali "czy to blok" wzgledem DWOCH
+        // ROZNYCH celow - obiekt ktory przeszedl TUTAJ (bo zywy, spelzly cel
+        // byl akurat bardziej permisywny) mogl i tak wywalic sie
+        // WEWNATRZ receiveBlock(), na jego wlasnym, poprawnie juz
+        // naprawionym checku PoW-wzgledem-candidate.difficulty. Log:
+        // "BLOK ODRZUCONY ... nie spelnia trudnosci" mimo ze receiveBlock()
+        // nie mial juz problemu z samym numerem trudnosci (naprawione
+        // wczesniej) - to byla TA brama, nie on.
+        //
+        // Naprawa: ten sam punkt odniesienia co receiveBlock() faktycznie
+        // sprawdza - candidate.difficulty, nie zywy zegar.
+        const blockTargetHex =
+            difficultyToTargetHex(
+                candidate.difficulty
+            );
         if (candidate.hash > blockTargetHex) return { accepted: true, share: true, blockFound: false, paidNow };
         const result = this.blockchain.receiveBlock(candidate);
         if (!result.accepted) console.error("BLOK ODRZUCONY przy wysokosci " + candidate.height + ": " + result.reason);
