@@ -100,6 +100,7 @@
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
 <script src="assets/btc-bridge.js"></script>
+<script src="assets/capsule-crypto.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="assets/i18n.js"></script>
 <script>
@@ -176,10 +177,21 @@ document.getElementById("step1NextBtn").addEventListener("click", async () => {
 
 let unsavedKey = false; // czy wygenerowany klucz nie zostal jeszcze potwierdzony jako zapisany
 
-function saveKeyToLocalStorage(offerId, privHex, pubKeyHash, secretHex, timeoutHeight) {
+// NAPRAWA (dzisiaj, PILNA): przechowywalo privHex i secretHex JAWNYM
+// TEKSTEM w localStorage - klucz chroni PRAWDZIWE BTC wysyłane w trakcie
+// tego konkretnego swapu, nie jakas kopie zapasowa "na wszelki wypadek".
+// Kazdy XSS na tej domenie = kradziez srodkow w locie. Ten sam mechanizm
+// co w wallet.html (AES-256-GCM, capsule-crypto.js). Haslo opcjonalne -
+// pusty backup jest pomijany, uzytkownik polega wtedy na pobranym pliku.
+async function saveKeyToLocalStorage(offerId, privHex, pubKeyHash, secretHex, timeoutHeight, password) {
+    if (!password) return;
     try {
+        const encrypted = await encryptCapsuleMessage(
+            JSON.stringify({ privateKeyHex: privHex, pubKeyHash, secretHex, timeoutHeight }),
+            password
+        );
         localStorage.setItem("btc_key_backup_swap_" + offerId, JSON.stringify({
-            offerId, privateKeyHex: privHex, pubKeyHash, secretHex, timeoutHeight, savedAt: Date.now()
+            offerId, encryptedPayload: encrypted, savedAt: Date.now()
         }));
     } catch (err) { /* localStorage niedostępny - reszta zabezpieczeń nadal działa */ }
 }
@@ -224,15 +236,53 @@ window.addEventListener("beforeunload", (e) => {
     }
 });
 
-function loadKeyFromLocalStorage(offerId) {
+async function loadKeyFromLocalStorage(offerId, password) {
     try {
         const raw = localStorage.getItem("btc_key_backup_swap_" + offerId);
-        return raw ? JSON.parse(raw) : null;
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed.encryptedPayload) return null;
+        const decryptedJson = await decryptCapsuleMessage(
+            parsed.encryptedPayload.ciphertext,
+            parsed.encryptedPayload.salt,
+            parsed.encryptedPayload.iv,
+            password
+        );
+        return JSON.parse(decryptedJson);
     } catch (err) { return null; }
 }
 
 async function setupBtcLock() {
-    const existing = loadKeyFromLocalStorage(offer.offerId);
+    const rawBackup = localStorage.getItem("btc_key_backup_swap_" + offer.offerId);
+    let existing = null;
+
+    if (rawBackup) {
+        let parsedBackup = null;
+        try { parsedBackup = JSON.parse(rawBackup); } catch (e) {}
+
+        if (parsedBackup && parsedBackup.privateKeyHex && !parsedBackup.encryptedPayload) {
+            // NAPRAWA (dzisiaj, PILNA): stary wpis sprzed poprawki szyfrowania -
+            // jawny klucz chroniacy prawdziwe BTC lezal w localStorage. Uzywamy
+            // go (to wciaz TA SAMA transakcja, adres juz mogl otrzymac wplate -
+            // nie wolno wygenerowac nowego), ale usuwamy jawna kopie od razu.
+            existing = parsedBackup;
+            localStorage.removeItem("btc_key_backup_swap_" + offer.offerId);
+            alert(t("swap_old_plaintext_found") || "Znaleziono starą, niezaszyfrowaną kopię tego klucza - usunięto ją z pamięci przeglądarki. Klucz nadal działa, widoczny poniżej.");
+        } else if (parsedBackup && parsedBackup.encryptedPayload) {
+            const pw = prompt(t("swap_backup_password_prompt") || "Ten adres ma zaszyfrowaną kopię lokalną - podaj hasło użyte przy zapisie (Anuluj = NIE generuj nowego, to zepsułoby już wysłaną wpłatę):");
+            if (pw) {
+                existing = await loadKeyFromLocalStorage(offer.offerId, pw);
+                if (!existing) {
+                    alert(t("swap_wrong_password_danger") || "Złe hasło. NIE generuję nowego klucza - mogłoby to zepsuć wpłatę, jeśli BTC już wysłano na poprzedni adres. Odśwież stronę i spróbuj ponownie z właściwym hasłem, albo skontaktuj się posiadając pobrany plik z kluczem.");
+                    showError(t("swap_wrong_password_danger") || "Złe hasło do zapisanego klucza.");
+                    return;
+                }
+            } else {
+                showError(t("swap_need_password_to_continue") || "Potrzebne hasło do zapisanej kopii klucza, żeby bezpiecznie kontynuować tę ofertę.");
+                return;
+            }
+        }
+    }
 
     if (existing && existing.secretHex && existing.timeoutHeight) {
         // DOKŁADNIE TE SAME wartości co przy pierwszym wejściu - inaczej
@@ -262,7 +312,10 @@ async function setupBtcLock() {
         }
         offer.timeoutHeight = tipHeight + Math.ceil(offer.timeoutHours * 6);
 
-        saveKeyToLocalStorage(offer.offerId, buyerPriv.toString(16).padStart(64, "0"), buyerPubKeyHash, secretHex, offer.timeoutHeight);
+        const savePw = prompt(t("swap_set_backup_password") || "Opcjonalnie: ustaw hasło, żeby zapisać zaszyfrowaną kopię tego klucza lokalnie na wypadek zamknięcia karty (Anuluj albo puste = pomiń, polegaj tylko na pobranym pliku):");
+        if (savePw) {
+            await saveKeyToLocalStorage(offer.offerId, buyerPriv.toString(16).padStart(64, "0"), buyerPubKeyHash, secretHex, offer.timeoutHeight, savePw);
+        }
     }
 
     document.getElementById("btcPrivKeyOut").textContent = buyerPriv.toString(16).padStart(64, "0");
