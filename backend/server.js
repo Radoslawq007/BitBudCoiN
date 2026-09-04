@@ -105,16 +105,6 @@ app.set(
 
 app.disable("x-powered-by");
 
-// DIAG-IP (tymczasowe, do usuniecia po potwierdzeniu) - loguje req.ip
-// przy kazdym /pool/work (odpytywane co kilka-kilkanascie sekund przez
-// aktywnych gornikow, wiec wynik pojawi sie szybko). Przed poprawka:
-// zawsze to samo, 127.0.0.1 albo ::1. Po poprawce: rozne, prawdziwe
-// adresy zewnetrzne dla roznych uzytkownikow.
-app.use("/pool/work", (req, res, next) => {
-    console.log("DIAG-IP " + req.ip);
-    next();
-});
-
 app.use(cors());
 
 app.use(
