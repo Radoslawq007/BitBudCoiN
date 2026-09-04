@@ -968,6 +968,21 @@ class Blockchain {
             expectedDifficulty
         ) {
 
+            console.error(
+                "DIAG-TRUDNOSC " +
+                JSON.stringify({
+                    candidateHeight: candidate.height,
+                    candidateTimestamp: candidate.timestamp,
+                    candidateDifficulty: candidate.difficulty,
+                    latestHeight: latest.height,
+                    latestTimestamp: latest.timestamp,
+                    expectedDifficulty: expectedDifficulty,
+                    nowAtValidation: Date.now(),
+                    gapCandidateVsLatestMs: candidate.timestamp - latest.timestamp,
+                    gapNowVsCandidateMs: Date.now() - candidate.timestamp
+                })
+            );
+
             return {
                 accepted: false,
                 reason:
