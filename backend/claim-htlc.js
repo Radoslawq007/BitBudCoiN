@@ -5,7 +5,24 @@
 // NIE WYSYŁA nic do sieci automatycznie - tylko buduje, podpisuje i pokazuje
 // gotową transakcję do sprawdzenia. Transmisja to osobny, świadomy krok.
 //
+// NAPRAWA (dzisiaj, PILNA - klucz prywatny znaleziony w publicznym repo):
+// wszystkie parametry (klucze, sekret, adresy, timeout) NIE są już wpisane
+// w kod. Ten plik jest w publicznym repo - żaden sekret nie może tu lądować,
+// niezależnie od tego czy dotyczy już-zakończonego swapu czy nie. Parametry
+// czytane są z lokalnego pliku claim-htlc-params.json (patrz PARAMS_PATH
+// niżej), który NIGDY nie jest commitowany - dopisz go do .gitignore:
+//   echo "backend/claim-htlc-params.json" >> .gitignore
+//
+// Przy pierwszym uruchomieniu bez tego pliku dostaniesz gotowy szablon do
+// wypełnienia (patrz niżej) zamiast krachu bez wyjaśnienia.
+//
+// Ten sam plik służy teraz do KAŻDEGO przyszłego claimu HTLC - wystarczy
+// podmienić zawartość claim-htlc-params.json, kod się nie zmienia.
+//
 // Uruchomienie: node claim-htlc.js
+
+const fs = require("fs");
+const path = require("path");
 
 const { compileHtlcScript, deriveP2WSHAddress } = require("./btc-htlc-compile");
 const { hash160 } = require("./btc-htlc-script");
@@ -14,16 +31,83 @@ const { G, scalarMult } = require("./secp256k1");
 const { serializeSegwitTransaction, computeTxid, computeWtxid } = require("./segwit-tx");
 const { SIGHASH_ALL } = require("./btc-sighash");
 
-// ==================== ZNANE WARTOŚCI (potwierdzone w tej rozmowie) ====================
-const SELLER_PRIV_HEX = "2cebd56dcde25ad7c14f519f68ea993668ae2b4b064027ee0ac6897cb173f77d";
-const SECRET_HEX = "f55c1f2a2324a26cd2d31ec9af87156404c7ad405ebdfb268e7c5a40defcc1e3";
-const HASH_LOCK = "9a84910cb4556bfc4f946937bf005a197f48ce79c98725624c151701f438df03";
-const TIMEOUT_HEIGHT_BTC = 3278;
-const EXPECTED_LOCK_ADDRESS = "bc1qgr2fz2d4n3l7p0hywy7w9ddjs9a9vxvdetxqanhcl2tgrtp2fv9q2h9c49";
-const DEST_ADDRESS = "bc1q2370ey6k5etlqf65zwuhngxl6y0t6lee9wt3vz";
+// ==================== PARAMETRY - z lokalnego, niecommitowanego pliku ====================
+const PARAMS_PATH = path.join(__dirname, "claim-htlc-params.json");
+
+const PARAMS_TEMPLATE = {
+    sellerPrivHex: "TWOJ_PRYWATNY_KLUCZ_HEX_64_ZNAKI",
+    buyerPrivHex: "KLUCZ_KUPUJACEGO_HEX_64_ZNAKI_tylko_do_wyprowadzenia_hasha",
+    secretHex: "PREIMAGE_HEX_ktory_odblokowuje_HASH_LOCK",
+    hashLock: "SHA256_PREIMAGE_HEX",
+    timeoutHeightBtc: 0,
+    expectedLockAddress: "bc1q...adres_zamka_ktory_ma_wyjsc_z_rekonstrukcji",
+    destAddress: "bc1q...gdzie_wyslac_odebrane_BTC"
+};
+
+function loadParams() {
+    if (!fs.existsSync(PARAMS_PATH)) {
+        fs.writeFileSync(PARAMS_PATH, JSON.stringify(PARAMS_TEMPLATE, null, 2));
+        console.error(
+            "Brak " + PARAMS_PATH + " - utworzyłem szablon pod tą ścieżką.\n" +
+            "Wypełnij prawdziwymi wartościami i uruchom ponownie.\n" +
+            "PRZED pierwszym uruchomieniem sprawdź, że ten plik jest w .gitignore:\n" +
+            "  echo \"backend/claim-htlc-params.json\" >> .gitignore"
+        );
+        process.exit(1);
+    }
+
+    let raw;
+    try {
+        raw = JSON.parse(fs.readFileSync(PARAMS_PATH, "utf8"));
+    } catch (err) {
+        console.error("Nie udało się sparsować " + PARAMS_PATH + " jako JSON: " + err.message);
+        process.exit(1);
+    }
+
+    const required = ["sellerPrivHex", "buyerPrivHex", "secretHex", "hashLock", "timeoutHeightBtc", "expectedLockAddress", "destAddress"];
+    const missing = required.filter((k) => raw[k] === undefined || raw[k] === null || raw[k] === "");
+    if (missing.length > 0) {
+        console.error("Brakuje pól w " + PARAMS_PATH + ": " + missing.join(", "));
+        process.exit(1);
+    }
+    if (!/^[0-9a-fA-F]{64}$/.test(raw.sellerPrivHex)) {
+        console.error("sellerPrivHex musi być dokładnie 64 znakami hex (32 bajty).");
+        process.exit(1);
+    }
+    if (!/^[0-9a-fA-F]{64}$/.test(raw.buyerPrivHex)) {
+        console.error("buyerPrivHex musi być dokładnie 64 znakami hex (32 bajty).");
+        process.exit(1);
+    }
+    if (!/^[0-9a-fA-F]{64}$/.test(raw.hashLock)) {
+        console.error("hashLock musi być dokładnie 64 znakami hex (wynik SHA256).");
+        process.exit(1);
+    }
+    if (typeof raw.timeoutHeightBtc !== "number" || !Number.isFinite(raw.timeoutHeightBtc)) {
+        console.error("timeoutHeightBtc musi być liczbą.");
+        process.exit(1);
+    }
+    if (typeof raw.expectedLockAddress !== "string" || !raw.expectedLockAddress.startsWith("bc1")) {
+        console.error("expectedLockAddress musi być adresem segwit zaczynającym się od 'bc1'.");
+        process.exit(1);
+    }
+    if (typeof raw.destAddress !== "string" || !raw.destAddress.startsWith("bc1")) {
+        console.error("destAddress musi być adresem segwit zaczynającym się od 'bc1'.");
+        process.exit(1);
+    }
+
+    return raw;
+}
+
+const PARAMS = loadParams();
+const SELLER_PRIV_HEX = PARAMS.sellerPrivHex;
+const SECRET_HEX = PARAMS.secretHex;
+const HASH_LOCK = PARAMS.hashLock;
+const TIMEOUT_HEIGHT_BTC = PARAMS.timeoutHeightBtc;
+const EXPECTED_LOCK_ADDRESS = PARAMS.expectedLockAddress;
+const DEST_ADDRESS = PARAMS.destAddress;
 // Klucz kupującego - TYLKO do zrekonstruowania skryptu (refundeePubKeyHash),
-// nigdy do podpisywania niczego. Publiczny w praktyce, bo tylko wyprowadza hash.
-const BUYER_PRIV_HEX = "8fbc4993fd186afcbee02a91cc65dde6ad2eb94460cbae8ac6c0f55b03375da9";
+// nigdy do podpisywania niczego.
+const BUYER_PRIV_HEX = PARAMS.buyerPrivHex;
 // =======================================================================
 
 function decodeBech32Address(addr) {
