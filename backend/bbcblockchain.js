@@ -1455,6 +1455,104 @@ class Blockchain {
                 };
             }
 
+            // NAPRAWA (dzisiaj, PILNA): receiveBlock() (pojedynczy blok,
+            // API + P2P NEW_BLOCK) ma juz ten check. replaceChain() (pelny
+            // resync od peera z dluzszym lancuchem) to CALKOWICIE OSOBNA
+            // funkcja, ktora nigdy go nie miala - zly/zepsuty peer mogl
+            // wepchnac smieciowe adresy (coinbase, zwykle przelewy,
+            // claimant/refundee) omijajac WSZYSTKO co dzisiaj naprawione,
+            // po prostu oferujac dluzszy lancuch. Ten sam check, dla
+            // kazdego bloku w calym kandydujacym lancuchu.
+            for (
+                const tx of
+                block.transactions
+            ) {
+
+                if (
+                    tx.type ===
+                    "coinbase"
+                ) {
+
+                    if (
+                        typeof tx.to !==
+                            "string" ||
+                        !/^BbC[0-9a-fA-F]{40}$/.test(
+                            tx.to
+                        )
+                    ) {
+
+                        return {
+                            accepted: false,
+                            reason:
+                                `blok #${i}: nieprawidlowy format adresu w coinbase`
+                        };
+                    }
+
+                    continue;
+                }
+
+                if (
+                    tx.type ===
+                    "HTLC_CREATE"
+                ) {
+
+                    if (
+                        typeof tx.claimant !==
+                            "string" ||
+                        !/^BbC[0-9a-fA-F]{40}$/.test(
+                            tx.claimant
+                        )
+                    ) {
+
+                        return {
+                            accepted: false,
+                            reason:
+                                `blok #${i}: nieprawidlowy format adresu claimant`
+                        };
+                    }
+
+                    if (
+                        typeof tx.refundee !==
+                            "string" ||
+                        !/^BbC[0-9a-fA-F]{40}$/.test(
+                            tx.refundee
+                        )
+                    ) {
+
+                        return {
+                            accepted: false,
+                            reason:
+                                `blok #${i}: nieprawidlowy format adresu refundee`
+                        };
+                    }
+
+                    continue;
+                }
+
+                if (
+                    tx.type ===
+                        undefined &&
+                    tx.to !==
+                        undefined
+                ) {
+
+                    if (
+                        typeof tx.to !==
+                            "string" ||
+                        !/^BbC[0-9a-fA-F]{40}$/.test(
+                            tx.to
+                        )
+                    ) {
+
+                        return {
+                            accepted: false,
+                            reason:
+                                `blok #${i}: nieprawidlowy format adresu odbiorcy`
+                        };
+                    }
+                }
+            }
+
             if (
                 i > 0 &&
                 block.hash >
