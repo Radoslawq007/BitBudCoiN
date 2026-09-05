@@ -45,16 +45,25 @@ const DELAY_BETWEEN_SENDS_MS = 1200;
 
 async function main() {
     const storage = new Storage(CONFIG.DATABASE);
-    const unpaid = storage.getUnpaidCreditsSummary(5000, PATHOLOGICAL_HEIGHT_THRESHOLD);
+    const unpaid = storage.getUnpaidCreditsSummary(PATHOLOGICAL_HEIGHT_THRESHOLD);
     if (unpaid.length === 0) { console.log("Brak niewypłaconych należności (w bezpiecznym zakresie kwot)."); storage.close(); return; }
     const pendingMempool = storage.loadMempool();
     const addressesWithPendingPayout = new Set(
         pendingMempool.filter((tx) => tx.from === poolAddress).map((tx) => tx.to)
     );
-    for (const { minerAddress, total, creditIds } of unpaid) {
+
+    // NAPRAWA (dzisiaj, PILNA): bylo "wszystko albo nic" w kolejnosci samych
+    // id kredytow (praktycznie przypadkowej) - jesli puli nie stac bylo na
+    // NAJWIEKSZY dlug, KAZDY inny adres tez czekal w nieskonczonosc, nawet
+    // te ktore pula mogla juz splacic w calosci. Od najmniejszego dlugu:
+    // kazdy adres ktory faktycznie da sie splacic w calosci, znika z listy
+    // najszybciej jak to mozliwe, zamiast czekac na najbogatszego.
+    unpaid.sort((a, b) => a.total - b.total);
+
+    for (const { minerAddress, total, count } of unpaid) {
         if (minerAddress === poolAddress) continue;
         if (!ADDRESS_FORMAT.test(minerAddress)) {
-            console.warn(`⚠️  Pomijam nieprawidłowy format adresu (nie wypłacam, nie usuwam z bazy): "${minerAddress.slice(0, 60)}${minerAddress.length > 60 ? "..." : ""}" (zaległe: ${total.toFixed(4)} BbC, ${creditIds.length} wpisów)`);
+            console.warn(`⚠️  Pomijam nieprawidłowy format adresu (nie wypłacam, nie usuwam z bazy): "${minerAddress.slice(0, 60)}${minerAddress.length > 60 ? "..." : ""}" (zaległe: ${total.toFixed(4)} BbC, ${count} wpisów)`);
             continue;
         }
         if (total < minPayout) continue;
@@ -68,8 +77,22 @@ async function main() {
         try {
             const res = await fetch(`${serverUrl}/transactions/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(candidate) });
             const result = await res.json();
-            if (result.accepted) { storage.markCreditsPaid(creditIds); console.log(`✅   Wypłacono ${total.toFixed(4)} BbC dla ${minerAddress}`); }
-            else console.warn(`⚠️  Odrzucono (${minerAddress}, próba: ${total.toFixed(4)} BbC): ${result.reason ?? result.error ?? JSON.stringify(result)}`);
+            if (result.accepted) {
+                const creditIds = storage.getUnpaidCreditIdsForAddress(minerAddress, PATHOLOGICAL_HEIGHT_THRESHOLD);
+                storage.markCreditsPaid(creditIds);
+                console.log(`✅   Wypłacono ${total.toFixed(4)} BbC dla ${minerAddress}`);
+            } else {
+                const reason = result.reason ?? result.error ?? JSON.stringify(result);
+                console.warn(`⚠️  Odrzucono (${minerAddress}, próba: ${total.toFixed(4)} BbC): ${reason}`);
+                if (typeof reason === "string" && reason.includes("Niewystarczające saldo")) {
+                    // Posortowane rosnaco - kazdy kolejny dlug jest rowny lub
+                    // wiekszy, wiec tez by nie przeszedl. Bez sensu probowac
+                    // dalej w tym cyklu ani zapychac logow powtorka tego
+                    // samego dla wiekszych kwot.
+                    console.log("💤   Reszta na tej liscie jest rowna lub wieksza - konczę ten cykl, sprobuje ponownie za 30s.");
+                    break;
+                }
+            }
         } catch (err) { console.error(`❌   ${err.message}`); }
         await sleep(DELAY_BETWEEN_SENDS_MS);
     }
