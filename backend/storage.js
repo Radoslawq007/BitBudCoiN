@@ -366,12 +366,22 @@ class Storage {
         `).all();
     }
 
-    getUnpaidCreditsSummary(
-        maxRows = 5000,
-        pathologicalHeightThreshold = 1000
-    ) {
-        const rows = this.db.prepare(`
-            SELECT * FROM pool_credits
+    // NAPRAWA (dzisiaj, PILNA): poprzednia wersja robila "SELECT * ... LIMIT
+    // maxRows" (5000) na WIERSZACH, potem sumowala w JS - przy >5000
+    // niezaplaconych wierszy LACZNIE (dla WSZYSTKICH adresow razem, nie per
+    // adres) dawalo to NIEPELNA, MYLACA sume dla adresow ktorych wpisy nie
+    // zmiescily sie w tym oknie (uporzadkowanym po najstarszym id). payout.js
+    // probowal wyplacic kwote MNIEJSZA niz faktycznie nalezna, i nikt by
+    // tego nie zauwazyl bez recznego sprawdzenia. SQL GROUP BY agreguje
+    // WSZYSTKIE pasujace wiersze wewnatrz silnika bazy, bez wczytywania ich
+    // do JS - nie potrzebuje limitu wierszy zeby byc szybkim.
+    getUnpaidCreditsSummary(pathologicalHeightThreshold = 1000) {
+        return this.db.prepare(`
+            SELECT
+                minerAddress,
+                COUNT(*) as count,
+                SUM(amount) as total
+            FROM pool_credits
             WHERE paid = 0
             AND blockHeight NOT IN (
                 SELECT blockHeight
@@ -380,29 +390,24 @@ class Storage {
                 GROUP BY blockHeight
                 HAVING COUNT(*) > ?
             )
-            ORDER BY id ASC
-            LIMIT ?
-        `).all(
-            pathologicalHeightThreshold,
-            maxRows
-        );
+            GROUP BY minerAddress
+        `).all(pathologicalHeightThreshold);
+    }
 
-        const byAddress = new Map();
-
-        for (const row of rows) {
-            const entry = byAddress.get(row.minerAddress) || {
-                minerAddress: row.minerAddress,
-                total: 0,
-                creditIds: []
-            };
-
-            entry.total += row.amount;
-            entry.creditIds.push(row.id);
-
-            byAddress.set(row.minerAddress, entry);
-        }
-
-        return Array.from(byAddress.values());
+    // Wywolywane TYLKO w momencie faktycznej wyplaty jednego, konkretnego
+    // adresu - zakres ograniczony do TEGO adresu, nie do calej puli.
+    getUnpaidCreditIdsForAddress(minerAddress, pathologicalHeightThreshold = 1000) {
+        return this.db.prepare(`
+            SELECT id FROM pool_credits
+            WHERE paid = 0 AND minerAddress = ?
+            AND blockHeight NOT IN (
+                SELECT blockHeight
+                FROM pool_credits
+                WHERE paid = 0
+                GROUP BY blockHeight
+                HAVING COUNT(*) > ?
+            )
+        `).all(minerAddress, pathologicalHeightThreshold).map((row) => row.id);
     }
 
     markCreditsPaid(creditIds) {
