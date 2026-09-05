@@ -416,6 +416,200 @@ class Blockchain {
     }
 
 
+    // NAPRAWA (dzisiaj, PILNA): domyka to samo, co kwota coinbase - "fee"
+    // i "protocol_fee" MAJA "from: null", dokladnie jak coinbase (wartosc
+    // tworzona z niczego, nie transfer z istniejacego salda). Bez tego
+    // sprawdzenia, blok mogl zadeklarowac dowolna kwote "fee"/"protocol_fee"
+    // rownie latwo jak dowolna kwote coinbase - ta sama kategoria dziury,
+    // po prostu jeszcze nie zamknieta przy pierwszym przejsciu.
+    //
+    // Przy okazji: odkryte tutaj, ze check "zwykly przelew" (gdzie indziej
+    // w receiveBlock/replaceChain) lapal TYLKO tx.type === undefined - ale
+    // buildBlockTransactions() (kod ktory FAKTYCZNIE sklada blok) nadaje
+    // zwyklym przelewom type: "transfer" explicite. Transakcja w JUZ
+    // ZBUDOWANYM bloku (czyli dokladnie to, co receiveBlock/replaceChain
+    // widza) ma wiec type "transfer", nie undefined - ktos swiadomie
+    // ustawiajacy ten sam type na zlosliwym bloku omijal ten check
+    // calkowicie. shouldCountTowardFees() nizej rozumie oba ksztalty.
+    _shouldCountTowardFees(tx) {
+
+        return (
+            tx.type ===
+                "HTLC_CREATE" ||
+            tx.type ===
+                "transfer" ||
+            (
+                tx.type ===
+                    undefined &&
+                tx.to !==
+                    undefined
+            )
+        );
+    }
+
+    // Zwraca { valid: true } albo { valid: false, reason }. Uzywana z
+    // receiveBlock() i replaceChain() - jedna, dokladna wersja logiki
+    // podzialu oplat zamiast dwoch kopii ktore moglyby sie rozjechac.
+    _validateFeeTransactions(transactions, height) {
+
+        const feeActive =
+            isProjectFeeActive(
+                height
+            );
+
+        let expectedMinerFees = 0;
+        let expectedProtocolCut = 0;
+
+        for (
+            const tx of
+            transactions
+        ) {
+
+            if (
+                !this._shouldCountTowardFees(
+                    tx
+                )
+            ) {
+                continue;
+            }
+
+            expectedMinerFees +=
+                tx.fee ||
+                0;
+
+            if (feeActive) {
+
+                expectedProtocolCut +=
+                    tx.amount *
+                    PROJECT_FEE_PERCENT;
+            }
+        }
+
+        const EPSILON = 1e-9;
+
+        const feeTxs =
+            transactions.filter(
+                (tx) =>
+                    tx.type ===
+                    "fee"
+            );
+
+        const protocolFeeTxs =
+            transactions.filter(
+                (tx) =>
+                    tx.type ===
+                    "protocol_fee"
+            );
+
+        if (
+            expectedMinerFees > 0 &&
+            CONFIG.PROJECT_FEE_ADDRESS
+        ) {
+
+            if (
+                feeTxs.length !==
+                1
+            ) {
+
+                return {
+                    valid: false,
+                    reason:
+                        `oczekiwano dokladnie 1 transakcji "fee" (${expectedMinerFees}), znaleziono ${feeTxs.length}`
+                };
+            }
+
+            if (
+                feeTxs[0].to !==
+                CONFIG.PROJECT_FEE_ADDRESS
+            ) {
+
+                return {
+                    valid: false,
+                    reason:
+                        "zly odbiorca transakcji \"fee\""
+                };
+            }
+
+            if (
+                Math.abs(
+                    feeTxs[0].amount -
+                    expectedMinerFees
+                ) > EPSILON
+            ) {
+
+                return {
+                    valid: false,
+                    reason:
+                        `nieprawidlowa kwota "fee" (oczekiwano ${expectedMinerFees}, otrzymano ${feeTxs[0].amount})`
+                };
+            }
+
+        } else if (
+            feeTxs.length > 0
+        ) {
+
+            return {
+                valid: false,
+                reason:
+                    `nieoczekiwana transakcja "fee" - nie powinno jej byc w tym bloku`
+            };
+        }
+
+        if (expectedProtocolCut > 0) {
+
+            if (
+                protocolFeeTxs.length !==
+                1
+            ) {
+
+                return {
+                    valid: false,
+                    reason:
+                        `oczekiwano dokladnie 1 transakcji "protocol_fee" (${expectedProtocolCut}), znaleziono ${protocolFeeTxs.length}`
+                };
+            }
+
+            if (
+                protocolFeeTxs[0].to !==
+                CONFIG.PROJECT_FEE_ADDRESS
+            ) {
+
+                return {
+                    valid: false,
+                    reason:
+                        "zly odbiorca transakcji \"protocol_fee\""
+                };
+            }
+
+            if (
+                Math.abs(
+                    protocolFeeTxs[0].amount -
+                    expectedProtocolCut
+                ) > EPSILON
+            ) {
+
+                return {
+                    valid: false,
+                    reason:
+                        `nieprawidlowa kwota "protocol_fee" (oczekiwano ${expectedProtocolCut}, otrzymano ${protocolFeeTxs[0].amount})`
+                };
+            }
+
+        } else if (
+            protocolFeeTxs.length > 0
+        ) {
+
+            return {
+                valid: false,
+                reason:
+                    `nieoczekiwana transakcja "protocol_fee" - nie powinno jej byc w tym bloku`
+            };
+        }
+
+        return { valid: true };
+    }
+
+
     _getAsertAnchor() {
 
         if (
@@ -991,8 +1185,12 @@ class Blockchain {
             // omija mempool tego wezla calkowicie - receiveBlock() musi
             // sam to sprawdzic, niezaleznie od zrodla.
             if (
-                tx.type ===
-                    undefined &&
+                (
+                    tx.type ===
+                        undefined ||
+                    tx.type ===
+                        "transfer"
+                ) &&
                 tx.to !==
                     undefined
             ) {
@@ -1012,6 +1210,21 @@ class Blockchain {
                     };
                 }
             }
+        }
+
+        const feeCheck =
+            this._validateFeeTransactions(
+                candidate.transactions,
+                candidate.height
+            );
+
+        if (!feeCheck.valid) {
+
+            return {
+                accepted: false,
+                reason:
+                    feeCheck.reason
+            };
         }
 
 
@@ -1574,8 +1787,12 @@ class Blockchain {
                 }
 
                 if (
-                    tx.type ===
-                        undefined &&
+                    (
+                        tx.type ===
+                            undefined ||
+                        tx.type ===
+                            "transfer"
+                    ) &&
                     tx.to !==
                         undefined
                 ) {
@@ -1595,6 +1812,21 @@ class Blockchain {
                         };
                     }
                 }
+            }
+
+            const feeCheck =
+                this._validateFeeTransactions(
+                    block.transactions,
+                    block.height
+                );
+
+            if (!feeCheck.valid) {
+
+                return {
+                    accepted: false,
+                    reason:
+                        `blok #${i}: ${feeCheck.reason}`
+                };
             }
 
             if (
