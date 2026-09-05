@@ -180,6 +180,15 @@ class Storage {
         ).get().n > 0;
     }
 
+    // Lekkie, celowo bez difficulty/hash/transactions - tylko wysokosci
+    // nowszych blokow (indeks na PRIMARY KEY), do naliczania budzetu
+    // splaty dlugu legacy (opcja B) bez ladowania calego lancucha co cykl.
+    getBlockHeightsSince(afterHeight) {
+        return this.db.prepare(
+            "SELECT height FROM blocks WHERE height > ? ORDER BY height ASC"
+        ).all(afterHeight).map((r) => r.height);
+    }
+
     saveBlock(block) {
         this.db.exec("BEGIN");
 
@@ -391,43 +400,93 @@ class Storage {
         };
     }
 
-    getUnpaidCreditsSummary(
-        maxRows = 5000,
-        pathologicalHeightThreshold = 1000
-    ) {
+    // NAPRAWA (dzisiaj, audyt długu wypłat): stara wersja miała LIMIT 5000 na
+    // surowych wierszach PRZED agregacją per-adres, i filtr wykluczający
+    // wysokości bloku z >1000 kredytami jako rzekomą "korupcję VARDIFF".
+    // Sprawdzone na żywych danych: 49010 niezapłaconych wierszy (>5000 -
+    // limit realnie obcinał), a filtr wycinał m.in. blok 100881 (prawdziwy
+    // 9-godzinny stój, nie korupcja) i 101508/101710 (prawdziwa praca przy
+    // wysokim VARDIFF, matematycznie ograniczona sufitem maxShareValue -
+    // zero wierszy w całej tabeli go przekracza, sprawdzone). Stara
+    // korupcja (256x nad sufitem) jest w osobnej tabeli
+    // pool_credits_corrupted_archive, nie tutaj - ten filtr nie chronił
+    // przed niczym co realnie istnieje, tylko fałszywie wycinał prawdziwy
+    // dług. Czysty SQL GROUP BY, bez limitu i bez filtra.
+    getUnpaidCreditsSummary() {
         const rows = this.db.prepare(`
-            SELECT * FROM pool_credits
+            SELECT minerAddress, SUM(amount) as total, COUNT(*) as count
+            FROM pool_credits
             WHERE paid = 0
-            AND blockHeight NOT IN (
-                SELECT blockHeight
-                FROM pool_credits
-                WHERE paid = 0
-                GROUP BY blockHeight
-                HAVING COUNT(*) > ?
-            )
+            GROUP BY minerAddress
+        `).all();
+
+        return rows.map((r) => ({
+            minerAddress: r.minerAddress,
+            total: r.total,
+            count: r.count
+        }));
+    }
+
+    getUnpaidCreditIdsForAddress(minerAddress) {
+        return this.db.prepare(`
+            SELECT id FROM pool_credits WHERE minerAddress = ? AND paid = 0
+        `).all(minerAddress).map((r) => r.id);
+    }
+
+    // NAPRAWA (dzisiaj, strategia długu wypłat, opcja B): dług sprzed
+    // wdrożenia (legacy, timestamp < cutoffMs) i dług od tego momentu
+    // (current) muszą być rozróżnialne per adres, żeby payout.js mógł
+    // spłacać current w całości jak dotychczas, a legacy stopniowo z
+    // osobnego budżetu.
+    getUnpaidCreditsSummarySplitByCutoff(cutoffMs) {
+        const rows = this.db.prepare(`
+            SELECT minerAddress,
+                COALESCE(SUM(CASE WHEN timestamp < ? THEN amount END), 0) as legacyTotal,
+                COALESCE(SUM(CASE WHEN timestamp < ? THEN 1 END), 0) as legacyCount,
+                COALESCE(SUM(CASE WHEN timestamp >= ? THEN amount END), 0) as currentTotal,
+                COALESCE(SUM(CASE WHEN timestamp >= ? THEN 1 END), 0) as currentCount
+            FROM pool_credits
+            WHERE paid = 0
+            GROUP BY minerAddress
+        `).all(cutoffMs, cutoffMs, cutoffMs, cutoffMs);
+
+        return rows.map((r) => ({
+            minerAddress: r.minerAddress,
+            legacyTotal: r.legacyTotal,
+            legacyCount: r.legacyCount,
+            currentTotal: r.currentTotal,
+            currentCount: r.currentCount
+        }));
+    }
+
+    getUnpaidCreditIdsForAddressSince(minerAddress, cutoffMs) {
+        return this.db.prepare(`
+            SELECT id FROM pool_credits
+            WHERE minerAddress = ? AND paid = 0 AND timestamp >= ?
+        `).all(minerAddress, cutoffMs).map((r) => r.id);
+    }
+
+    // Najstarsze niezapłacone kredyty LEGACY (timestamp < cutoffMs) dla
+    // adresu, kumulowane od najstarszego (id ASC) aż do maxAmount - do
+    // częściowej spłaty starego długu z ograniczonego budżetu. Jeśli nawet
+    // najstarszy wiersz przekracza maxAmount, zwraca pusty wynik (czeka na
+    // kolejny cykl akumulacji) zamiast wymuszać wysyłkę ponad budżet -
+    // budżet nigdy nie schodzi poniżej zera, postęp jest przewidywalny.
+    getUnpaidLegacyCreditIdsUpToAmount(minerAddress, cutoffMs, maxAmount) {
+        const rows = this.db.prepare(`
+            SELECT id, amount FROM pool_credits
+            WHERE minerAddress = ? AND paid = 0 AND timestamp < ?
             ORDER BY id ASC
-            LIMIT ?
-        `).all(
-            pathologicalHeightThreshold,
-            maxRows
-        );
+        `).all(minerAddress, cutoffMs);
 
-        const byAddress = new Map();
-
+        const creditIds = [];
+        let amount = 0;
         for (const row of rows) {
-            const entry = byAddress.get(row.minerAddress) || {
-                minerAddress: row.minerAddress,
-                total: 0,
-                creditIds: []
-            };
-
-            entry.total += row.amount;
-            entry.creditIds.push(row.id);
-
-            byAddress.set(row.minerAddress, entry);
+            if (amount + row.amount > maxAmount) break;
+            creditIds.push(row.id);
+            amount += row.amount;
         }
-
-        return Array.from(byAddress.values());
+        return { creditIds, amount };
     }
 
     markCreditsPaid(creditIds) {
