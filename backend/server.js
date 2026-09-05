@@ -835,6 +835,32 @@ app.get(
     }
 );
 
+app.get(
+    "/pool/credits/:address",
+    (req, res) => {
+
+        const address =
+            req.params.address;
+
+        if (
+            typeof address !== "string" ||
+            !/^BbC[0-9a-fA-F]{40}$/.test(address)
+        ) {
+
+            return res.status(400).json({
+                error:
+                    "Nieprawidlowy format adresu"
+            });
+        }
+
+        res.json(
+            blockchain.getCredits(
+                address
+            )
+        );
+    }
+);
+
 
 /*
  * ============================================================
