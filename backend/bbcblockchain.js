@@ -910,6 +910,33 @@ class Blockchain {
                     };
                 }
 
+                // NAPRAWA (dzisiaj, PILNA): format adresu sprawdzany, ale
+                // KWOTA coinbase nigdy nie byla porownywana z tym, co
+                // faktycznie nalezy sie na tej wysokosci. Nic nie stalo na
+                // przeszkodzie, zeby blok zadeklarowal dowolna, wymyslona
+                // wartosc nagrody - schemat halvingu jest liczony w
+                // getRewardForHeight() wylacznie z wysokosci, wiec to
+                // prosta, dokladna rownosc, nie przyblizenie. Oplaty NIE
+                // wchodza do coinbase (ida jako osobne transakcje typu
+                // "fee"/"protocol_fee" - to osobna, powiazana sprawa,
+                // jeszcze nie zamknieta tutaj).
+                const expectedReward =
+                    this.getRewardForHeight(
+                        candidate.height
+                    );
+
+                if (
+                    tx.amount !==
+                    expectedReward
+                ) {
+
+                    return {
+                        accepted: false,
+                        reason:
+                            `nieprawidlowa kwota coinbase (oczekiwano ${expectedReward}, otrzymano ${tx.amount})`
+                    };
+                }
+
                 continue;
             }
 
@@ -1485,6 +1512,23 @@ class Blockchain {
                             accepted: false,
                             reason:
                                 `blok #${i}: nieprawidlowy format adresu w coinbase`
+                        };
+                    }
+
+                    const expectedReward =
+                        this.getRewardForHeight(
+                            block.height
+                        );
+
+                    if (
+                        tx.amount !==
+                        expectedReward
+                    ) {
+
+                        return {
+                            accepted: false,
+                            reason:
+                                `blok #${i}: nieprawidlowa kwota coinbase (oczekiwano ${expectedReward}, otrzymano ${tx.amount})`
                         };
                     }
 
