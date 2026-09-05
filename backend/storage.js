@@ -91,6 +91,41 @@ class Storage {
             strikes INTEGER NOT NULL DEFAULT 0
         )`);
 
+        // NAPRAWA (dzisiaj, PILNA): family_messages juz istnial w bazie z
+        // INNYM zestawem kolumn (prawdopodobnie porzucona wczesniejsza proba
+        // tej samej funkcji, sprzed dzisiejszej sesji - "family" nie
+        // wystepowalo NIGDZIE w aktualnym kodzie zrodlowym, ale tabela w
+        // .db pliku przetrwala niezaleznie od tego). CREATE TABLE IF NOT
+        // EXISTS milczy gdy tabela juz jest, NIEZALEZNIE od tego czy jej
+        // kolumny sie zgadzaja - to zablokowalo kazdy cykl payout-watchera,
+        // bo Storage() jest tworzone od nowa co 30s przez payout.js. Ten
+        // sam wzorzec co mempool/receivedAt wyzej, ale sprawdzam KAZDA z
+        // szesciu kolumn osobno, nie zakladam ze tylko jednej brakuje.
+        const familyMessagesColumns = this.db
+            .prepare("PRAGMA table_info(family_messages)")
+            .all();
+
+        const familyMessagesColumnDefs = {
+            address: "TEXT NOT NULL DEFAULT ''",
+            message: "TEXT NOT NULL DEFAULT ''",
+            timestamp: "INTEGER NOT NULL DEFAULT 0",
+            flagged: "INTEGER NOT NULL DEFAULT 0",
+            isLiveError: "INTEGER NOT NULL DEFAULT 0",
+            createdAt: "INTEGER NOT NULL DEFAULT 0"
+        };
+
+        for (const [name, def] of Object.entries(familyMessagesColumnDefs)) {
+            const hasColumn = familyMessagesColumns.some(
+                (column) => column.name === name
+            );
+
+            if (!hasColumn) {
+                this.db.exec(
+                    `ALTER TABLE family_messages ADD COLUMN ${name} ${def}`
+                );
+            }
+        }
+
         this.db.exec(
             "CREATE INDEX IF NOT EXISTS idx_family_flagged ON family_messages(flagged)"
         );
