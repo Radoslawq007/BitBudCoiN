@@ -73,6 +73,31 @@ class Storage {
             paid INTEGER DEFAULT 0
         )`);
 
+        // "Rodzina BbC" - napisane wczesniej, nigdy nie wdrozone (family-chat.js
+        // istnial, ale server.js/storage.js nigdy go faktycznie nie uzywaly -
+        // strona byla martwa, mimo ze wygladala na gotowa).
+        this.db.exec(`CREATE TABLE IF NOT EXISTS family_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            address TEXT NOT NULL,
+            message TEXT NOT NULL,
+            timestamp INTEGER NOT NULL,
+            flagged INTEGER NOT NULL DEFAULT 0,
+            isLiveError INTEGER NOT NULL DEFAULT 0,
+            createdAt INTEGER NOT NULL
+        )`);
+
+        this.db.exec(`CREATE TABLE IF NOT EXISTS family_strikes (
+            address TEXT PRIMARY KEY,
+            strikes INTEGER NOT NULL DEFAULT 0
+        )`);
+
+        this.db.exec(
+            "CREATE INDEX IF NOT EXISTS idx_family_flagged ON family_messages(flagged)"
+        );
+        this.db.exec(
+            "CREATE INDEX IF NOT EXISTS idx_family_liveerror ON family_messages(isLiveError)"
+        );
+
         this.db.exec(
             "CREATE INDEX IF NOT EXISTS idx_tx_block ON transactions(blockHeight)"
         );
@@ -107,6 +132,10 @@ class Storage {
 
         this._insertCredit = this.db.prepare(
             "INSERT INTO pool_credits (minerAddress, blockHeight, shares, amount, timestamp) VALUES (?, ?, ?, ?, ?)"
+        );
+
+        this._insertFamilyMessage = this.db.prepare(
+            "INSERT INTO family_messages (address, message, timestamp, flagged, isLiveError, createdAt) VALUES (?, ?, ?, ?, ?, ?)"
         );
     }
 
@@ -349,6 +378,71 @@ class Storage {
         for (const id of creditIds) {
             stmt.run(id);
         }
+    }
+
+    // --- "Rodzina BbC" ---
+
+    saveFamilyMessage(record) {
+        this._insertFamilyMessage.run(
+            record.address,
+            record.message,
+            record.timestamp,
+            record.flagged ? 1 : 0,
+            record.isLiveError ? 1 : 0,
+            Date.now()
+        );
+    }
+
+    getFamilyMessages(limit = 50) {
+        return this.db.prepare(
+            "SELECT * FROM family_messages WHERE flagged = 0 ORDER BY timestamp ASC LIMIT ?"
+        ).all(limit);
+    }
+
+    getFamilyLiveErrors(limit = 20) {
+        return this.db.prepare(
+            "SELECT * FROM family_messages WHERE isLiveError = 1 ORDER BY timestamp DESC LIMIT ?"
+        ).all(limit);
+    }
+
+    getFamilyPending(limit = 50) {
+        return this.db.prepare(
+            "SELECT * FROM family_messages WHERE flagged = 1 ORDER BY timestamp ASC LIMIT ?"
+        ).all(limit);
+    }
+
+    getFamilyMessageById(id) {
+        return this.db.prepare(
+            "SELECT * FROM family_messages WHERE id = ?"
+        ).get(id) || null;
+    }
+
+    setFamilyMessageFlag(id, flagged) {
+        this.db.prepare(
+            "UPDATE family_messages SET flagged = ? WHERE id = ?"
+        ).run(flagged ? 1 : 0, id);
+    }
+
+    deleteFamilyMessage(id) {
+        this.db.prepare(
+            "DELETE FROM family_messages WHERE id = ?"
+        ).run(id);
+    }
+
+    getFamilyStrikes(address) {
+        const row = this.db.prepare(
+            "SELECT strikes FROM family_strikes WHERE address = ?"
+        ).get(address);
+        return row ? row.strikes : 0;
+    }
+
+    addFamilyStrike(address) {
+        const current = this.getFamilyStrikes(address);
+        const next = current + 1;
+        this.db.prepare(
+            "INSERT INTO family_strikes (address, strikes) VALUES (?, ?) ON CONFLICT(address) DO UPDATE SET strikes = ?"
+        ).run(address, next, next);
+        return next;
     }
 
     _addressEventsCTE() {
