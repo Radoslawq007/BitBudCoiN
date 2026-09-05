@@ -6,6 +6,18 @@ const VARDIFF_TARGET_SECONDS = 12;
 const VARDIFF_MAX_STEP = 4;
 const VARDIFF_MIN_DIFFICULTY = 16;
 
+// NAPRAWA (dzisiaj, decyzja o strategii długu wypłat): osobista trudność
+// górnika mogła być capowana aż do 100% trudności sieci - przy dość
+// szybkim/mocnym sprzęcie VARDIFF ratchetuje ją tam legalnie (patrz
+// _adjustMinerDifficulty), a wtedy effectiveMinerDiff/blockchain.difficulty
+// zbliża się do 1 i KAŻDY share jest wart blisko pełnego maxShareValue -
+// mimo że to wciąż tylko share, nie blok (blockTargetHex sprawdzany osobno,
+// niżej). Realne dane: dwa adresy w ten sposób wygenerowały >150000 BbC
+// kredytów w ciągu kilku godzin. Sufit 25% nie zmienia szans na realny blok
+// (ten check liczy się zawsze względem candidate.difficulty, niezależnie od
+// tej stałej) - ogranicza tylko górny pułap POJEDYNCZEGO kredytu.
+const MAX_MINER_DIFFICULTY_RATIO = 0.25;
+
 class MiningPool {
     constructor(blockchain, { poolAddress, poolFee, shareDifficulty, mempool } = {}) {
         this.blockchain = blockchain;
@@ -59,7 +71,11 @@ class MiningPool {
             const height = this.blockchain.getLatestBlock().height + 1;
             const reward = this.blockchain.getRewardForHeight(height);
             const maxShareValue = reward * (1 - this.poolFee);
-            const effectiveMinerDiff = Math.min(minerDiffAtSubmit, this.blockchain.difficulty);
+            // Ten sam MAX_MINER_DIFFICULTY_RATIO co w _adjustMinerDifficulty,
+            // ale wymuszony TU NIEZALEŻNIE - z tych samych powodów co
+            // uzasadnienie Math.min() ponizej: pojedynczy punkt poprawności
+            // (tylko w ratchecie) jest kruchy, wymuszenie na wyjsciu nie jest.
+            const effectiveMinerDiff = Math.min(minerDiffAtSubmit, this.blockchain.difficulty * MAX_MINER_DIFFICULTY_RATIO);
             const rawShareValue = maxShareValue * (effectiveMinerDiff / this.blockchain.difficulty);
             // NAPRAWA (2026-08-27, audyt VARDIFF): powyzsze dwa Math.min()
             // (na effectiveMinerDiff i przez konstrukcje samego stosunku)
@@ -121,7 +137,8 @@ class MiningPool {
         const current = this.getMinerDifficulty(minerAddress);
         let ratio = VARDIFF_TARGET_SECONDS / elapsedSeconds;
         ratio = Math.max(1 / VARDIFF_MAX_STEP, Math.min(VARDIFF_MAX_STEP, ratio));
-        const next = Math.min(this.blockchain.difficulty, Math.max(VARDIFF_MIN_DIFFICULTY, current * ratio));
+        const diffCeiling = this.blockchain.difficulty * MAX_MINER_DIFFICULTY_RATIO;
+        const next = Math.min(diffCeiling, Math.max(VARDIFF_MIN_DIFFICULTY, current * ratio));
         this.minerDifficulty.set(minerAddress, next);
     }
     _rememberShareHash(hash) {
