@@ -44,7 +44,7 @@
 <script>
 setActiveNav("nav-explorer");
 
-function badgeFor(type) { return `<span class="badge ${type}">${type}</span>`; }
+function badgeFor(type) { return `<span class="badge ${escapeHtml(type)}">${escapeHtml(type)}</span>`; }
 
 function truncAddr(a) {
     return a && a.length > 18 ? `${a.slice(0, 10)}...${a.slice(-6)}` : (a || "");
