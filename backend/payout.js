@@ -69,7 +69,7 @@ async function main() {
             const res = await fetch(`${serverUrl}/transactions/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(candidate) });
             const result = await res.json();
             if (result.accepted) { storage.markCreditsPaid(creditIds); console.log(`✅   Wypłacono ${total.toFixed(4)} BbC dla ${minerAddress}`); }
-            else console.warn(`⚠️  Odrzucono (${minerAddress}): ${result.reason ?? result.error ?? JSON.stringify(result)}`);
+            else console.warn(`⚠️  Odrzucono (${minerAddress}, próba: ${total.toFixed(4)} BbC): ${result.reason ?? result.error ?? JSON.stringify(result)}`);
         } catch (err) { console.error(`❌   ${err.message}`); }
         await sleep(DELAY_BETWEEN_SENDS_MS);
     }
