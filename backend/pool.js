@@ -32,6 +32,22 @@ class MiningPool {
         if (!candidate || typeof candidate.hash !== "string") return { accepted: false, reason: "Nieprawidlowe zgloszenie" };
         if (computeBlockHash(candidate) !== candidate.hash) return { accepted: false, reason: "hash nie zgadza sie z trescia" };
         if (this.seenShareHashes.has(candidate.hash)) return { accepted: false, reason: "duplikat" };
+        // NAPRAWA (dzisiaj, PILNA): nic tutaj nie sprawdzalo, ze coinbase w
+        // zgloszonym kandydacie faktycznie idzie na this.poolAddress, tak
+        // jak wydal je getWork(). Gornik mogl wziac szablon, podmienic
+        // odbiorce coinbase na WLASNY adres, wykopac to, i ukrasc cala
+        // nagrode bloku - konsensus (bbcblockchain.js) akceptuje KAZDY
+        // poprawny format+kwote coinbase, nie tylko adres puli (bo solo
+        // miners LEGALNIE uzywaja wlasnego adresu). Kazda proba manipulacji
+        // odrzucona CALKOWICIE - zero udzialu tez, nie tylko odmowa pelnego
+        // bloku - inaczej oplacaloby sie probowac (najgorszy przypadek:
+        // dostajesz udzial jak za uczciwe zgloszenie).
+        const candidateCoinbase = Array.isArray(candidate.transactions)
+            ? candidate.transactions.find((tx) => tx && tx.type === "coinbase")
+            : null;
+        if (!candidateCoinbase || candidateCoinbase.to !== this.poolAddress) {
+            return { accepted: false, reason: "coinbase w zgloszeniu nie idzie na adres puli - odrzucone" };
+        }
         const shareTargetHex = difficultyToTargetHex(this.getMinerDifficulty(minerAddress));
         if (candidate.hash > shareTargetHex) return { accepted: false, reason: "nie spelnia trudnosci share" };
         const minerDiffAtSubmit = this.getMinerDifficulty(minerAddress);
@@ -109,7 +125,17 @@ class MiningPool {
         this.minerDifficulty.set(minerAddress, next);
     }
     _rememberShareHash(hash) {
-        if (this.seenShareHashes.size > MAX_SEEN_SHARE_HASHES) this.seenShareHashes.clear();
+        // NAPRAWA (dzisiaj): pelne .clear() przy przekroczeniu limitu
+        // otwieralo chwilowe okno - hash zgloszony TUZ PRZED czyszczeniem
+        // mogl zostac wyslany ponownie zaraz po i zaliczony DRUGI RAZ,
+        // bo ochrona przed duplikatami na moment znikala calkowicie.
+        // Usuwanie tylko najstarszej polowy nie ma tego okna - najnowsze
+        // (i najbardziej prawdopodobne do powtorki) hashe zawsze zostaja.
+        if (this.seenShareHashes.size > MAX_SEEN_SHARE_HASHES) {
+            const keepFrom = Math.floor(this.seenShareHashes.size / 2);
+            const remaining = Array.from(this.seenShareHashes).slice(keepFrom);
+            this.seenShareHashes = new Set(remaining);
+        }
         this.seenShareHashes.add(hash);
     }
     _finalizeRound() {
