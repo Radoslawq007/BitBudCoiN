@@ -21,6 +21,7 @@ const {
 
 const bridgeTags = require("./bridge-tags");
 const swapOffers = require("./swap-offers");
+const { FamilyChat } = require("./family-chat");
 
 const {
     verifyAcceptOfferSignature,
@@ -149,6 +150,7 @@ const p2p = new P2P(
 );
 
 const soloTracker = new SoloTracker();
+const familyChat = new FamilyChat(blockchain.storage);
 
 
 /*
@@ -1335,6 +1337,123 @@ app.post(
                     err.message
             });
         }
+    }
+);
+
+
+/*
+ * ============================================================
+ * RODZINA BBC (family chat)
+ *
+ * NAPRAWA (dzisiaj, PILNA): family-chat.js istniał od dawna (napisany,
+ * przemyslany - wykrywanie scamow, kolejka do rewizji czlowieka, limit
+ * czestotliwosci, system ostrzezen) ale NIGDY nie byl tu podlaczony.
+ * Cala strona family.html byla martwa - kazde wejscie konczylo sie
+ * bledem 404 na fetch do endpointow, ktorych nigdy nie bylo.
+ * ============================================================
+ */
+
+app.get(
+    "/family/messages",
+    (req, res) => {
+
+        let limit =
+            Number(req.query.limit);
+
+        if (
+            !Number.isFinite(limit) ||
+            limit <= 0
+        ) {
+            limit = 50;
+        }
+
+        res.json(
+            familyChat.getMessages(
+                Math.min(limit, 200)
+            )
+        );
+    }
+);
+
+app.post(
+    "/family/message",
+    strictLimiter,
+    (req, res) => {
+
+        const result =
+            familyChat.postMessage(
+                req.body
+            );
+
+        if (!result.accepted) {
+
+            return res.status(400).json({
+                reason:
+                    result.reason
+            });
+        }
+
+        broadcastLiveState();
+
+        res.json(result);
+    }
+);
+
+// Panel moderacji - chroniony ADMIN_SECRET, ten sam wzorzec co
+// /bridge/annotations. Brak dedykowanego UI - do uzycia przez curl,
+// dopoki (jesli) nie powstanie prosty panel.
+app.get(
+    "/family/pending",
+    strictLimiter,
+    (req, res) => {
+
+        if (
+            req.query.secret !==
+            bridgeTags.ADMIN_SECRET
+        ) {
+            return res.status(403).json({
+                error: "Zły sekret"
+            });
+        }
+
+        res.json(
+            familyChat.getPending()
+        );
+    }
+);
+
+app.post(
+    "/family/review",
+    strictLimiter,
+    (req, res) => {
+
+        const {
+            secret,
+            id,
+            decision
+        } = req.body || {};
+
+        if (secret !== bridgeTags.ADMIN_SECRET) {
+            return res.status(403).json({
+                error: "Zły sekret"
+            });
+        }
+
+        const result =
+            familyChat.reviewPending(
+                id,
+                decision
+            );
+
+        if (!result.accepted) {
+
+            return res.status(400).json({
+                error:
+                    result.reason
+            });
+        }
+
+        res.json(result);
     }
 );
 
