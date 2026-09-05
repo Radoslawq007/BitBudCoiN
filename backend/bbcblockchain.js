@@ -2701,6 +2701,14 @@ class Blockchain {
     }
 
 
+    getCredits(minerAddress) {
+
+        return this.storage.getCreditsForAddress(
+            minerAddress
+        );
+    }
+
+
     getTransactionsForAddress(
         address,
         limit = 200
