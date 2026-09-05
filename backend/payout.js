@@ -5,15 +5,6 @@ const CONFIG = require("./config");
 const { deriveAddress, signTransaction } = require("./wallet");
 const crypto = require("crypto");
 
-// NAPRAWA (dzisiaj, PILNA): getUnpaidCreditIdsForAddress byla wolana tutaj
-// z argumentem ktorego zadna wersja tej metody nigdy nie przyjmowala, i w
-// ogole nigdzie nie byla zdefiniowana w storage.js. Kazda UDANA wyplata
-// konczyla sie TypeError zlapanym przez try/catch PO wyslaniu prawdziwej
-// transakcji, ale PRZED oznaczeniem kredytow jako oplacone - te same
-// kredyty wygladaly na niezaplacone w kolejnym cyklu (5-30s pozniej,
-// payout-watcher), wiec ten sam dlug bylby wyslany ZNOWU, bez konca, dopoki
-// starczaloby salda. Metody uzywane ponizej (storage.js) istnieja i sa
-// cutoff-aware (legacy/current).
 const ADDRESS_FORMAT = /^BbC[0-9a-fA-F]{40}$/;
 
 // NAPRAWA (dzisiaj, strategia dlugu wyplat - decyzja: B=10% nowych bloków,
@@ -24,25 +15,28 @@ const ADDRESS_FORMAT = /^BbC[0-9a-fA-F]{40}$/;
 // momentu wdrozenia, generowane juz pod sufitem 25%) splacany w calosci
 // jak dotychczas; legacy splacany stopniowo, z osobnego budzetu = 10%
 // wartosci KAZDEGO nowego bloku od momentu wdrozenia, kumulowanego miedzy
-// cyklami, wyplacany zawsze na NAJMNIEJSZY pozostaly dlug legacy na raz
-// (kazdy w pelni splacony adres znika z kolejki najszybciej). Cutoff i
-// budzet w LEGACY_STATE_PATH - prosty stan, przetrwa restarty, nie wymaga
-// dotykania konsensusowego bbcblockchain.js/pool.js (tylko odczyt wysokosci
-// bloków, liczac nagrode ta sama, czysta formula co getRewardForHeight).
-// Budzet NIGDY nie schodzi ponizej zera - jesli nawet najstarszy wiersz
-// legacy przekracza aktualny budzet, czeka na kolejny cykl akumulacji
-// (patrz storage.js getUnpaidLegacyCreditIdsUpToAmount).
+// cyklami, wyplacany zawsze na NAJMNIEJSZY pozostaly dlug legacy na raz.
+// Budzet NIGDY nie schodzi ponizej zera.
 const LEGACY_STATE_PATH = path.join(__dirname, "legacy-debt-state.json");
 const LEGACY_SHARE = 0.10;
 const MIN_LEGACY_PAYOUT = 0.01; // ponizej tego nie oplaca sie wysylac (fee)
 
-function loadOrInitLegacyState() {
+function loadOrInitLegacyState(storage) {
     try {
         return JSON.parse(fs.readFileSync(LEGACY_STATE_PATH, "utf8"));
     } catch {
-        const initial = { cutoffTimestamp: Date.now(), lastCheckedHeight: -1, accruedBudget: 0 };
+        // NAPRAWA (dzisiaj, PILNA, po pierwszym realnym wdrozeniu):
+        // lastCheckedHeight=-1 przy starcie powodowalo, ze
+        // getBlockHeightsSince(-1) zwracalo CALA historyczna wysokosc
+        // lancucha jako "nowe" bloki - jednorazowy zastrzyk 10% z KAZDEGO
+        // bloku w calej historii (realnie zaobserwowane: 511405 BbC ze
+        // 102281 blokow) zamiast powolnej akumulacji od TERAZ. Start musi
+        // byc na biezacym czubku lancucha w chwili wdrozenia, nie -1.
+        const existingHeights = storage.getBlockHeightsSince(-1);
+        const currentTip = existingHeights.length > 0 ? existingHeights[existingHeights.length - 1] : -1;
+        const initial = { cutoffTimestamp: Date.now(), lastCheckedHeight: currentTip, accruedBudget: 0 };
         fs.writeFileSync(LEGACY_STATE_PATH, JSON.stringify(initial, null, 2));
-        console.log(`ℹ️   Pierwsze uruchomienie logiki długu legacy - cutoff: ${new Date(initial.cutoffTimestamp).toISOString()}`);
+        console.log(`ℹ️   Pierwsze uruchomienie logiki długu legacy - cutoff: ${new Date(initial.cutoffTimestamp).toISOString()}, licznik bloków od wysokości ${currentTip}`);
         return initial;
     }
 }
@@ -74,7 +68,7 @@ async function main(privateKeyPath, serverUrl, minPayout) {
     }
 
     const storage = new Storage(CONFIG.DATABASE);
-    const legacyState = loadOrInitLegacyState();
+    const legacyState = loadOrInitLegacyState(storage);
 
     // --- naliczenie budzetu legacy z nowych blokow od ostatniego sprawdzenia ---
     const newHeights = storage.getBlockHeightsSince(legacyState.lastCheckedHeight);
