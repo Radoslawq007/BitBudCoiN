@@ -61,14 +61,27 @@ Nic w tym dokumencie nie wymaga zaufania na słowo:
 - **Kod źródłowy** — repozytorium publiczne
 - **Blok genesis** — dowód premine, do sprawdzenia przez każdego
 
-## 6. Status i dalsze kroki
+## 6. Status i mapa drogowa
 
-Zgodnie z tym, co widać na stronie głównej projektu:
+**Zrobione i zweryfikowane:**
+- Mainnet, portfel, explorer, kopanie (pula + solo), automatyczne wypłaty — działają
+- vMax (ASERT) — aktywny od bloku #100 000
+- Atomic swap BTC↔BbC przez HTLC — technicznie kompletny, jedna prawdziwa wymiana na mainnet
+- Pełny audyt kryptografii (05.09.2026): BIP143, DER, Bech32, serializacja transakcji, skrypty HTLC end-to-end — każdy element zweryfikowany empirycznie względem oficjalnych wektorów testowych, nie tylko przeczytany w kodzie
 
-- ✅ Mainnet, portfel, explorer, kopanie — działają, sprawdzone
-- ✅ vMax (ASERT) — aktywowany od bloku #100 000
-- 🧪 Atomic swap BTC↔BbC — działa technicznie, wciąż budowana historia prawdziwych transakcji
-- 🚧 Kolejne etapy — kapsuła czasu, rozbudowa mostu BCH, dalsze narzędzia dla adresu/portfela
+**W trakcie:**
+- Rozliczenie zaległości w wypłatach puli z okresu wysokiego VARDIFF — mechanizm pay-per-share przy krótkich okresach dużej mocy generował większe zobowiązania niż realnie znalezione bloki pokrywały. Plan spłaty aktywny: 10% nagrody z każdego nowego bloku idzie na spłatę zaległości, a sufit trudności pojedynczego górnika ograniczony do 25% trudności sieci, żeby zaległość nie rosła dalej w tym samym tempie
+- Budowanie realnej, powtarzalnej społeczności — wielokrotne, prawdziwe atomic swapy z już istniejącymi uczestnikami sieci, zanim jakikolwiek listing na giełdzie
+
+**Później, świadomie odłożone:**
+- Rozbudowa mostu BCH (obecnie mniej dojrzała niż strona BTC)
+- Kapsuła czasu (zbudowana, nie wdrożona)
+- Widoczność publiczna (Show HN, r/SideProject itp.) — dopiero po potwierdzeniu społeczności powyżej
+- Zgłoszenie do CoinGecko/CoinMarketCap — dopiero po realnej społeczności, nie przed
+
+## 7. Autor
+
+BitBudCoin jest tworzony i utrzymywany samodzielnie przez **[Radosław Iwański]** — techniczny spadek budowany od zera, nie projekt zespołowy ani komercyjny.
 
 ---
 
