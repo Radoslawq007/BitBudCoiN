@@ -61,6 +61,7 @@ Nic w tym dokumencie nie wymaga zaufania na słowo:
 - **Kod źródłowy** — repozytorium publiczne
 - **Blok genesis** — dowód premine, do sprawdzenia przez każdego
 
+ 
 ## 6. Status i mapa drogowa
 
 **Zrobione i zweryfikowane:**
@@ -81,7 +82,7 @@ Nic w tym dokumencie nie wymaga zaufania na słowo:
 
 ## 7. Autor
 
-BitBudCoin jest tworzony i utrzymywany samodzielnie przez **[Radosław Iwański]** — techniczny spadek budowany od zera, nie projekt zespołowy ani komercyjny.
+BitBudCoin jest tworzony i utrzymywany samodzielnie przez **Radosław Iwański** — techniczny spadek budowany od zera, nie projekt zespołowy ani komercyjny.
 
 ---
 
