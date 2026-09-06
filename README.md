@@ -4,6 +4,8 @@
 
 Własny blockchain proof-of-work, zbudowany od zera. Bez frameworków blockchainowych, bez kopiowania cudzego kodu — każda linijka (kryptografia, sieć P2P, kopanie, portfel) napisana i przetestowana osobno.
 
+**Twórca:** [IMIĘ/PSEUDONIM]
+
 **Zasada nadrzędna: uczciwość zamiast hype'u.** Ten dokument nie ma niczego upiększać — jeśli coś jest eksperymentalne albo niedokończone, jest tak opisane wprost.
 
 ## Czym to jest
@@ -32,6 +34,10 @@ BitBudCoin umożliwia wymianę BbC za prawdziwe BTC przez **HTLC (Hash Time-Lock
 - System ofert (`create-offer.html` → akceptacja → `swap.html`) jest nowy i przeszedł jeden prawdziwy test z realnymi pieniędzmi, nie setki.
 - Strona BCH mostu (poza BTC) jest mniej dojrzała niż strona BTC.
 
+## Mapa drogowa
+
+Pełna wersja w [`WHITEPEPER.md`](./WHITEPEPER.md#6-status-i-mapa-drogowa), skrót: fundament (blockchain/portfel/kopanie/explorer) i pełny audyt kryptografii — zrobione. Rozliczenie zaległości w wypłatach puli i budowanie realnej społeczności — w trakcie. Rozbudowa mostu BCH, kapsuła czasu, publiczna widoczność i ewentualny listing na giełdzie — świadomie później, dopiero po społeczności.
+
 ## Struktura repo
 
 - Frontend (ta strona): GitHub Pages
@@ -55,4 +61,4 @@ Backend na serwerze **nie synchronizuje się automatycznie** z tym repo — każ
 
 ---
 
-*Ostatnia aktualizacja: 24.08.2026*
+*Ostatnia aktualizacja: 05.09.2026*
