@@ -4,7 +4,7 @@
 
 Własny blockchain proof-of-work, zbudowany od zera. Bez frameworków blockchainowych, bez kopiowania cudzego kodu — każda linijka (kryptografia, sieć P2P, kopanie, portfel) napisana i przetestowana osobno.
 
-**Twórca:** [Radosław Iwański]
+**Twórca:** Radosław Iwański
 
 **Zasada nadrzędna: uczciwość zamiast hype'u.** Ten dokument nie ma niczego upiększać — jeśli coś jest eksperymentalne albo niedokończone, jest tak opisane wprost.
 
