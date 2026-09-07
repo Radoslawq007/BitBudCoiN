@@ -1441,6 +1441,58 @@ class Blockchain {
         }
 
 
+        /*
+         * NAPRAWA - replay. Blok nie moze zawierac podpisu, ktory juz
+         * jest w lancuchu. Bez tego blok z duplikatem przechodzil cala
+         * walidacje (PoW, trudnosc, oplaty) i przenosil srodki drugi raz
+         * - potwierdzone testem: saldo odbiorcy 10 -> 20 z jednego podpisu.
+         *
+         * Sprawdzane takze wewnatrz samego bloku, bo duplikat moze byc
+         * w tym samym bloku dwa razy, a wtedy zbior z lancucha go nie zna.
+         */
+        {
+            const wBloku = new Set();
+
+            for (
+                const tx of
+                candidate.transactions
+            ) {
+
+                if (!tx.signature) continue;
+
+                if (
+                    this.hasSignature(
+                        tx.signature
+                    )
+                ) {
+
+                    return {
+                        accepted: false,
+                        reason:
+                            "transakcja o tym podpisie juz jest w lancuchu (powtorzenie)"
+                    };
+                }
+
+                if (
+                    wBloku.has(
+                        tx.signature
+                    )
+                ) {
+
+                    return {
+                        accepted: false,
+                        reason:
+                            "ten sam podpis wystepuje dwa razy w jednym bloku"
+                    };
+                }
+
+                wBloku.add(
+                    tx.signature
+                );
+            }
+        }
+
+
         try {
 
             this.storage.saveBlock(
@@ -1664,6 +1716,10 @@ class Blockchain {
                     `krotszy lub rowny (${candidateChain.length} <= ${this.chain.length}) - odrzucony`
             };
         }
+
+        /* Zbior podpisow widzianych w SAMYM kandydacie - deklarowany
+           przed petla, bo kontrola duplikatow jest w jej wnetrzu. */
+        const podpisyKandydata = new Set();
 
         for (
             let i = 0;
@@ -1896,6 +1952,36 @@ class Blockchain {
                     reason:
                         `blok #${i}: znacznik czasu zbyt daleko w przyszlosci`
                 };
+            }
+
+            /* NAPRAWA - replay w podmienianym lancuchu.
+               Kandydat zastepuje CALY lancuch, wiec zbior podpisow
+               biezacego lancucha jest tu nieistotny - liczy sie, czy
+               kandydat jest spojny sam ze soba. Bez tego atakujacy
+               podaje lancuch z powielona transakcja i przechodzi. */
+            for (
+                const tx of
+                block.transactions
+            ) {
+
+                if (!tx.signature) continue;
+
+                if (
+                    podpisyKandydata.has(
+                        tx.signature
+                    )
+                ) {
+
+                    return {
+                        accepted: false,
+                        reason:
+                            `blok #${i}: podpis powtorzony w lancuchu (powtorzenie transakcji)`
+                    };
+                }
+
+                podpisyKandydata.add(
+                    tx.signature
+                );
             }
         }
 
@@ -2321,6 +2407,30 @@ class Blockchain {
         this.circulatingSupply =
             0;
 
+        /*
+         * NAPRAWA - ochrona przed powtorzeniem transakcji (replay).
+         *
+         * Potwierdzone testem (test-replay.js): ta sama podpisana
+         * transakcja, juz zawarta w bloku, byla przyjmowana ponownie
+         * i przenosila srodki DRUGI raz. mempool.addTransaction()
+         * sprawdzal wylacznie this.pending (biezaca kolejke), a po
+         * wykopaniu transakcja z kolejki znika. Nic nie pytalo, czy
+         * ten podpis juz byl w lancuchu.
+         *
+         * Skutek: odbiorca dowolnej platnosci mogl odtwarzac ja w kolko
+         * i drenowac nadawce do zera, bez zadnego nowego podpisu.
+         *
+         * Zbior jest budowany tutaj, w _rebuildIndexes(), wiec zostaje
+         * poprawny po starcie wezla ORAZ po replaceChain() - bez osobnej
+         * logiki utrzymania.
+         *
+         * Koszt pamieci: liczy sie tylko transakcje z podpisem. Na zywej
+         * bazie to 27884 transfer + 16 HTLC = ok. 6 MB. coinbase, fee,
+         * protocol_fee i genesis podpisu nie maja, wiec nie wchodza.
+         */
+        this.seenSignatures =
+            new Set();
+
         for (
             const block of
             this.chain
@@ -2376,6 +2486,25 @@ class Blockchain {
             block.height,
             block
         );
+
+        /* Warunek na samo istnienie podpisu, nie na liste typow -
+           coinbase/fee/protocol_fee podpisu nie maja i odpadaja same,
+           a kazdy przyszly typ podpisany zostanie objety automatycznie. */
+        if (this.seenSignatures) {
+
+            for (
+                const tx of
+                block.transactions
+            ) {
+
+                if (tx.signature) {
+
+                    this.seenSignatures.add(
+                        tx.signature
+                    );
+                }
+            }
+        }
 
         const feeActive =
             isProjectFeeActive(
@@ -2604,6 +2733,22 @@ class Blockchain {
             this.balances.get(
                 address
             ) || 0
+        );
+    }
+
+
+    /*
+     * Czy ten podpis juz wystapil w lancuchu?
+     * Uzywane przez mempool.addTransaction() i receiveBlock().
+     */
+    hasSignature(signature) {
+
+        if (!signature || !this.seenSignatures) {
+            return false;
+        }
+
+        return this.seenSignatures.has(
+            signature
         );
     }
 
