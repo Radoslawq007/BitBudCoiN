@@ -90,7 +90,21 @@ module.exports = {
      * ASERT przejmuje kontrole juz od bloku #10, wiec ta wartosc ma
      * znaczenie tylko przez pierwsze kilka minut zycia sieci.
      */
-    DIFFICULTY: 100000,
+    /*
+     * BLAD, ktory to naprawia: bylo tu 100000. CONFIG.DIFFICULTY to
+     * liczba wiodacych ZER, a nie trudnosc liczbowa - kod robi
+     * Math.pow(16, CONFIG.DIFFICULTY). Przy 100000 dawalo to Infinity,
+     * a difficultyToTargetHex() wywalalo sie na
+     * "The number Infinity cannot be converted to a BigInt" i /solo/work
+     * nie zwracalo blockTarget. Gornik nie mial czego kopac.
+     *
+     * Mainnet ma 7, czyli 16^7 = 268 435 456.
+     *
+     * Tutaj 5, czyli 16^5 = 1 048 576 - blok co ok. 6 s przy typowym
+     * gorniku przegladarkowym (0.17 MH/s). Szybki start, a od bloku #10
+     * ASERT podciagnie trudnosc do celu 60 s.
+     */
+    DIFFICULTY: 5,
     DIFFICULTY_ADJUSTMENT: 100,
     TARGET_BLOCK_TIME_MS: 60000,
 
