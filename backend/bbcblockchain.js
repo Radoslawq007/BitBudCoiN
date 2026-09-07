@@ -1144,7 +1144,7 @@ class Blockchain {
                 if (
                     typeof tx.to !==
                         "string" ||
-                    !/^BbC[0-9a-fA-F]{40}$/.test(
+                    !/^t?BbC[0-9a-fA-F]{40}$/.test(
                         tx.to
                     )
                 ) {
@@ -1199,7 +1199,7 @@ class Blockchain {
                 if (
                     typeof tx.claimant !==
                         "string" ||
-                    !/^BbC[0-9a-fA-F]{40}$/.test(
+                    !/^t?BbC[0-9a-fA-F]{40}$/.test(
                         tx.claimant
                     )
                 ) {
@@ -1214,7 +1214,7 @@ class Blockchain {
                 if (
                     typeof tx.refundee !==
                         "string" ||
-                    !/^BbC[0-9a-fA-F]{40}$/.test(
+                    !/^t?BbC[0-9a-fA-F]{40}$/.test(
                         tx.refundee
                     )
                 ) {
@@ -1250,7 +1250,7 @@ class Blockchain {
                 if (
                     typeof tx.to !==
                         "string" ||
-                    !/^BbC[0-9a-fA-F]{40}$/.test(
+                    !/^t?BbC[0-9a-fA-F]{40}$/.test(
                         tx.to
                     )
                 ) {
@@ -1821,7 +1821,7 @@ class Blockchain {
                     if (
                         typeof tx.to !==
                             "string" ||
-                        !/^BbC[0-9a-fA-F]{40}$/.test(
+                        !/^t?BbC[0-9a-fA-F]{40}$/.test(
                             tx.to
                         )
                     ) {
@@ -1861,7 +1861,7 @@ class Blockchain {
                     if (
                         typeof tx.claimant !==
                             "string" ||
-                        !/^BbC[0-9a-fA-F]{40}$/.test(
+                        !/^t?BbC[0-9a-fA-F]{40}$/.test(
                             tx.claimant
                         )
                     ) {
@@ -1876,7 +1876,7 @@ class Blockchain {
                     if (
                         typeof tx.refundee !==
                             "string" ||
-                        !/^BbC[0-9a-fA-F]{40}$/.test(
+                        !/^t?BbC[0-9a-fA-F]{40}$/.test(
                             tx.refundee
                         )
                     ) {
@@ -1905,7 +1905,7 @@ class Blockchain {
                     if (
                         typeof tx.to !==
                             "string" ||
-                        !/^BbC[0-9a-fA-F]{40}$/.test(
+                        !/^t?BbC[0-9a-fA-F]{40}$/.test(
                             tx.to
                         )
                     ) {
