@@ -56,19 +56,89 @@ function czytajZrodlo(plik) {
     }
 }
 
+/*
+ * Wybor bazy.
+ *
+ * BLAD, ktory to naprawia: poprzednia wersja brala PIERWSZY plik .db
+ * z katalogu. W katalogu lezal smiec "PODAJ_SCIEZKE_DO_PLIKU.db" (73 KB,
+ * z pomylkowo wpisanej komendy), a wielkie "P" sortuje sie przed malym
+ * "b" z "bbc.db". Audyt zmierzyl pusty plik, MIN/MAX zwrocily NULL,
+ * sqlite3 wypisal pusta linie, Number("") dalo 0 - i raport oglosil
+ * "0 brakujacych blokow" PASS przy 130 realnie brakujacych.
+ *
+ * Czyli dokladnie ta sama patologia, ktora ten audyt wytyka w polu
+ * isValid: odpowiedz "wszystko dobrze" bez sprawdzenia czegokolwiek.
+ *
+ * Teraz: baze wybieramy po ZAWARTOSCI (najwiecej blokow), nie po nazwie,
+ * i raport podaje wprost, ktory plik zmierzyl.
+ */
+let BAZA = undefined;
+
+function wybierzBaze() {
+    if (BAZA !== undefined) return BAZA;
+
+    const jawna = process.env.BBC_DB;
+    if (jawna && fs.existsSync(jawna)) {
+        BAZA = jawna;
+        return BAZA;
+    }
+
+    const kandydaci = fs
+        .readdirSync(BACKEND)
+        .filter((f) => f.endsWith(".db"))
+        .map((f) => path.join(BACKEND, f));
+
+    let najlepsza = null;
+    let najwiecej = -1;
+
+    for (const plik of kandydaci) {
+        try {
+            const out = execFileSync(
+                "sqlite3",
+                ["-readonly", plik, "SELECT COUNT(*) FROM blocks;"],
+                { encoding: "utf8", timeout: 15000, stdio: ["pipe", "pipe", "pipe"] }
+            ).trim();
+            const n = Number(out);
+            if (Number.isFinite(n) && n > najwiecej) {
+                najwiecej = n;
+                najlepsza = plik;
+            }
+        } catch (e) {
+            // brak tabeli blocks albo nie-baza - pomijamy
+        }
+    }
+
+    BAZA = najlepsza;
+    return BAZA;
+}
+
+
+/*
+ * Zwraca string albo null. NIGDY nie zamienia pustej odpowiedzi na 0 -
+ * "nie wiem" musi zostac "nie wiem", inaczej audyt klamie.
+ */
 function sqlite(zapytanie) {
-    // Sciezka bazy: bierzemy pierwszy .db w katalogu backendu.
-    const bazy = fs.readdirSync(BACKEND).filter((f) => f.endsWith(".db"));
-    if (!bazy.length) return null;
+    const baza = wybierzBaze();
+    if (!baza) return null;
     try {
-        return execFileSync(
+        const out = execFileSync(
             "sqlite3",
-            ["-readonly", path.join(BACKEND, bazy[0]), zapytanie],
-            { encoding: "utf8", timeout: 30000 }
+            ["-readonly", baza, zapytanie],
+            { encoding: "utf8", timeout: 60000 }
         ).trim();
+        return out === "" ? null : out;
     } catch (e) {
         return null;
     }
+}
+
+
+/* Liczba albo null - pusta odpowiedz to NIE jest zero. */
+function sqliteLiczba(zapytanie) {
+    const out = sqlite(zapytanie);
+    if (out === null) return null;
+    const n = Number(out);
+    return Number.isFinite(n) ? n : null;
 }
 
 function pobierzInfo() {
@@ -97,7 +167,7 @@ async function uruchom() {
     try { CONFIG = require(path.join(BACKEND, "config.js")); } catch {}
 
     /* ---- 1. Ciaglosc lancucha ---- */
-    const braki = sqlite(
+    const braki = sqliteLiczba(
         "SELECT (MAX(height)-MIN(height)+1) - COUNT(*) FROM blocks;"
     );
     if (braki === null) {
@@ -105,7 +175,7 @@ async function uruchom() {
             "brak dostepu do bazy",
             "Uruchom na maszynie z baza, inaczej tej kontroli nie da sie wykonac.");
     } else {
-        const n = Number(braki);
+        const n = braki;
         zapisz("chain.contiguous", "BLOCKER", "Lancuch bez luk",
             n === 0 ? "PASS" : "FAIL",
             n + " brakujacych blokow",
@@ -159,11 +229,14 @@ async function uruchom() {
     }
 
     /* ---- 5. Duplikaty podpisow w historii ---- */
-    const dup = sqlite(
+    const dup = sqliteLiczba(
         "SELECT COUNT(*) FROM (SELECT signature FROM transactions WHERE signature IS NOT NULL GROUP BY signature HAVING COUNT(*) > 1);"
     );
-    if (dup !== null) {
-        const n = Number(dup);
+    if (dup === null) {
+        zapisz("chain.no_duplicates", "BLOCKER", "Brak powielonych podpisow w historii", "SKIP",
+            "brak dostepu do bazy", "");
+    } else {
+        const n = dup;
         zapisz("chain.no_duplicates", "BLOCKER", "Brak powielonych podpisow w historii",
             n === 0 ? "PASS" : "FAIL",
             n + " powielonych podpisow",
@@ -316,7 +389,12 @@ async function uruchom() {
 function raport() {
 
     if (JSON_OUT) {
-        console.log(JSON.stringify({ generated: new Date().toISOString(), results: wyniki }, null, 2));
+        console.log(JSON.stringify({
+            generated: new Date().toISOString(),
+            database: wybierzBaze(),
+            blockCount: sqliteLiczba("SELECT COUNT(*) FROM blocks;"),
+            results: wyniki
+        }, null, 2));
     } else {
         const L = console.log;
         const kreska = "=".repeat(72);
@@ -324,6 +402,12 @@ function raport() {
         L(kreska);
         L(" BITBUDCOIN - EXCHANGE READINESS PASS");
         L(" " + new Date().toISOString());
+        const uzyta = wybierzBaze();
+        L(" baza: " + (uzyta || "BRAK - kontrole bazy pominiete"));
+        if (uzyta) {
+            const ile = sqliteLiczba("SELECT COUNT(*) FROM blocks;");
+            L(" blokow w bazie: " + (ile === null ? "?" : ile.toLocaleString("pl")));
+        }
         L(kreska);
 
         for (const w of ["BLOCKER", "MAJOR", "MINOR"]) {
