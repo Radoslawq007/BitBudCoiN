@@ -1,32 +1,115 @@
 <!DOCTYPE html>
 <html lang="pl">
-<style>.glyph{animation:flicker 1.6s ease-in-out infinite;display:inline-block;}</style>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Giełda — BitBudCoin</title>
+<title>Kup BbC za BTC — BitBudCoin</title>
 <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/theme.css">
+<style>
+  /* POPRAWKA: poprzednia wersja miala <style> PRZED <head> - poza
+     dokumentem. Przegladarki to wybaczaly, ale to byl blad skladni. */
+  .glyph { animation: flicker 1.6s ease-in-out infinite; display: inline-block; }
+
+  .seller-addr {
+    font-family: var(--font-mono);
+    font-size: .88rem;
+    color: var(--leaf);
+    word-break: break-all;
+    background: var(--surface-2);
+    border: 1px solid var(--leaf-dim);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin: 10px 0;
+  }
+  .steps { list-style: none; padding: 0; margin: 6px 0 0; counter-reset: s; }
+  .steps li {
+    counter-increment: s;
+    position: relative;
+    padding: 0 0 16px 40px;
+    color: var(--text-dim);
+    font-size: .92rem;
+  }
+  .steps li::before {
+    content: counter(s);
+    position: absolute; left: 0; top: -1px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--surface-2);
+    border: 1px solid var(--leaf-dim);
+    color: var(--leaf);
+    font-family: var(--font-display); font-weight: 600; font-size: .85rem;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .steps li b { color: var(--text); font-weight: 600; }
+
+  .tally { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 4px; }
+  .tally div { min-width: 84px; }
+  .tally .n { font-family: var(--font-display); font-size: 1.7rem; color: var(--leaf); display: block; line-height: 1.1; }
+  .tally .l { font-family: var(--font-mono); font-size: .68rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; }
+
+  .plain {
+    border-left: 3px solid var(--leaf-dim);
+    padding-left: 14px;
+    font-size: .88rem;
+    color: var(--text-dim);
+  }
+</style>
 </head>
 <body>
 
 <div class="page">
-    <div class="empty-state" style="margin-top:40px;">
-        <div class="glyph">🔥</div>
-        <h1 style="margin-bottom:8px;" data-i18n="exchange_h1">Giełda jeszcze się nie pali</h1>
-        <p style="max-width:480px; margin:0 auto 20px;" data-i18n="exchange_p1">
-            Handel BbC (order book, pary handlowe, dopasowywanie zleceń) nie jest jeszcze
-            częścią sieci — na razie BitBudCoin to warstwa łańcucha i portfeli, bez modułu giełdowego.
+
+    <h1 style="margin-top:32px;" id="x-h1">Kup BbC za BTC</h1>
+
+    <p class="plain" id="x-intro">
+        To nie jest giełda. Nie ma tu księgi zleceń, par handlowych ani
+        automatycznego dopasowywania. Jest coś prostszego i uczciwszego:
+        atomowa wymiana BTC ↔ BbC, bezpośrednio między dwiema osobami,
+        zabezpieczona kontraktem HTLC. Żadna strona nie może zniknąć
+        z pieniędzmi drugiej.
+    </p>
+
+    <!-- ===================== KTO SPRZEDAJE ===================== -->
+    <div class="card">
+        <h3 id="x-seller-h">Kto sprzedaje BbC</h3>
+        <p id="x-seller-p" style="margin-top:0;">
+            Na razie jedna osoba — ta, która zbudowała tę sieć. Nie udaję,
+            że jest nas więcej.
         </p>
-        <p style="max-width:480px; margin:0 auto 24px; font-size:0.9rem;" data-i18n="exchange_p2">
-            Do tego czasu monety BbC można przesyłać bezpośrednio między adresami
-            (podpisane transakcje Ed25519) — to już działa.
+
+        <div class="seller-addr" id="sellerAddr">—</div>
+
+        <button class="btn secondary" id="copyAddrBtn" type="button">Kopiuj adres</button>
+        <a class="btn flame" id="proposeBtn" href="create-offer.html" style="margin-left:8px;">Zaproponuj zakup</a>
+
+        <p style="margin-top:14px;font-size:.84rem;" id="x-seller-note">
+            Nic nie jest wiążące w momencie wysłania propozycji. Podajesz ile
+            BTC dajesz i ile BbC chcesz — sprzedający widzi to i decyduje.
+            Dopiero po akceptacji powstaje kontrakt.
         </p>
-        <a class="btn" href="address.html" data-i18n="exchange_check_address_btn">Sprawdź swój adres</a>
-        <a class="btn secondary" href="docks.html" style="margin-left:10px;" data-i18n="exchange_docs_btn">Dokumentacja API</a>
     </div>
+
+    <!-- ===================== JAK TO DZIALA ===================== -->
+    <div class="card">
+        <h3 id="x-how-h">Jak przebiega wymiana</h3>
+        <ol class="steps" id="x-steps"></ol>
+        <p style="margin-top:10px;font-size:.84rem;" id="x-how-tail"></p>
+    </div>
+
+    <!-- ===================== STAN FAKTYCZNY ===================== -->
+    <div class="card">
+        <h3 id="x-state-h">Stan na teraz</h3>
+        <div id="offerStats" class="skeleton" style="height:56px;"></div>
+        <p id="offerNote" style="margin-top:12px;font-size:.84rem;"></p>
+    </div>
+
+    <div style="text-align:center;margin-top:8px;">
+        <a class="btn secondary" href="docks.html">Dokumentacja</a>
+        <a class="btn secondary" href="wallet.html" style="margin-left:8px;">Portfel</a>
+    </div>
+
 </div>
 
 <footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span> · <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a></footer>
@@ -35,5 +118,179 @@
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
 <script src="assets/i18n.js"></script>
+<script>
+/* =============================================================
+   >>> JEDYNA LINIA DO UZUPELNIENIA <<<
+   Adres BbC, z ktorego SPRZEDAJESZ. To na niego trafi propozycja
+   zakupu i tym kluczem podpiszesz akceptacje w review-offers.html.
+   NIE adres puli - pula to konto operacyjne, nie Twoje.
+   ============================================================= */
+const SELLER_ADDRESS = "BbC0000000000000000000000000000000000000000";
+
+
+/* --- Tlumaczenia lokalne ---------------------------------------
+   Nowe teksty trzymam TUTAJ, a nie w i18n.js (76 KB), zeby nie
+   kazac Ci wklejac ogromnego pliku z telefonu. Podpinam sie pod
+   event "bbc:langchange", ktory i18n.js i tak juz wysyla.        */
+const X = {
+  pl: {
+    h1: "Kup BbC za BTC",
+    intro: "To nie jest giełda. Nie ma tu księgi zleceń, par handlowych ani automatycznego dopasowywania. Jest coś prostszego i uczciwszego: atomowa wymiana BTC ↔ BbC, bezpośrednio między dwiema osobami, zabezpieczona kontraktem HTLC. Żadna strona nie może zniknąć z pieniędzmi drugiej.",
+    sellerH: "Kto sprzedaje BbC",
+    sellerP: "Na razie jedna osoba — ta, która zbudowała tę sieć. Nie udaję, że jest nas więcej.",
+    sellerNote: "Nic nie jest wiążące w momencie wysłania propozycji. Podajesz ile BTC dajesz i ile BbC chcesz — sprzedający widzi to i decyduje. Dopiero po akceptacji powstaje kontrakt.",
+    howH: "Jak przebiega wymiana",
+    stateH: "Stan na teraz",
+    copy: "Kopiuj adres",
+    copied: "Skopiowane",
+    propose: "Zaproponuj zakup",
+    steps: [
+      ["Propozycja.", "Piszesz ile BTC oferujesz za ile BbC. Sprzedający dostaje to do akceptacji."],
+      ["Wysyłasz BTC.", "Na adres kontraktu HTLC, nie prosto do sprzedającego. Twoje BTC są zablokowane, ale wciąż Twoje."],
+      ["Sprzedający blokuje BbC.", "Tym samym mechanizmem, po stronie BbC."],
+      ["Odbierasz BbC.", "Odblokowanie ujawnia sekret, którym sprzedający odbiera BTC. Albo obie strony dostają swoje, albo żadna nic nie traci."]
+    ],
+    howTail: "Jeśli druga strona się rozmyśli albo zniknie — po upływie czasu odzyskujesz swoje BTC. To nie jest zaufanie do człowieka, to jest zaufanie do kodu, który możesz sam przeczytać.",
+    lPending: "czeka na odpowiedź",
+    lOpen: "w toku",
+    lDone: "zakończonych",
+    noneYet: "Jeszcze nikt nie zrobił tu wymiany. Mechanizm jest zbudowany i przetestowany, ale nie był jeszcze użyty przez nikogo z zewnątrz. Piszę to wprost, zamiast udawać ruch, którego nie ma.",
+    someYet: "Liczby pochodzą wprost z /swap/offers — bez zaokrągleń i bez upiększania.",
+    offline: "Nie udało się połączyć z węzłem, więc nie pokażę liczb, których nie sprawdziłem."
+  },
+  en: {
+    h1: "Buy BbC with BTC",
+    intro: "This is not an exchange. No order book, no trading pairs, no automatic matching. It is something simpler and more honest: an atomic BTC ↔ BbC swap, directly between two people, secured by an HTLC contract. Neither side can walk away with the other's money.",
+    sellerH: "Who sells BbC",
+    sellerP: "For now, one person — the one who built this network. I am not pretending there are more of us.",
+    sellerNote: "Sending a proposal commits you to nothing. You state how much BTC you offer and how much BbC you want — the seller sees it and decides. The contract is created only after acceptance.",
+    howH: "How the swap works",
+    stateH: "Where things stand",
+    copy: "Copy address",
+    copied: "Copied",
+    propose: "Propose a purchase",
+    steps: [
+      ["Proposal.", "You state how much BTC you offer for how much BbC. The seller receives it for acceptance."],
+      ["You send BTC.", "To an HTLC contract address, not straight to the seller. Your BTC is locked, but still yours."],
+      ["Seller locks BbC.", "By the same mechanism, on the BbC side."],
+      ["You claim BbC.", "Unlocking reveals the secret the seller uses to claim the BTC. Either both sides get theirs, or neither loses anything."]
+    ],
+    howTail: "If the other side changes their mind or disappears — after the timeout you get your BTC back. This is not trust in a person, it is trust in code you can read yourself.",
+    lPending: "awaiting reply",
+    lOpen: "in progress",
+    lDone: "completed",
+    noneYet: "Nobody has completed a swap here yet. The mechanism is built and tested, but has not been used by anyone from outside. I am saying this plainly instead of faking activity that does not exist.",
+    someYet: "These numbers come straight from /swap/offers — not rounded, not dressed up.",
+    offline: "Could not reach the node, so I will not show numbers I have not verified."
+  }
+};
+
+function xt(key) {
+  const lang = (window.BbCI18n && BbCI18n.getLanguage) ? BbCI18n.getLanguage() : "pl";
+  return (X[lang] && X[lang][key]) || X.pl[key] || key;
+}
+
+function applyLocalTexts() {
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set("x-h1", xt("h1"));
+  set("x-intro", xt("intro"));
+  set("x-seller-h", xt("sellerH"));
+  set("x-seller-p", xt("sellerP"));
+  set("x-seller-note", xt("sellerNote"));
+  set("x-how-h", xt("howH"));
+  set("x-state-h", xt("stateH"));
+  set("x-how-tail", xt("howTail"));
+
+  const ol = document.getElementById("x-steps");
+  if (ol) {
+    ol.innerHTML = "";
+    (xt("steps") || []).forEach(([lead, rest]) => {
+      const li = document.createElement("li");
+      const b = document.createElement("b");
+      b.textContent = lead;
+      li.appendChild(b);
+      li.appendChild(document.createTextNode(" " + rest));
+      ol.appendChild(li);
+    });
+  }
+  set("copyAddrBtn", xt("copy"));
+  set("proposeBtn", xt("propose"));
+  renderStats();
+}
+document.addEventListener("bbc:langchange", applyLocalTexts);
+
+
+/* --- Adres sprzedajacego --- */
+const addrEl = document.getElementById("sellerAddr");
+const proposeEl = document.getElementById("proposeBtn");
+const addrLooksReal = /^BbC[0-9a-fA-F]{40}$/.test(SELLER_ADDRESS) &&
+                      !/^BbC0{40}$/.test(SELLER_ADDRESS);
+
+if (addrLooksReal) {
+  addrEl.textContent = SELLER_ADDRESS;
+  proposeEl.href = "create-offer.html?seller=" + encodeURIComponent(SELLER_ADDRESS);
+} else {
+  addrEl.textContent = "⚠ Adres sprzedającego nie został jeszcze ustawiony (SELLER_ADDRESS w exchange.html)";
+  addrEl.style.color = "var(--danger)";
+  addrEl.style.borderColor = "var(--danger)";
+  proposeEl.style.opacity = ".45";
+  proposeEl.style.pointerEvents = "none";
+}
+
+document.getElementById("copyAddrBtn").addEventListener("click", () => {
+  if (!addrLooksReal) return;
+  navigator.clipboard.writeText(SELLER_ADDRESS).then(() => {
+    const b = document.getElementById("copyAddrBtn");
+    b.textContent = xt("copied");
+    setTimeout(() => { b.textContent = xt("copy"); }, 1600);
+  }).catch(() => {});
+});
+
+
+/* --- Prawdziwy stan ofert, prosto z /swap/offers --------------
+   Bez wygladzania. Zero to tez wynik i pokazuje sie zero.       */
+let statsData = null;
+let statsFailed = false;
+
+function renderStats() {
+  const box = document.getElementById("offerStats");
+  const note = document.getElementById("offerNote");
+  if (!box) return;
+
+  // Skeleton ma inline height:56px. Po podmianie na tresc trzeba go
+  // zdjac, inaczej zawartosc nie miesci sie w pudelku i nachodzi na
+  // akapit ponizej (widoczne na tescie).
+  box.style.height = "auto";
+
+  if (statsFailed) {
+    box.className = "";
+    box.innerHTML = "";
+    note.textContent = xt("offline");
+    return;
+  }
+  if (!statsData) return;
+
+  const all = Object.values(statsData);
+  const count = (s) => all.filter((o) => o.status === s).length;
+  const pending = count("pending");
+  const open = count("open");
+  const done = all.filter((o) => o.status === "completed" || o.status === "claimed").length;
+
+  box.className = "tally";
+  box.innerHTML =
+    '<div><span class="n">' + pending + '</span><span class="l">' + xt("lPending") + '</span></div>' +
+    '<div><span class="n">' + open + '</span><span class="l">' + xt("lOpen") + '</span></div>' +
+    '<div><span class="n">' + done + '</span><span class="l">' + xt("lDone") + '</span></div>';
+
+  note.textContent = (all.length === 0) ? xt("noneYet") : xt("someYet");
+}
+
+fetch(API_BASE + "/swap/offers")
+  .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then((data) => { statsData = data || {}; renderStats(); })
+  .catch(() => { statsFailed = true; renderStats(); });
+
+applyLocalTexts();
+</script>
 </body>
 </html>
