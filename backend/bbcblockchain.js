@@ -22,6 +22,28 @@ const PROJECT_FEE_PERCENT =
     0.005;
 
 
+/*
+ * Maksymalne wyprzedzenie znacznika czasu bloku wzgledem zegara wezla.
+ *
+ * NAPRAWA: ta stala byla wczesniej LOKALNA wewnatrz receiveBlock(), przez
+ * co replaceChain() nie miala do niej dostepu i nie sprawdzala czasu
+ * wcale. Skutek byl potwierdzony testem (test-replacechain-czas.js):
+ * ten sam blok z czasem +365 dni receiveBlock ODRZUCAL, a replaceChain
+ * PRZYJMOWAL. Wystarczylo podac bloki jako caly lancuch przez sync P2P
+ * zamiast pojedynczo, zeby ominac cala obrone.
+ *
+ * Dlaczego to grozne: ASERT liczy trudnosc z roznic czasu. Zawyzony
+ * znacznik => "bloki trwaly wieczno" => sztucznie NIZSZA trudnosc =>
+ * tanie bloki. A ze replaceChain wybiera po DLUGOSCI, nie po sumie
+ * pracy, dluzszy lancuch tanich blokow wygrywa z krotszym uczciwym.
+ * Kazda kontrola wewnetrzna przechodzi, bo wszystko zgadza sie samo
+ * ze soba.
+ *
+ * 10 s to znacznie ostrzej niz 2 h w Bitcoinie - swiadomie.
+ */
+const MAX_FUTURE_DRIFT_MS = 10000;
+
+
 function difficultyToTargetHex(difficulty) {
 
     const safe =
@@ -1272,9 +1294,6 @@ class Blockchain {
             };
         }
 
-        const MAX_FUTURE_DRIFT_MS =
-            10000;
-
         if (
             candidate.timestamp >
             Date.now() +
@@ -1841,6 +1860,41 @@ class Blockchain {
                     accepted: false,
                     reason:
                         `blok #${i}: brak poprawnego PoW`
+                };
+            }
+
+            /* NAPRAWA: monotonicznosc znacznikow czasu.
+               receiveBlock() to egzekwowal, replaceChain() nie - a
+               wlasnie tedy przechodzi synchronizacja calego lancucha
+               od peera. Sprawdzone na zywej bazie: 102 603 blokow,
+               ZERO naruszen, wiec ta kontrola nie odrzuci wlasnej
+               historii przy resynchronizacji. */
+            if (
+                i > 0 &&
+                block.timestamp <=
+                    candidateChain[i - 1].timestamp
+            ) {
+
+                return {
+                    accepted: false,
+                    reason:
+                        `blok #${i}: znacznik czasu nie jest pozniejszy niz blok poprzedni`
+                };
+            }
+
+            /* NAPRAWA: limit wyprzedzenia zegara. Bez tego atakujacy
+               fabrykuje czasy w przyszlosc, ASERT liczy nizsza trudnosc
+               i tanie bloki tworza dluzszy lancuch. Bloki historyczne sa
+               w przeszlosci, wiec ta kontrola ich nie dotyka. */
+            if (
+                block.timestamp >
+                Date.now() + MAX_FUTURE_DRIFT_MS
+            ) {
+
+                return {
+                    accepted: false,
+                    reason:
+                        `blok #${i}: znacznik czasu zbyt daleko w przyszlosci`
                 };
             }
         }
