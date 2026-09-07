@@ -236,15 +236,17 @@ footer {
          HERO
          ================================================= -->
     <section class="hero">
-        <!-- Grafika tla + moneta wkomponowana w jej ciemny srodek.
-             Style .hero-art / .hero-coin siedza w theme.css. -->
-        <div class="hero-art">
-            <img
-                class="hero-coin"
-                src="assets/coin-hero.jpg"
-                alt="Moneta BitBudCoin"
-            >
-        </div>
+        <img
+            src="assets/coin-hero.jpg"
+            alt="Moneta BitBudCoin"
+            style="
+                width:200px;
+                height:200px;
+                border-radius:50%;
+                box-shadow:0 0 50px rgba(90,126,246,.3);
+                margin-bottom:12px;
+            "
+        >
         <div
             class="kicker"
             data-i18n="index_kicker"
@@ -687,7 +689,7 @@ function setLiveStatus(
  * gornikow nie zmienia sie w rytmie blokow.
  */
 const MINER_ADDRESS_FORMAT =
-    /^BbC[0-9a-fA-F]{40}$/;
+    /^t?BbC[0-9a-fA-F]{40}$/;
 const MINERS_MILESTONE_TARGET = 500;
 let minersCount = null;
 function renderMinersMilestone() {
