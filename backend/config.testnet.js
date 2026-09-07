@@ -27,6 +27,14 @@
 module.exports = {
 
     NETWORK_NAME: "BitBudCoin Testnet",
+
+    /*
+     * Inny prefiks niz mainnet. Adres to prefiks + hash klucza
+     * publicznego, wiec ten sam klucz daje ten sam hex - zmienia sie
+     * tylko przedrostek. Dzieki temu klucz puli (~/secrets/pool-key.pem)
+     * dziala w obu sieciach bez zmian.
+     */
+    ADDRESS_PREFIX: "tBbC",
     SYMBOL: "tBbC",
     VERSION: "1.0.0-testnet",
 
@@ -51,11 +59,11 @@ module.exports = {
      */
     PREMINE: 1000000,
 
-    GENESIS_ADDRESS: "BbC694f9417395ed990fce2b3c3fe3d756959bf3b1e",
+    GENESIS_ADDRESS: "tBbC694f9417395ed990fce2b3c3fe3d756959bf3b1e",
 
     GENESIS_TRANSACTIONS: [
         {
-            to: "BbCcbcfc6f043ddb1f5ac83dd59feab439e192a1fb7",
+            to: "tBbCcbcfc6f043ddb1f5ac83dd59feab439e192a1fb7",
             amount: 1000000
         }
     ],
@@ -115,7 +123,7 @@ module.exports = {
      * POOL
      * ============================================================
      */
-    POOL_ADDRESS: "BbCcbcfc6f043ddb1f5ac83dd59feab439e192a1fb7",
+    POOL_ADDRESS: "tBbCcbcfc6f043ddb1f5ac83dd59feab439e192a1fb7",
     POOL_FEE: 0.02,
     SHARE_DIFFICULTY: 2,
 
@@ -157,7 +165,7 @@ module.exports = {
      * 98. Lepiej, zeby zobaczyl to w tescie niz na produkcji.
      */
     PROJECT_FEE_ADDRESS:
-        "BbCf4c7f835449ea7ffd9d4890b4c9fa2379166157c",
+        "tBbCf4c7f835449ea7ffd9d4890b4c9fa2379166157c",
     PROJECT_FEE_PERCENT: 0.02,
     PROJECT_FEE_ACTIVATION_HEIGHT: 5
 };
