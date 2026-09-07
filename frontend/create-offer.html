@@ -12,8 +12,26 @@
   .field { margin-bottom: 14px; }
   .field label { display: block; font-family: var(--font-mono); font-size: .72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
   .field input { width: 100%; box-sizing: border-box; background: var(--surface-2); border: 1px solid var(--leaf-dim); border-radius: 6px; padding: 9px 12px; color: var(--text); font-family: var(--font-mono); font-size: .95rem; }
+  .field input.bad { border-color: var(--danger); }
   .link-box { background: var(--surface-2); border: 2px solid var(--leaf); border-radius: 8px; padding: 14px; margin-top: 14px; }
   .link-box a { color: var(--leaf); font-family: var(--font-mono); font-size: .85rem; word-break: break-all; }
+
+  /* Sprzedajacy przyniesiony z linku - pokazany, nie do przepisywania */
+  .seller-locked {
+    background: var(--surface-2);
+    border: 1px solid var(--leaf-dim);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+  .seller-locked .who { font-family: var(--font-mono); font-size: .68rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; }
+  .seller-locked .addr { font-family: var(--font-mono); font-size: .86rem; color: var(--leaf); word-break: break-all; margin-top: 4px; }
+  .seller-locked button {
+    background: none; border: none; color: var(--text-dim);
+    font-family: var(--font-mono); font-size: .74rem;
+    text-decoration: underline; cursor: pointer; padding: 6px 0 0;
+  }
+  .err { color: var(--danger); font-family: var(--font-mono); font-size: .82rem; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -23,11 +41,25 @@
     <p data-i18n="reqoffer_intro">Napisz ile chcesz wysłać i ile BbC oczekujesz w zamian. Sprzedający to zobaczy i zdecyduje — nic nie jest jeszcze wiążące.</p>
 
     <div class="card" id="formCard">
-        <div class="field"><label data-i18n="reqoffer_seller_label">Adres BbC sprzedającego (od kogo kupujesz)</label><input id="targetSellerAddress" placeholder="BbC..."></div>
+
+        <!-- Sprzedajacy z linku (?seller=...) - widoczny tylko wtedy -->
+        <div class="seller-locked" id="sellerLocked" style="display:none;">
+            <div class="who" id="sellerLockedWho">Sprzedający wskazany w linku</div>
+            <div class="addr" id="sellerLockedAddr"></div>
+            <button type="button" id="sellerChangeBtn">Wpisz inny adres</button>
+        </div>
+
+        <!-- Pole recznego wpisania - chowane, gdy adres przyszedl z linku -->
+        <div class="field" id="sellerField">
+            <label data-i18n="reqoffer_seller_label">Adres BbC sprzedającego (od kogo kupujesz)</label>
+            <input id="targetSellerAddress" placeholder="BbC...">
+        </div>
+
         <div class="field"><label data-i18n="reqoffer_bbc_label">Ile BbC chcesz otrzymać</label><input id="bbcAmount" type="number" step="any" placeholder="10"></div>
         <div class="field"><label data-i18n="reqoffer_btc_label">Ile BTC oferujesz</label><input id="expectedAmount" type="number" step="any" placeholder="0.00011"></div>
         <div class="field"><label data-i18n="reqoffer_timeout_label">Ile godzin na dokończenie transakcji (po akceptacji)</label><input id="timeoutHours" type="number" value="48"></div>
         <div class="field"><label data-i18n="reqoffer_note_label">Wiadomość do sprzedającego (opcjonalnie)</label><input id="note" placeholder=""></div>
+
         <button class="btn flame" id="createBtn" style="width:100%;justify-content:center;" data-i18n="reqoffer_submit_btn">Wyślij propozycję</button>
         <div id="createResult" style="margin-top:12px;font-family:var(--font-mono);font-size:.85rem;"></div>
     </div>
@@ -36,6 +68,7 @@
         <h3 style="margin-top:0;" data-i18n="reqoffer_done_heading">Wysłane — zapisz ten link</h3>
         <p style="font-size:.85rem;color:var(--text-dim);" data-i18n="reqoffer_done_desc">Pod tym linkiem zobaczysz, czy sprzedający zaakceptował. Jeśli tak — tu dokończysz zakup.</p>
         <a id="offerLink" href="#" target="_blank"></a>
+        <button class="btn secondary" id="copyLinkBtn" style="margin-top:12px;">Kopiuj link</button>
     </div>
 </div>
 
@@ -46,17 +79,105 @@
 <script src="assets/native-responsive.js"></script>
 <script src="assets/i18n.js"></script>
 <script>
+/* Format adresu - DOKLADNIE ten sam, ktory backend egzekwuje w
+   swap-offers.js (createOffer). Sprawdzamy tu tylko po to, zeby
+   czlowiek dostal czytelny komunikat zamiast surowego bledu 400. */
+const ADDR_RE = /^BbC[0-9a-fA-F]{40}$/;
+
+/* Teksty nowe na tej stronie trzymam lokalnie, zeby nie kazac wklejac
+   76 KB i18n.js. Klucze, ktore JUZ tam sa (reqoffer_*), zostaja na
+   data-i18n i dzialaja bez zmian. */
+const L = {
+  pl: {
+    who: "Sprzedający wskazany w linku",
+    change: "Wpisz inny adres",
+    copyLink: "Kopiuj link",
+    copied: "Skopiowane",
+    badAddr: "Adres sprzedającego ma zły format. Powinien zaczynać się od BbC i mieć 40 znaków szesnastkowych.",
+    badNum: "Kwoty i czas muszą być liczbami większymi od zera.",
+    sameAddr: "To wygląda na ten sam adres po obu stronach — sprawdź, czy na pewno o to chodzi."
+  },
+  en: {
+    who: "Seller taken from the link",
+    change: "Enter a different address",
+    copyLink: "Copy link",
+    copied: "Copied",
+    badAddr: "The seller address has the wrong format. It should start with BbC followed by 40 hex characters.",
+    badNum: "Amounts and time must be numbers greater than zero.",
+    sameAddr: "That looks like the same address on both sides — check that this is what you meant."
+  }
+};
+function lt(k) {
+  const lang = (window.BbCI18n && BbCI18n.getLanguage) ? BbCI18n.getLanguage() : "pl";
+  return (L[lang] && L[lang][k]) || L.pl[k] || k;
+}
+function applyLocal() {
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set("sellerLockedWho", lt("who"));
+  set("sellerChangeBtn", lt("change"));
+  set("copyLinkBtn", lt("copyLink"));
+}
+document.addEventListener("bbc:langchange", applyLocal);
+applyLocal();
+
+
+/* --- Sprzedajacy z linku ?seller=... ---------------------------
+   exchange.html buduje taki link, zeby kupujacy nie musial reczne
+   przepisywac 43-znakowego adresu z ekranu na ekran - najczestsze
+   miejsce na literowke, ktora konczy sie oferta, ktorej NIKT nie
+   moze zaakceptowac (podpis nigdy nie wyprowadzi sie do smiecia). */
+const sellerInput = document.getElementById("targetSellerAddress");
+const sellerField = document.getElementById("sellerField");
+const sellerLocked = document.getElementById("sellerLocked");
+
+const fromLink = new URLSearchParams(location.search).get("seller");
+if (fromLink && ADDR_RE.test(fromLink)) {
+    sellerInput.value = fromLink;
+    document.getElementById("sellerLockedAddr").textContent = fromLink;
+    sellerLocked.style.display = "block";
+    sellerField.style.display = "none";
+}
+document.getElementById("sellerChangeBtn").addEventListener("click", () => {
+    sellerLocked.style.display = "none";
+    sellerField.style.display = "block";
+    sellerInput.focus();
+});
+
+
+/* --- Wysylka propozycji --- */
 document.getElementById("createBtn").addEventListener("click", async () => {
     const resultEl = document.getElementById("createResult");
-    const targetSellerAddress = document.getElementById("targetSellerAddress").value.trim();
+    resultEl.style.color = "";
+    resultEl.textContent = "";
+
+    const targetSellerAddress = sellerInput.value.trim();
     const bbcAmount = Number(document.getElementById("bbcAmount").value);
     const expectedAmount = Number(document.getElementById("expectedAmount").value);
     const timeoutHours = Number(document.getElementById("timeoutHours").value);
     const note = document.getElementById("note").value.trim();
 
+    const fail = (msg, el) => {
+        resultEl.textContent = "❌ " + msg;
+        resultEl.style.color = "var(--danger)";
+        if (el) { el.classList.add("bad"); el.focus(); }
+    };
+    [sellerInput, "bbcAmount", "expectedAmount", "timeoutHours"].forEach((x) => {
+        const e = typeof x === "string" ? document.getElementById(x) : x;
+        e.classList.remove("bad");
+    });
+
     if (!targetSellerAddress || !bbcAmount || !expectedAmount || !timeoutHours) {
-        resultEl.textContent = t("reqoffer_fill_all");
-        return;
+        return fail(t("reqoffer_fill_all"));
+    }
+    /* Ten sam warunek co w backendzie - lepiej zatrzymac literowke tutaj
+       niz stworzyc oferte-widmo, ktorej nikt nigdy nie zaakceptuje. */
+    if (!ADDR_RE.test(targetSellerAddress)) {
+        return fail(lt("badAddr"), sellerInput);
+    }
+    for (const [id, val] of [["bbcAmount", bbcAmount], ["expectedAmount", expectedAmount], ["timeoutHours", timeoutHours]]) {
+        if (!Number.isFinite(val) || !(val > 0)) {
+            return fail(lt("badNum"), document.getElementById(id));
+        }
     }
 
     const btn = document.getElementById("createBtn");
@@ -85,6 +206,19 @@ document.getElementById("createBtn").addEventListener("click", async () => {
     } finally {
         btn.disabled = false;
     }
+});
+
+/* Link do oferty to JEDYNY sposob, zeby kupujacy wrocil do swojej
+   transakcji - warto go miec jednym kliknieciem, nie zaznaczaniem
+   43 znakow palcem na telefonie. */
+document.getElementById("copyLinkBtn").addEventListener("click", () => {
+    const link = document.getElementById("offerLink").textContent;
+    if (!link) return;
+    navigator.clipboard.writeText(link).then(() => {
+        const b = document.getElementById("copyLinkBtn");
+        b.textContent = lt("copied");
+        setTimeout(() => { b.textContent = lt("copyLink"); }, 1600);
+    }).catch(() => {});
 });
 </script>
 </body>
