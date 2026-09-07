@@ -318,6 +318,36 @@ class Blockchain {
                         })
                     );
 
+            /*
+             * NAPRAWA: bylo "difficulty: this.difficulty".
+             *
+             * "difficulty" to GETTER, ktory wola getLatestBlock(), a ten
+             * czyta this.chain.length. W tej galezi this.chain jeszcze
+             * NIE ISTNIEJE - jest przypisywany dopiero ponizej. Efekt:
+             * TypeError "Cannot read properties of undefined" i wezel
+             * nie wstaje.
+             *
+             * Na mainnecie nigdy sie nie ujawnilo, bo ta galaz wykonuje
+             * sie wylacznie przy CALKOWICIE PUSTEJ bazie, a produkcyjna
+             * baza ma bloki od pierwszego dnia. Ujawnilo sie dopiero
+             * przy zakladaniu testnetu, czyli w jedynej sytuacji, w
+             * ktorej ta sciezka jest uzywana naprawde.
+             *
+             * Wartosc MUSI byc ta sama, ktora zapisal konstruktor:
+             *     this.difficulty = Math.pow(16, CONFIG.DIFFICULTY)
+             * czyli 16^7 = 268435456 dla mainnetu. CONFIG.DIFFICULTY to
+             * liczba wiodacych ZER, nie trudnosc liczbowa.
+             *
+             * Zweryfikowane wzgledem zywej bazy: blok #0 mainnetu ma
+             * difficulty 268435456 i hash 29bcb4bf8777dc72...
+             * Wstawienie tu surowego CONFIG.DIFFICULTY dawalo INNY hash
+             * genesis - czyli swiezy wezel mainnetu zbudowalby inna siec
+             * i nigdy by sie nie zsynchronizowal.
+             *
+             * Czytamy _legacyDifficulty (backing field) zamiast gettera
+             * "difficulty", bo getter wola getLatestBlock() i to on jest
+             * zrodlem awarii.
+             */
             const genesis =
                 new Block({
                     height: 0,
@@ -331,7 +361,7 @@ class Blockchain {
                     transactions,
 
                     difficulty:
-                        this.difficulty
+                        this._legacyDifficulty
                 });
 
             this.chain = [
