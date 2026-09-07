@@ -183,6 +183,9 @@
         <label data-i18n="wallet_send_to">Adres odbiorcy</label>
         <input id="sendTo" placeholder="BbC..." list="savedContactsList">
         <datalist id="savedContactsList"></datalist>
+        <!-- Stan sumy kontrolnej adresu. Literowka powstaje TUTAJ,
+             przy wklejaniu - i tutaj jest zatrzymywana. -->
+        <div id="sendToCheck" style="margin-top:6px;font-family:var(--font-mono);font-size:.78rem;min-height:1.1em;"></div>
         <div id="contactsQuickPick" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
       </div>
       <div class="field"><label data-i18n="wallet_send_amount">Kwota (BbC)</label><input id="sendAmount" type="number" step="any" placeholder="0.0"></div>
@@ -261,6 +264,7 @@
   BitBudCoin (BbC) · klucz prywatny nigdy nie opuszcza tej przeglądarki
 </footer>
 
+<script src="assets/address-checksum-frontend.js"></script>
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
@@ -614,7 +618,56 @@ document.getElementById("sendTo").addEventListener("input", () => {
     const btn = document.getElementById("sendBtn");
     btn.textContent = t("wallet_send_btn");
     btn.classList.remove("secondary");
+    odswiezStanAdresu();
 });
+
+/*
+ * Suma kontrolna adresu odbiorcy.
+ *
+ * Trzy stany, nie dwa - "brak checksumu" to co innego niz "checksum
+ * sie nie zgadza". Adresy sprzed tej zmiany (same male litery) niosa
+ * zero informacji o wielkosci liter, wiec nie da sie ich sprawdzic.
+ * Blokujemy WYLACZNIE jawnie zly checksum, bo to zawsze literowka,
+ * nigdy zamiar. Blokowanie legacy odcieloby wszystkich dotychczasowych
+ * uzytkownikow.
+ */
+let stanAdresu = "malformed";
+
+async function odswiezStanAdresu() {
+    const pole = document.getElementById("sendTo");
+    const box = document.getElementById("sendToCheck");
+    const adres = pole.value.trim();
+
+    if (!adres) {
+        stanAdresu = "malformed";
+        box.textContent = "";
+        pole.style.borderColor = "";
+        return;
+    }
+
+    stanAdresu = await bbcCheckAddress(adres);
+
+    if (stanAdresu === "valid") {
+        box.textContent = "✓ suma kontrolna adresu poprawna";
+        box.style.color = "var(--leaf)";
+        pole.style.borderColor = "var(--leaf)";
+
+    } else if (stanAdresu === "invalid") {
+        box.innerHTML = "✕ <b>suma kontrolna NIE pasuje — w adresie jest literówka</b>";
+        box.style.color = "var(--danger)";
+        pole.style.borderColor = "var(--danger)";
+
+    } else if (stanAdresu === "legacy") {
+        box.textContent = "adres w starym formacie — nie da się sprawdzić literówki";
+        box.style.color = "var(--text-dim)";
+        pole.style.borderColor = "";
+
+    } else {
+        box.textContent = "nieprawidłowy format adresu";
+        box.style.color = "var(--danger)";
+        pole.style.borderColor = "var(--danger)";
+    }
+}
 
 let pendingConfirmedAddress = null;
 
@@ -626,6 +679,13 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
     const btn = document.getElementById("sendBtn");
 
     if (!to) { resultEl.textContent = t("wallet_need_recipient"); return; }
+
+    // Zly checksum = literowka. Zatrzymujemy BEZWARUNKOWO - srodki wyslane
+    // na przekrecony adres sa nie do odzyskania i nie do namierzenia.
+    if ((await bbcCheckAddress(to)) === "invalid") {
+        resultEl.innerHTML = '<span style="color:var(--danger);">Suma kontrolna adresu nie pasuje. W adresie jest literówka — sprawdź go jeszcze raz.</span>';
+        return;
+    }
     if (!amount || amount <= 0) { resultEl.textContent = t("wallet_need_amount"); return; }
     if (fee < 0) { resultEl.textContent = t("wallet_fee_negative"); return; }
 
@@ -643,7 +703,12 @@ document.getElementById("sendBtn").addEventListener("click", async () => {
     resultEl.textContent = t("wallet_signing");
 
     try {
-        const tx = { from: currentWallet.address, to, amount, fee, timestamp: Date.now() };
+        /* Do sieci idzie postac ZNORMALIZOWANA (same male litery).
+           Salda sa kluczowane surowym stringiem adresu, wiec "BbCabc..."
+           i "BbCAbC..." byłyby dwoma roznymi kontami. Podpis obejmuje
+           pole "to", wiec normalizacja MUSI nastapic przed podpisaniem. */
+        const toSiec = bbcToNetworkForm(to);
+        const tx = { from: currentWallet.address, to: toSiec, amount, fee, timestamp: Date.now() };
         const signature = await signPayload(currentWallet.privateKey, tx);
         const candidate = { ...tx, publicKey: currentWallet.publicKeyPem, signature };
 
