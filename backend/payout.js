@@ -5,7 +5,7 @@ const CONFIG = require("./config");
 const { deriveAddress, signTransaction } = require("./wallet");
 const crypto = require("crypto");
 
-const ADDRESS_FORMAT = /^BbC[0-9a-fA-F]{40}$/;
+const ADDRESS_FORMAT = /^t?BbC[0-9a-fA-F]{40}$/;
 
 // NAPRAWA (dzisiaj, strategia dlugu wyplat - decyzja: B=10% nowych bloków,
 // C=25% sufit trudnosci gornika w pool.js): caly dlug SPRZED wdrozenia tego
