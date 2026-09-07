@@ -1,5 +1,25 @@
 "use strict";
 
+/*
+ * ============================================================
+ * WYBOR SIECI
+ * ============================================================
+ *
+ * Domyslnie MAINNET. Testnet wlacza sie zmienna srodowiskowa:
+ *
+ *     BBC_NETWORK=testnet node server.js
+ *
+ * Bez tej zmiennej zachowanie jest IDENTYCZNE jak przed ta zmiana -
+ * ponizszy obiekt to niezmieniona konfiguracja mainnetu. Delegacja
+ * dzieje sie zanim cokolwiek innego zostanie odczytane, wiec zaden
+ * modul nie zobaczy mieszanki parametrow z dwoch sieci.
+ */
+if (process.env.BBC_NETWORK === "testnet") {
+
+    module.exports = require("./config.testnet.js");
+
+} else {
+
 module.exports = {
     NETWORK_NAME: "BitBudCoin",
     SYMBOL: "BbC",
@@ -147,3 +167,5 @@ module.exports = {
 
     PROJECT_FEE_ACTIVATION_HEIGHT: 1716
 };
+
+}
