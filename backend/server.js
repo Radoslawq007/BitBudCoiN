@@ -44,7 +44,7 @@ const {
  * teraz na granicy API, zanim smiec w ogole trafi do bazy albo (w
  * /solo/work) na stale do coinbase w prawdziwym bloku.
  */
-const ADDRESS_FORMAT = /^BbC[0-9a-fA-F]{40}$/;
+const ADDRESS_FORMAT = /^t?BbC[0-9a-fA-F]{40}$/;
 
 
 /*
@@ -844,7 +844,7 @@ app.get(
 
         if (
             typeof address !== "string" ||
-            !/^BbC[0-9a-fA-F]{40}$/.test(address)
+            !/^t?BbC[0-9a-fA-F]{40}$/.test(address)
         ) {
 
             return res.status(400).json({
