@@ -75,6 +75,15 @@ class Mempool {
         if (this.pending.has(tx.signature)) {
             return { accepted: false, reason: "Ta transakcja już jest w mempoolu" };
         }
+        // NAPRAWA - powtorzenie transakcji (replay). Warunek powyzej lapal
+        // WYLACZNIE biezaca kolejke. Po wykopaniu transakcja z kolejki znika,
+        // a jej podpis pozostaje wazny - wiec ten sam obiekt mozna bylo wyslac
+        // ponownie i przeniesc srodki drugi raz. Potwierdzone testem
+        // (test-replay.js): saldo odbiorcy 10 -> 20 z jednego podpisu.
+        // hasSignature() pyta o CALY lancuch, nie o kolejke.
+        if (this.blockchain.hasSignature && this.blockchain.hasSignature(tx.signature)) {
+            return { accepted: false, reason: "Ta transakcja już jest w łańcuchu (powtórzenie)" };
+        }
 
         const available = this.getPendingAwareBalance(tx.from);
         if (available < tx.amount + fee) {
@@ -114,6 +123,15 @@ class Mempool {
         }
         if (this.pending.has(tx.signature)) {
             return { accepted: false, reason: "Ta transakcja już jest w mempoolu" };
+        }
+        // NAPRAWA - powtorzenie transakcji (replay). Warunek powyzej lapal
+        // WYLACZNIE biezaca kolejke. Po wykopaniu transakcja z kolejki znika,
+        // a jej podpis pozostaje wazny - wiec ten sam obiekt mozna bylo wyslac
+        // ponownie i przeniesc srodki drugi raz. Potwierdzone testem
+        // (test-replay.js): saldo odbiorcy 10 -> 20 z jednego podpisu.
+        // hasSignature() pyta o CALY lancuch, nie o kolejke.
+        if (this.blockchain.hasSignature && this.blockchain.hasSignature(tx.signature)) {
+            return { accepted: false, reason: "Ta transakcja już jest w łańcuchu (powtórzenie)" };
         }
         const record = {
             type: tx.type,
