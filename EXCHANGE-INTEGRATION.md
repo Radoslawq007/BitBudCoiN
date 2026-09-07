@@ -502,8 +502,7 @@ equal the difficulty. Network hashrate is therefore difficulty divided
 by block time.
 
 **One current-generation SHA-256 ASIC (~100 TH/s) is approximately
-59,000,000 times the entire BbC network.** Majority hashrate can be
-acquired for a rounding error on any hashpower rental market. There is
+59,000,000 times the entire BbC network.** At current network hashrate, BbC does not provide meaningful economic resistance against a majority-hashrate attacker. There is
 no merge-mining, no checkpointing, and no alternative finality
 mechanism.
 
