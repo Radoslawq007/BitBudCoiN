@@ -28,8 +28,62 @@
  * =====================================================
  */
 
+/*
+ * =====================================================
+ * WYBOR SIECI: MAINNET / TESTNET
+ * =====================================================
+ *
+ * Siedzi TUTAJ, a nie w osobnym pliku, z jednego powodu: api.js
+ * laduja wszystkie strony poza test-broadcast.html, wiec przelacznik
+ * dziala wszedzie bez dopisywania <script> do 16 plikow.
+ *
+ * Wybor zapisany w localStorage. Domyslnie ZAWSZE mainnet - kto nic
+ * nie klikal, nie trafi przypadkiem na siec testowa.
+ */
+const BBC_NETWORKS = {
+    mainnet: {
+        label: "MAIN",
+        api: "https://141-147-98-57.sslip.io",
+        symbol: "BbC"
+    },
+    testnet: {
+        label: "TEST",
+        api: "https://testnet.141-147-98-57.sslip.io",
+        symbol: "tBbC"
+    }
+};
+
+function bbcGetNetwork() {
+    try {
+        const z = localStorage.getItem("bbc_network");
+        return z === "testnet" ? "testnet" : "mainnet";
+    } catch (e) {
+        // Prywatne okno albo zablokowany storage - mainnet jest
+        // bezpieczniejszym domyslnym wyborem niz siec testowa.
+        return "mainnet";
+    }
+}
+
+function bbcSetNetwork(siec) {
+    try {
+        localStorage.setItem(
+            "bbc_network",
+            siec === "testnet" ? "testnet" : "mainnet"
+        );
+    } catch (e) {}
+    location.reload();
+}
+
+const BBC_NETWORK = bbcGetNetwork();
+
+window.bbcGetNetwork = bbcGetNetwork;
+window.bbcSetNetwork = bbcSetNetwork;
+window.BBC_NETWORK = BBC_NETWORK;
+window.BBC_NETWORKS = BBC_NETWORKS;
+
+
 const BBC_DEFAULT_API_BASE =
-    "https://141-147-98-57.sslip.io";
+    BBC_NETWORKS[BBC_NETWORK].api;
 
 
 function normalizeApiBase(url) {
@@ -792,27 +846,3 @@ const BBCLiveState = (() => {
 })();
 
 window.BBCLiveState = BBCLiveState;
-
-
-/*
- * =====================================================
- * AUTO-MONTOWANIE DYMU
- * =====================================================
- * Do tej pory mountSmokeField() bylo TYLKO wystawiane do window, a
- * wolaly je recznie wylacznie miner.html i wallet.html - czyli 2 z 17
- * stron mialy dym, pozostale 15 nie mialo go nigdy.
- *
- * api.js laduja wszystkie strony poza test-broadcast.html, wiec jedno
- * wywolanie tutaj daje spojne tlo wszedzie, bez tykania 15 plikow.
- *
- * Sama funkcja ma na wejsciu guard:
- *     if (document.querySelector(".smoke-field")) return;
- * wiec miner.html i wallet.html, ktore wolaja ja same, NIE dostana
- * dymu podwojnie - ktokolwiek zawola pierwszy, drugie wywolanie wraca
- * od razu.
- */
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", mountSmokeField);
-} else {
-    mountSmokeField();
-}
