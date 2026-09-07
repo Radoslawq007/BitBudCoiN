@@ -443,3 +443,70 @@ footer {
   .nav-status { margin-left: 0; }
   .card-value { font-size: 1.3rem; }
 }
+
+/* =========================================================
+   PASEK TESTNETU
+   =========================================================
+   Rozowy w pikselach, celowo brzydki i celowo nie do zamkniecia.
+
+   Dlaczego az tak: ta sama fraza 12 slow daje TEN SAM adres w obu
+   sieciach, bo adres wywodzi sie z klucza, nie z sieci. Uzytkownik na
+   testnecie zobaczy inne saldo i pomysli, ze pieniadze zniknely.
+   Gorzej - moglby wyslac PRAWDZIWE BTC do swapa, myslac ze testuje.
+
+   Rozowy nie wystepuje nigdzie indziej w tym motywie (zielen + niebieski
+   plomien), wiec nie da sie go pomylic z normalnym elementem strony.
+   ========================================================= */
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+
+.testnet-bar {
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  width: 100%;
+  background: #ff2fd0;
+  color: #1a0014;
+  font-family: "Press Start 2P", "IBM Plex Mono", monospace;
+  font-size: .58rem;
+  line-height: 1.9;
+  letter-spacing: .04em;
+  text-align: center;
+  padding: 10px 12px;
+  border-bottom: 4px solid #12000d;
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, .45);
+  /* skanlinie - zeby czytalo sie jako "tryb testowy", nie jak baner */
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, .13) 0px,
+      rgba(0, 0, 0, .13) 2px,
+      transparent 2px,
+      transparent 4px
+    );
+  image-rendering: pixelated;
+}
+.testnet-bar b { color: #12000d; }
+
+/* Nav musi zjechac pod pasek, inaczej sticky nachodzi na sticky */
+body.testnet .nav { top: 44px; }
+
+@media (max-width: 640px) {
+  .testnet-bar { font-size: .5rem; line-height: 1.8; padding: 8px 8px; }
+  body.testnet .nav { top: 54px; }
+}
+
+/* Przelacznik sieci - ten sam ksztalt co PL/EN obok */
+.net-switch { display: flex; gap: 2px; margin-left: 8px; align-items: center; }
+.net-switch button {
+  padding: 5px 9px;
+  font-size: .72rem;
+  font-family: var(--font-mono, monospace);
+  border: 1px solid var(--border, #444);
+  background: var(--surface-2, #222);
+  color: var(--text-dim, #aaa);
+  cursor: pointer;
+}
+.net-switch button:first-child { border-radius: 6px 0 0 6px; }
+.net-switch button:last-child { border-radius: 0 6px 6px 0; }
+.net-switch button.active { background: var(--leaf); color: #04180b; border-color: var(--leaf); }
+.net-switch button.active[data-net="testnet"] { background: #ff2fd0; color: #12000d; border-color: #ff2fd0; }
