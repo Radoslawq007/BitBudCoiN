@@ -14,9 +14,17 @@
  * Zmierzona wykrywalnosc literowki: 99.9% (3000 prob, test-address-checksum.js)
  */
 
-const BBC_PREFIX = "BbC";
+const BBC_PREFIX =
+    (window.BBC_NETWORK === "testnet") ? "tBbC" : "BbC";
+
+/* Prefiks przy SPRAWDZANIU czytamy z adresu, nie z sieci - "BbC" ma
+   3 znaki, "tBbC" ma 4, a ciecie stala dlugoscia kroiloby hex. */
+function bbcRozbij(address) {
+    const m = /^(t?BbC)([0-9a-fA-F]{40})$/.exec(address || "");
+    return m ? { prefix: m[1], hex: m[2] } : null;
+}
 const BBC_HEX_LENGTH = 40;
-const BBC_ADDRESS_RE = /^BbC[0-9a-fA-F]{40}$/;
+const BBC_ADDRESS_RE = /^t?BbC[0-9a-fA-F]{40}$/;
 
 function bbcIsWellFormed(address) {
     return typeof address === "string" && BBC_ADDRESS_RE.test(address);
@@ -34,7 +42,8 @@ async function bbcToChecksumAddress(address) {
     if (!bbcIsWellFormed(address)) {
         throw new Error("Nieprawidlowy format adresu: " + address);
     }
-    const hex = address.slice(BBC_PREFIX.length).toLowerCase();
+    const cz = bbcRozbij(address);
+    const hex = cz.hex.toLowerCase();
     const hash = await bbcSha256Hex(hex);
     let out = "";
     for (let i = 0; i < BBC_HEX_LENGTH; i++) {
@@ -45,7 +54,7 @@ async function bbcToChecksumAddress(address) {
             out += c;
         }
     }
-    return BBC_PREFIX + out;
+    return cz.prefix + out;
 }
 
 /*
@@ -57,7 +66,7 @@ async function bbcToChecksumAddress(address) {
  */
 async function bbcCheckAddress(address) {
     if (!bbcIsWellFormed(address)) return "malformed";
-    const hex = address.slice(BBC_PREFIX.length);
+    const hex = bbcRozbij(address).hex;
     const maLitery = /[a-fA-F]/.test(hex);
     if (!maLitery || hex === hex.toLowerCase() || hex === hex.toUpperCase()) {
         return "legacy";
@@ -75,7 +84,8 @@ function bbcToNetworkForm(address) {
     if (!bbcIsWellFormed(address)) {
         throw new Error("Nieprawidlowy format adresu: " + address);
     }
-    return BBC_PREFIX + address.slice(BBC_PREFIX.length).toLowerCase();
+    const cz = bbcRozbij(address);
+    return cz.prefix + cz.hex.toLowerCase();
 }
 
 window.bbcIsWellFormed = bbcIsWellFormed;
