@@ -274,7 +274,7 @@ class Transaction {
         // send, ale lepiej zeby wallet-cli.js zlapal to LOKALNIE, od razu,
         // niz po nieudanej probie przez siec.
         if (
-            !/^BbC[0-9a-fA-F]{40}$/.test(
+            !/^t?BbC[0-9a-fA-F]{40}$/.test(
                 this.to
             )
         ) {
