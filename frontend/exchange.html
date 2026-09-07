@@ -105,6 +105,17 @@
         <p id="offerNote" style="margin-top:12px;font-size:.84rem;"></p>
     </div>
 
+    <!-- ===================== DLA SPRZEDAJACEGO ===================== -->
+    <!-- review-offers.html nie bylo podlinkowane Z NICZEGO - ani z menu,
+         ani z zadnej strony. Sprzedajacy nie mial jak zobaczyc, ze ktos
+         wyslal mu propozycje; oferta lezalaby w swap-offers.json az do
+         wygasniecia. To zamyka petle po jego stronie. -->
+    <div class="card" id="sellerBox" style="border-color:var(--flame-deep);">
+        <h3 id="x-inbox-h">Sprzedajesz BbC?</h3>
+        <p id="x-inbox-p" style="margin-top:0;"></p>
+        <a class="btn secondary" id="inboxBtn" href="review-offers.html">Zobacz propozycje</a>
+    </div>
+
     <div style="text-align:center;margin-top:8px;">
         <a class="btn secondary" href="docks.html">Dokumentacja</a>
         <a class="btn secondary" href="wallet.html" style="margin-left:8px;">Portfel</a>
@@ -151,6 +162,10 @@ const X = {
       ["Odbierasz BbC.", "Odblokowanie ujawnia sekret, którym sprzedający odbiera BTC. Albo obie strony dostają swoje, albo żadna nic nie traci."]
     ],
     howTail: "Jeśli druga strona się rozmyśli albo zniknie — po upływie czasu odzyskujesz swoje BTC. To nie jest zaufanie do człowieka, to jest zaufanie do kodu, który możesz sam przeczytać.",
+    inboxH: "Sprzedajesz BbC?",
+    inboxBtn: "Zobacz propozycje",
+    inboxNone: "Tu trafiają propozycje zakupu wysłane na Twój adres. Teraz nie czeka żadna.",
+    inboxSome: "Ktoś czeka na Twoją odpowiedź. Propozycje mają termin — po nim wygasają same.",
     lPending: "czeka na odpowiedź",
     lOpen: "w toku",
     lDone: "zakończonych",
@@ -176,6 +191,10 @@ const X = {
       ["You claim BbC.", "Unlocking reveals the secret the seller uses to claim the BTC. Either both sides get theirs, or neither loses anything."]
     ],
     howTail: "If the other side changes their mind or disappears — after the timeout you get your BTC back. This is not trust in a person, it is trust in code you can read yourself.",
+    inboxH: "Selling BbC?",
+    inboxBtn: "See proposals",
+    inboxNone: "Purchase proposals sent to your address land here. None waiting right now.",
+    inboxSome: "Someone is waiting for your answer. Proposals have a deadline and expire on their own.",
     lPending: "awaiting reply",
     lOpen: "in progress",
     lDone: "completed",
@@ -200,6 +219,8 @@ function applyLocalTexts() {
   set("x-how-h", xt("howH"));
   set("x-state-h", xt("stateH"));
   set("x-how-tail", xt("howTail"));
+  set("x-inbox-h", xt("inboxH"));
+  set("inboxBtn", xt("inboxBtn"));
 
   const ol = document.getElementById("x-steps");
   if (ol) {
@@ -283,6 +304,27 @@ function renderStats() {
     '<div><span class="n">' + done + '</span><span class="l">' + xt("lDone") + '</span></div>';
 
   note.textContent = (all.length === 0) ? xt("noneYet") : xt("someYet");
+
+  // Skrzynka sprzedajacego: gdy cokolwiek czeka, karta ma sie rzucac
+  // w oczy - inaczej rownie dobrze moglaby jej nie byc.
+  const inbox = document.getElementById("sellerBox");
+  const bp = document.getElementById("x-inbox-p");
+  const bb = document.getElementById("inboxBtn");
+  if (inbox && bp && bb) {
+    if (pending > 0) {
+      inbox.style.borderColor = "var(--flame)";
+      inbox.style.boxShadow = "0 0 26px rgba(90,126,246,.28)";
+      bp.textContent = xt("inboxSome");
+      bb.className = "btn flame";
+      bb.textContent = xt("inboxBtn") + " (" + pending + ")";
+    } else {
+      inbox.style.borderColor = "var(--flame-deep)";
+      inbox.style.boxShadow = "none";
+      bp.textContent = xt("inboxNone");
+      bb.className = "btn secondary";
+      bb.textContent = xt("inboxBtn");
+    }
+  }
 }
 
 fetch(API_BASE + "/swap/offers")
