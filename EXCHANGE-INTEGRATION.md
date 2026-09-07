@@ -1,7 +1,7 @@
 # BitBudCoin (BbC)
 ## Exchange & Institutional Integration
 
-**Document version:** 1.1 — September 2026
+**Document version:** 1.2 — September 2026
 **Chain height at publication:** 102,744
 **Author:** Radosław Iwański
 
@@ -10,7 +10,7 @@
 ### Before you read further
 
 This document states known limitations plainly, including several that
-may disqualify BbC from listing on your platform. Sections 05, 13 and 15
+may disqualify BbC from listing on your platform. Sections 13 and 15
 contain that material. They are not buried at the end as a formality —
 read them first if your evaluation is time-boxed.
 
@@ -158,14 +158,23 @@ exposure limit, not on a number this document could supply honestly.
 BbC + 40 hexadecimal characters
 ```
 
-Derivation: `"BbC"` concatenated with the first 40 characters of the
-SHA-256 hash of the public key. Total length 43 characters.
+Derivation: the network prefix concatenated with the first 40 characters
+of the SHA-256 hash of the public key.
+
+| Network | Prefix | Example | Length |
+|---|---|---|---|
+| Mainnet | `BbC` | `BbC694f94…` | 43 |
+| Testnet | `tBbC` | `tBbCcbcfc…` | 44 |
 
 Validation regex, used identically in every component:
 
 ```
-/^BbC[0-9a-fA-F]{40}$/
+/^t?BbC[0-9a-fA-F]{40}$/
 ```
+
+The 40 hex characters derive from the key alone, not from the network.
+The same key therefore produces the same hex on both networks; only the
+prefix differs.
 
 ### Checksum — case-encoded, EIP-55 style
 
@@ -502,7 +511,8 @@ equal the difficulty. Network hashrate is therefore difficulty divided
 by block time.
 
 **One current-generation SHA-256 ASIC (~100 TH/s) is approximately
-59,000,000 times the entire BbC network.** At current network hashrate, BbC does not provide meaningful economic resistance against a majority-hashrate attacker. There is
+59,000,000 times the entire BbC network.** Majority hashrate can be
+acquired for a rounding error on any hashpower rental market. There is
 no merge-mining, no checkpointing, and no alternative finality
 mechanism.
 
@@ -542,6 +552,13 @@ protocol-enforced checksum.
 The public API, the mining pool, and the seed node run on one virtual
 machine operated by one person. There is no redundancy, no on-call
 rotation, and no organisational continuity plan.
+
+### Testnet is new and single-operator
+
+The testnet described in section 15 runs on the same virtual machine as
+mainnet, operated by the same person. It has no redundancy and may be
+restarted from genesis. It is adequate for exercising integration paths;
+it is not a durable environment.
 
 ### No formal third-party audit
 
@@ -611,15 +628,50 @@ BbC's history**. The vulnerability existed but was never exploited.
 
 Live. Height 102,744 at publication.
 
-### There is no testnet
+### Testnet
 
-BbC has one network. There is no testnet, signet, regtest, or any
-isolated environment.
+A public testnet went live in September 2026. **Testnet coins have no
+value and never will.**
 
-An integrating platform cannot exercise deposit and withdrawal paths
-without transacting real BbC on mainnet. We recognise this is
-disqualifying for many integration processes and have no workaround to
-offer today.
+| | Mainnet | Testnet |
+|---|---|---|
+| Endpoint | `https://141-147-98-57.sslip.io` | `https://testnet.141-147-98-57.sslip.io` |
+| Chain ID | 28000000 | 28000001 |
+| Ticker | BbC | tBbC |
+| Address prefix | `BbC` | `tBbC` |
+| Block time | 480 s | 60 s |
+| ASERT activation | height 100,000 | height 10 |
+| P2P port | 6001 | 6002 |
+| Premine | 700 | 1,000,000 |
+
+The two networks cannot be mixed. Their genesis hashes differ, and
+`replaceChain()` rejects any chain whose genesis does not match with
+*"inny genesis - inna siec"* (different genesis, different network).
+This was verified by execution, not by inspection.
+
+**Address prefixes differ by network**, following the same reasoning as
+Bitcoin's `bc1` / `tb1` split. A testnet address begins `tBbC`; a
+mainnet address begins `BbC`. Note that both are derived from the key
+alone, so the same seed phrase produces the same 40 hex characters on
+both networks — only the prefix changes.
+
+Validation accepts `/^t?BbC[0-9a-fA-F]{40}$/`. The rule was widened, not
+narrowed, so every address that validated before this change still
+validates. Consensus does **not** currently reject a mainnet-prefixed
+address on testnet or vice versa; since addresses derive from keys, a
+misdirected transfer reaches the key holder's wallet on the other
+network rather than being lost. This is untidy, not dangerous, and will
+be tightened.
+
+Testnet block time is deliberately 60 s rather than 480 s so an
+integration can exercise deposit, confirmation, and withdrawal in
+minutes rather than half a day. ASERT activates at height 10 so the
+testnet exercises the same difficulty code path mainnet runs today — a
+testnet validating a different branch than production would be worse
+than no testnet.
+
+The testnet may be restarted from a fresh genesis during early
+integration work. Treat any testnet chain state as disposable.
 
 ### 129 blocks are missing from the canonical chain
 
