@@ -63,7 +63,7 @@ class Mempool {
         // ZADNEJO zakotwiczenia. Literowka albo zepsuty klient portfela ->
         // srodki wyslane na adres, ktorego nikt nigdy nie odbierze. Ten sam
         // regex co payout.js/server.js/receiveBlock().
-        if (!/^BbC[0-9a-fA-F]{40}$/.test(tx.to)) {
+        if (!/^t?BbC[0-9a-fA-F]{40}$/.test(tx.to)) {
             return { accepted: false, reason: "Nieprawidlowy format adresu odbiorcy" };
         }
         if (tx.from === tx.to) {
