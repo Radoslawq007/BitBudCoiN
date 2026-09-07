@@ -23,7 +23,13 @@
 
 const crypto = require("crypto");
 
-const ADDRESS_PREFIX = "BbC";
+/*
+ * Prefiks bierzemy z konfiguracji, nie na sztywno - inaczej portfel
+ * na testnecie tworzylby adresy nieodrozninalne od mainnetowych.
+ * Domyslka "BbC" chroni przed starszym config.js bez tego pola.
+ */
+const CONFIG_ADDR = require("./config");
+const ADDRESS_PREFIX = CONFIG_ADDR.ADDRESS_PREFIX || "BbC";
 const ADDRESS_HASH_LENGTH = 40;
 
 
