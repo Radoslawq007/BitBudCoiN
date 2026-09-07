@@ -22,6 +22,13 @@ if (process.env.BBC_NETWORK === "testnet") {
 
 module.exports = {
     NETWORK_NAME: "BitBudCoin",
+
+    /*
+     * Prefiks adresu. Mainnet: "BbC". Testnet: "tBbC".
+     * Rozdzielone, zeby adres z sieci testowej nie wygladal identycznie
+     * jak prawdziwy - tak samo jak Bitcoin rozdziela bc1... i tb1...
+     */
+    ADDRESS_PREFIX: "BbC",
     SYMBOL: "BbC",
     VERSION: "1.0.0",
 
