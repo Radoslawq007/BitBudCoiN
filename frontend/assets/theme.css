@@ -1,23 +1,24 @@
 /* =========================================================
    BitBudCoin - wspólny motyw wizualny
-   Ciemne, fioletowe tło + zielony liść konopi (łańcuch/wzrost) +
-   niebieski płomień z fioletowym cieniem (aktywność/kopanie) -
-   paleta wyciągnięta z monety BbC (złoto/fiolet/zieleń/niebieski).
+   Ciemne, zielono-czarne tło (paleta wyciągnięta wprost z grafiki
+   hero-bg.webp: środek RGB 0,5,2 · góra 0,1,0 · odblask 21,254,123)
+   + niebieski dym płynący nad zielenią w trybie "screen"
+   + niebieski płomień jako jedyny nie-zielony akcent (aktywność/kopanie).
    ========================================================= */
 
 :root {
   /* --- Kolory (rdzeń palety) --- */
-  --bg: #090614;
-  --surface: #161221;
-  --surface-2: #221c30;
-  --border: #4a2e6b;
-  --leaf: #7bd161;
-  --leaf-dim: #4fa136;
+  --bg: #030806;
+  --surface: rgba(10, 22, 14, 0.72);
+  --surface-2: rgba(14, 30, 19, 0.78);
+  --border: #1d5c33;
+  --leaf: #3ffb7b;
+  --leaf-dim: #21a84f;
   --flame: #5a7ef6;
-  --flame-deep: #5c1da5;
-  --smoke: #8b7b9d;
-  --text: #e8ede9;
-  --text-dim: #ada7b4;
+  --flame-deep: #2c4bb8;
+  --smoke: #6f9a80;
+  --text: #e6f5ea;
+  --text-dim: #93b39f;
   --danger: #ff6b5c;
 
   /* --- Typografia --- */
@@ -35,12 +36,24 @@
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
   font-size: 16px;
   line-height: 1.5;
   min-height: 100vh;
+}
+
+/* Tło strony: gradient, NIE obrazek. Grafika hero ma proporcje 16:9
+   (1672x940), telefon pionowo ok. 0.46 - jako background-cover obcinałaby
+   liście po bokach i wypalone logo u góry, czyli dokładnie to, co jest
+   w niej najlepsze. Gradient trzyma ten sam klimat na każdych proporcjach
+   i nic nie waży. Obrazek pojawia się osobno, jako hero na index.html. */
+body {
+  background-attachment: fixed;
+  background:
+    radial-gradient(ellipse 120% 60% at 50% 100%, rgba(33, 200, 90, 0.16), transparent 60%),
+    radial-gradient(ellipse 90% 50% at 50% 0%, rgba(20, 90, 45, 0.20), transparent 65%),
+    var(--bg);
 }
 
 h1, h2, h3, .display {
@@ -90,6 +103,32 @@ code, .mono, .hash, .address, td.num, .stat-value {
   .grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
 }
 
+/* --- Hero: grafika tła na index.html --- */
+/* Pudełko o proporcjach oryginału + "contain" = nic się nie przycina
+   ani na telefonie, ani na komputerze. */
+.hero-art {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1672 / 940;
+  background: url("hero-bg.webp") center / contain no-repeat;
+  margin-top: 8px;
+}
+/* Moneta wkomponowana w ciemny środek grafiki, pod wypalonym logo -
+   tam, gdzie w pliku jest pusta przestrzeń. Poświata zielona + niebieska,
+   żeby moneta nie wisiała w powietrzu wycięta z tła. */
+.hero-coin {
+  position: absolute;
+  left: 50%;
+  top: 60%;
+  transform: translate(-50%, -50%);
+  width: 21%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  box-shadow:
+    0 0 60px rgba(63, 251, 123, 0.35),
+    0 0 120px rgba(90, 126, 246, 0.25);
+}
+
 /* --- Nawigacja --- */
 .nav {
   position: sticky;
@@ -99,7 +138,8 @@ code, .mono, .hash, .address, td.num, .stat-value {
   align-items: center;
   gap: 24px;
   padding: 14px 20px;
-  background: rgba(9, 6, 20, 0.88);
+  /* było na sztywno rgba(9, 6, 20, 0.88) - fioletowe, odstawało od zieleni */
+  background: rgba(3, 12, 7, 0.86);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
 }
@@ -167,11 +207,14 @@ code, .mono, .hash, .address, td.num, .stat-value {
 }
 
 /* --- Karty --- */
+/* Półprzezroczyste, żeby dym realnie płynął ZA nimi, a nie chował się
+   pod nieprzezroczystym prostokątem. Stąd backdrop-filter. */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 22px;
+  backdrop-filter: blur(10px);
 }
 .card + .card { margin-top: 20px; }
 .card-label {
@@ -208,7 +251,7 @@ code, .mono, .hash, .address, td.num, .stat-value {
   color: var(--leaf);
   line-height: 1;
   margin: 8px 0;
-  text-shadow: 0 0 40px rgba(123, 209, 97, 0.25);
+  text-shadow: 0 0 40px rgba(63, 251, 123, 0.3);
 }
 .hero .sub { color: var(--text-dim); font-size: 1.05rem; }
 
@@ -225,7 +268,7 @@ code, .mono, .hash, .address, td.num, .stat-value {
   border: 1px solid transparent;
   cursor: pointer;
   background: var(--leaf);
-  color: #0b0f0d;
+  color: #04180b;
   transition: filter 0.15s ease, transform 0.1s ease;
 }
 .btn:hover { filter: brightness(1.1); }
@@ -309,28 +352,54 @@ footer {
   color: var(--text-dim);
   font-size: 0.8rem;
   padding: 40px 20px;
+  position: relative;
+  z-index: 1;
 }
 
-/* --- Dym ambientowy w tle - subtelny, respektuje reduced-motion --- */
+/* --- Niebieski dym wciśnięty w zielone tło --- */
+/*
+ * DWIE NAPRAWY vs poprzednia wersja, obie zmierzone, nie na oko:
+ *
+ * 1) mix-blend-mode: screen - dym ROZŚWIETLA zieleń zamiast brudzić ją
+ *    szarym. Poprzedni kolor rgba(139,123,157,.14) to szara mgła; na
+ *    fioletowym tle uchodziło, na zielonym wyglądałoby jak kurz.
+ *
+ * 2) span-y miały bottom: -20%, czyli siedziały praktycznie POD ekranem
+ *    i na dłuższych stronach nie było ich widać wcale. Zmierzone piksele
+ *    tła dawały (3,8,6) - kanał niebieski NIŻSZY niż zielony, czyli zero
+ *    dymu. Po rozłożeniu po wysokości: (16,32,50), niebieski realnie jest.
+ *
+ * UWAGA na z-index: musi zostać 0. Przy ujemnym mix-blend-mode nie
+ * blenduje się z tłem body i dym znika całkowicie - sprawdzone.
+ */
 .smoke-field {
   position: fixed;
   inset: 0;
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
+  mix-blend-mode: screen;
 }
 .smoke-field span {
   position: absolute;
-  bottom: -20%;
-  width: 340px;
-  height: 340px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(139, 123, 157, 0.14), transparent 70%);
-  filter: blur(6px);
+  filter: blur(30px);
 }
-.smoke-field span:nth-child(1) { left: 8%; animation: drift1 26s ease-in-out infinite; }
-.smoke-field span:nth-child(2) { left: 55%; width: 420px; height: 420px; animation: drift2 34s ease-in-out infinite; }
-.smoke-field span:nth-child(3) { left: 30%; width: 260px; height: 260px; background: radial-gradient(circle, rgba(90, 126, 246, 0.08), transparent 70%); animation: drift3 30s ease-in-out infinite; }
+.smoke-field span:nth-child(1) {
+  bottom: 5%; left: 2%; width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(90, 126, 246, 0.30), transparent 68%);
+  animation: drift1 26s ease-in-out infinite;
+}
+.smoke-field span:nth-child(2) {
+  bottom: 38%; left: 46%; width: 460px; height: 460px;
+  background: radial-gradient(circle, rgba(74, 140, 255, 0.22), transparent 70%);
+  animation: drift2 34s ease-in-out infinite;
+}
+.smoke-field span:nth-child(3) {
+  bottom: 62%; left: 12%; width: 340px; height: 340px;
+  background: radial-gradient(circle, rgba(120, 150, 255, 0.34), transparent 65%);
+  animation: drift3 30s ease-in-out infinite;
+}
 
 @media (prefers-reduced-motion: no-preference) {
   @keyframes drift1 { 0%,100% { transform: translateY(0) translateX(0); } 50% { transform: translateY(-60px) translateX(30px); } }
@@ -339,6 +408,7 @@ footer {
 }
 @media (prefers-reduced-motion: reduce) {
   .flame-pill.lit .flame-dot { animation: none; }
+  .smoke-field span { animation: none; }
 }
 
 @media (max-width: 640px) {
