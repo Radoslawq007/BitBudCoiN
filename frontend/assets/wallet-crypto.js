@@ -7,7 +7,14 @@
 //   eksport kluczy: PEM (PKCS8 dla prywatnego, SPKI dla publicznego)
 // Dzięki temu portfel wygenerowany tutaj działa bez zmian z send.js / payout.js.
 
-const BBC_ADDRESS_PREFIX = "BbC";
+/*
+ * Prefiks zalezy od wybranej sieci. Wybor ustala api.js
+ * (window.BBC_NETWORK), ktory laduje sie wczesniej. Gdyby go z jakiegos
+ * powodu nie bylo, wracamy do "BbC" - mainnet jest bezpieczniejszym
+ * domyslnym wyborem niz siec testowa.
+ */
+const BBC_ADDRESS_PREFIX =
+    (window.BBC_NETWORK === "testnet") ? "tBbC" : "BbC";
 
 function bufferToHex(buffer) {
     return Array.from(new Uint8Array(buffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
