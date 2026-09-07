@@ -15,7 +15,7 @@
 // litery a-f sa duze, a ktore male. Same znaki adresu sie NIE zmieniaja.
 //
 // Dlaczego to dziala bez rozbijania niczego:
-//   - regex sieci to /^BbC[0-9a-fA-F]{40}$/ - JUZ akceptuje obie
+//   - regex sieci to /^t?BbC[0-9a-fA-F]{40}$/ - JUZ akceptuje obie
 //     wielkosci liter, wiec zaden istniejacy adres nie przestaje byc
 //     poprawny
 //   - konsensus sie nie zmienia, wiec nie ma ryzyka rozjazdu sieci
@@ -33,10 +33,25 @@
 
 const crypto = require("crypto");
 
-const PREFIX = "BbC";
+const CFG = (() => { try { return require("./config"); } catch (e) { return {}; } })();
+
+/* Prefiks TEJ sieci - uzywany tylko przy tworzeniu nowych adresow. */
+const PREFIX = CFG.ADDRESS_PREFIX || "BbC";
+
+/*
+ * Przy SPRAWDZANIU adresu prefiks czytamy z samego adresu, nie z
+ * konfiguracji. Powod: "BbC" ma 3 znaki, "tBbC" ma 4. Ciecie stalym
+ * PREFIX.length pokroiloby adres z drugiej sieci w srodku hexa i dalo
+ * bledny checksum - a wezel testnetu musi umiec zwalidowac adres
+ * mainnetowy choćby po to, zeby go poprawnie ODRZUCIC.
+ */
+function rozbij(address) {
+    const m = /^(t?BbC)([0-9a-fA-F]{40})$/.exec(address || "");
+    return m ? { prefix: m[1], hex: m[2] } : null;
+}
 const HEX_LENGTH = 40;
 
-const ADDRESS_RE = /^BbC[0-9a-fA-F]{40}$/;
+const ADDRESS_RE = /^t?BbC[0-9a-fA-F]{40}$/;
 
 
 /*
@@ -64,10 +79,8 @@ function toChecksumAddress(address) {
         );
     }
 
-    const hex =
-        address
-            .slice(PREFIX.length)
-            .toLowerCase();
+    const cz = rozbij(address);
+    const hex = cz.hex.toLowerCase();
 
     // Hash liczony z MALYCH liter, zeby wynik nie zalezal od tego,
     // w jakiej postaci adres przyszedl.
@@ -97,7 +110,7 @@ function toChecksumAddress(address) {
         }
     }
 
-    return PREFIX + out;
+    return cz.prefix + out;
 }
 
 
@@ -117,7 +130,7 @@ function checkAddress(address) {
         return "malformed";
     }
 
-    const hex = address.slice(PREFIX.length);
+    const hex = rozbij(address).hex;
 
     const maLitery = /[a-fA-F]/.test(hex);
 
@@ -179,12 +192,9 @@ function toNetworkForm(address) {
         );
     }
 
-    return (
-        PREFIX +
-        address
-            .slice(PREFIX.length)
-            .toLowerCase()
-    );
+    const cz = rozbij(address);
+
+    return cz.prefix + cz.hex.toLowerCase();
 }
 
 
