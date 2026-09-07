@@ -411,6 +411,32 @@ footer {
   .smoke-field span { animation: none; }
 }
 
+/* --- Rozwinięte menu mobilne: MUSI być kryjące --- */
+/*
+ * native-responsive.js wstrzykuje swoj <style> w RUNTIME, czyli PO tym
+ * pliku - przy remisie specyficznosci wygrywa on. Dlatego celujemy w
+ * ".open" (o klase wiecej), zeby wygrac bez !important:
+ *     .nav.force-mobile-nav .nav-links       -> 3 klasy  (jego)
+ *     .nav.force-mobile-nav .nav-links.open  -> 4 klasy  (nasze)
+ *
+ * Powod: to menu bierze background: var(--surface), a --surface jest teraz
+ * pol-przezroczyste (0.72) na potrzeby kart. Na karcie to dobrze wyglada,
+ * na rozwinietej liscie linkow robi balagan - tresc strony przebija spod
+ * spodu. Lista dostaje wlasne, kryjace tlo.
+ */
+@media (max-width: 680px) {
+  .nav .nav-links.open {
+    background: #06140c;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.6);
+  }
+}
+.nav.force-mobile-nav .nav-links.open {
+  background: #06140c;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.6);
+}
+
 @media (max-width: 640px) {
   .nav { flex-wrap: wrap; }
   .nav-links { order: 3; width: 100%; overflow-x: auto; }
