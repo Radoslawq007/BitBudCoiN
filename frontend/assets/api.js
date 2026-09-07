@@ -792,3 +792,27 @@ const BBCLiveState = (() => {
 })();
 
 window.BBCLiveState = BBCLiveState;
+
+
+/*
+ * =====================================================
+ * AUTO-MONTOWANIE DYMU
+ * =====================================================
+ * Do tej pory mountSmokeField() bylo TYLKO wystawiane do window, a
+ * wolaly je recznie wylacznie miner.html i wallet.html - czyli 2 z 17
+ * stron mialy dym, pozostale 15 nie mialo go nigdy.
+ *
+ * api.js laduja wszystkie strony poza test-broadcast.html, wiec jedno
+ * wywolanie tutaj daje spojne tlo wszedzie, bez tykania 15 plikow.
+ *
+ * Sama funkcja ma na wejsciu guard:
+ *     if (document.querySelector(".smoke-field")) return;
+ * wiec miner.html i wallet.html, ktore wolaja ja same, NIE dostana
+ * dymu podwojnie - ktokolwiek zawola pierwszy, drugie wywolanie wraca
+ * od razu.
+ */
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", mountSmokeField);
+} else {
+    mountSmokeField();
+}
