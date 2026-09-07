@@ -94,3 +94,74 @@ function mountNavStatus() {
     BBCLiveState.init();
 }
 if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", mountNavStatus); } else { mountNavStatus(); }
+
+
+/*
+ * =====================================================
+ * PASEK TESTNETU + PRZELACZNIK SIECI
+ * =====================================================
+ *
+ * nav.js laduja wszystkie strony poza test-broadcast.html, wiec jedno
+ * wywolanie tutaj daje pasek i przelacznik wszedzie - bez dopisywania
+ * <script> do 16 plikow.
+ *
+ * Wybor sieci czyta i zapisuje api.js (bbcGetNetwork/bbcSetNetwork),
+ * bo tam liczy sie API_BASE i musi byc ustalony PRZED pierwszym
+ * zapytaniem.
+ */
+function mountNetworkUI() {
+
+    if (typeof window.bbcGetNetwork !== "function") return;
+
+    const siec = window.bbcGetNetwork();
+
+    /* --- Pasek ostrzegawczy, tylko na testnecie --- */
+    if (siec === "testnet" && !document.querySelector(".testnet-bar")) {
+
+        document.body.classList.add("testnet");
+
+        const pasek = document.createElement("div");
+        pasek.className = "testnet-bar";
+        pasek.innerHTML =
+            "&#9650; TESTNET &#9650; MONETY NIE MAJ&#260; WARTO&#346;CI " +
+            "&#9650; TO NIE JEST PRAWDZIWA SIE&#262; &#9650;";
+
+        document.body.insertBefore(pasek, document.body.firstChild);
+    }
+
+    /* --- Przelacznik obok PL/EN --- */
+    const nav = document.querySelector(".nav");
+    if (!nav || document.querySelector(".net-switch")) return;
+
+    const box = document.createElement("div");
+    box.className = "net-switch";
+
+    for (const [id, dane] of Object.entries(window.BBC_NETWORKS)) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.dataset.net = id;
+        b.textContent = dane.label;
+        b.title = id === "testnet"
+            ? "Sieć testowa - monety bez wartości"
+            : "Sieć główna - prawdziwe BbC";
+        if (id === siec) b.classList.add("active");
+        b.addEventListener("click", () => {
+            if (id === siec) return;
+            if (id === "testnet" ||
+                confirm("Wrócić do sieci głównej? Strona przeładuje się.")) {
+                window.bbcSetNetwork(id);
+            }
+        });
+        box.appendChild(b);
+    }
+
+    const status = nav.querySelector(".nav-status");
+    if (status) status.appendChild(box);
+    else nav.appendChild(box);
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", mountNetworkUI);
+} else {
+    mountNetworkUI();
+}
