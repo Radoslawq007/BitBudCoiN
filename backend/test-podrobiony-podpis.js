@@ -55,6 +55,16 @@ require.cache[STORAGE_ID] = { id: STORAGE_ID, filename: STORAGE_ID, loaded: true
 const CONFIG = require(path.join(BACKEND, "config.js"));
 CONFIG.DIFFICULTY = 1;
 
+/*
+ * Prog na 0, bo lancuch w tescie zaczyna sie od genesis, a mainnetowy
+ * prog to 3070. Bez tego sztuczny blok #1 leci ponizej progu i kontrola
+ * go nie obejmuje - test pokazywalby "przyjety" i wygladal na porazke
+ * naprawy, choc na zywym lancuchu (wysokosc 102 888) nowy blok NIGDY
+ * nie trafi ponizej progu.
+ */
+const PROG_ORYGINALNY = CONFIG.SIGNATURE_ENFORCEMENT_HEIGHT;
+CONFIG.SIGNATURE_ENFORCEMENT_HEIGHT = 0;
+
 const Blockchain = require(path.join(BACKEND, "bbcblockchain.js"));
 const { computeBlockHash, difficultyToTargetHex } = Blockchain;
 const Wallet = require(path.join(BACKEND, "wallet.js"));
@@ -232,5 +242,42 @@ if (r1.accepted && r2.accepted && r3.accepted && !wynik.accepted) {
     L("   podrobiony podpis odrzucony, uczciwy ruch nietkniety");
 } else {
     L("!! UWAGA - sprawdz wyniki powyzej, NIE WDRAZAC na slepo");
+}
+L("=".repeat(64));
+
+
+/* ============================================================
+   PROG WYSOKOSCI - swiadomy kompromis, wiec testujemy go wprost.
+   ============================================================ */
+L("");
+L("=".repeat(64));
+L(" PROG WYSOKOSCI (mainnet: " + PROG_ORYGINALNY + ")");
+L("=".repeat(64));
+
+CONFIG.SIGNATURE_ENFORCEMENT_HEIGHT = 5;
+
+PRELOAD = [genesis];
+const chain5 = new Blockchain();
+const r4 = chain5.receiveBlock(zlyBlok);
+L("blok #1 z podrobionym podpisem, prog 5 (blok PONIZEJ progu)");
+L("   przyjety : " + r4.accepted + "   " + (r4.reason || ""));
+L("   -> ponizej progu kontrola nie obowiazuje, historia nietknieta");
+L("");
+
+CONFIG.SIGNATURE_ENFORCEMENT_HEIGHT = 0;
+PRELOAD = [genesis];
+const chain6 = new Blockchain();
+const r5 = chain6.receiveBlock(zlyBlok);
+L("ten sam blok, prog 0 (blok POWYZEJ progu)");
+L("   przyjety : " + r5.accepted + "   " + (r5.reason || ""));
+L("");
+
+if (r4.accepted && !r5.accepted) {
+    L(">> PROG DZIALA");
+    L("   Ponizej progu historia przechodzi, powyzej podpis wymagany.");
+    L("   Zywy lancuch ma wysokosc 102 888, wiec kazdy nowy blok");
+    L("   jest daleko powyzej progu " + PROG_ORYGINALNY + ".");
+} else {
+    L("!! PROG NIE DZIALA JAK ZAKLADANO");
 }
 L("=".repeat(64));
