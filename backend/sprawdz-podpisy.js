@@ -63,13 +63,25 @@ console.log("=".repeat(66));
 
 const db = new DatabaseSync(BAZA, { readOnly: true });
 
-const wiersze = db.prepare(
-    "SELECT blockHeight, from_address, to_address, amount, fee, timestamp, publicKey, signature " +
-    "FROM transactions WHERE type IS NULL OR type='transfer' ORDER BY blockHeight"
-).all();
+const CONFIG = require(path.join(BACKEND, "config.js"));
+const PROG =
+    typeof CONFIG.SIGNATURE_ENFORCEMENT_HEIGHT === "number"
+        ? CONFIG.SIGNATURE_ENFORCEMENT_HEIGHT
+        : 0;
 
 console.log("");
-console.log("przelewow do sprawdzenia: " + wiersze.length.toLocaleString("pl"));
+console.log("prog wymagania podpisu: blok #" + PROG);
+console.log("(ponizej progu historia zostaje nietknieta)");
+
+const wiersze = db.prepare(
+    "SELECT blockHeight, from_address, to_address, amount, fee, timestamp, publicKey, signature " +
+    "FROM transactions WHERE (type IS NULL OR type='transfer') AND blockHeight >= ? " +
+    "ORDER BY blockHeight"
+).all(PROG);
+
+console.log("");
+console.log("");
+console.log("przelewow od progu w gore: " + wiersze.length.toLocaleString("pl"));
 console.log("");
 
 let ok = 0, brakDanych = 0;
@@ -78,6 +90,11 @@ const zle = [];
 for (const w of wiersze) {
     // Transakcje bez publicKey/signature w ogole nie moga byc sprawdzone -
     // liczymy je osobno, zeby nie mieszac ich z podrobionymi.
+    // Stary mechanizm HTLC: type "transfer", ale odbiorca HTLC_INTERNAL
+    // i podpis obejmujacy inny zestaw pol. Nie sprawdzamy go tym
+    // weryfikatorem - kod produkcyjny tez go pomija.
+    if (w.to_address === "HTLC_INTERNAL") { continue; }
+
     if (!w.publicKey || !w.signature || !w.from_address) { brakDanych++; continue; }
 
     const tx = {
