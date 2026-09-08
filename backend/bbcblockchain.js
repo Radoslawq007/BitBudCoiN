@@ -5,6 +5,84 @@ const fs = require("fs");
 const path = require("path");
 
 const CONFIG = require("./config");
+
+/*
+ * NAPRAWA KRYTYCZNA - weryfikacja podpisu w blokach od peerow.
+ *
+ * verifyTransactionSignature() bylo wolane WYLACZNIE w mempool.js, czyli
+ * przy wejsciu transakcji przez API TEGO wezla. Blok przyslany przez P2P
+ * omija mempool calkowicie - komentarz w receiveBlock() sam to nazywa i
+ * na tej podstawie domknieto format adresu, ale NIE podpis.
+ *
+ * Potwierdzone wykonaniem (test-podrobiony-podpis.js): blok zawierajacy
+ * przelew z podpisem "AAAApodrobionyPodpis..." zostal przyjety, a saldo
+ * ofiary spadlo z 50 do 9.999. Kazdy peer mogl oprozniac dowolny adres
+ * w sieci bez znajomosci klucza prywatnego.
+ */
+const { verifyTransactionSignature } = require("./wallet");
+
+
+/*
+ * Sprawdza WSZYSTKIE podpisane transakcje w bloku.
+ *
+ * Podpisu wymagamy od typow, ktore przenosza cudze srodki: "transfer"
+ * (takze bez pola type - stary format) oraz HTLC_*. Typy tworzone przez
+ * protokol - coinbase, fee, protocol_fee, genesis - podpisu nie maja
+ * i nie moga miec, bo nie pochodza od zadnego wlasciciela klucza.
+ */
+function sprawdzPodpisyWBloku(block) {
+
+    if (!block || !Array.isArray(block.transactions)) {
+        return { valid: true };
+    }
+
+    const BEZ_PODPISU = new Set([
+        "coinbase",
+        "fee",
+        "protocol_fee",
+        "genesis"
+    ]);
+
+    for (const tx of block.transactions) {
+
+        if (tx && BEZ_PODPISU.has(tx.type)) {
+            continue;
+        }
+
+        // Zwykly przelew: type "transfer" albo brak type (stary format).
+        const toPrzelew =
+            tx &&
+            (tx.type === undefined || tx.type === "transfer") &&
+            tx.from;
+
+        // HTLC maja wlasna weryfikacje w htlc-wallet.js i inny ksztalt
+        // podpisu - nie przepuszczamy ich przez ten sam sprawdzian.
+        const toHtlc =
+            tx &&
+            typeof tx.type === "string" &&
+            tx.type.startsWith("HTLC_");
+
+        if (toHtlc) {
+            continue;
+        }
+
+        if (!toPrzelew) {
+            continue;
+        }
+
+        if (!verifyTransactionSignature(tx)) {
+
+            return {
+                valid: false,
+                reason:
+                    "nieprawidlowy lub brakujacy podpis transakcji " +
+                    "(from " + String(tx.from).slice(0, 12) + "...)"
+            };
+        }
+    }
+
+    return { valid: true };
+}
 const Storage = require("./storage");
 
 const {
@@ -1472,6 +1550,25 @@ class Blockchain {
 
 
         /*
+         * NAPRAWA KRYTYCZNA - podpisy. Blok od peera omija mempool, wiec
+         * to jedyne miejsce, w ktorym podpis zwyklego przelewu jest w
+         * ogole sprawdzany na tej sciezce. Bez tego kazdy peer mogl
+         * wykopac blok z przelewem "od kogokolwiek do siebie".
+         */
+        {
+            const p = sprawdzPodpisyWBloku(candidate);
+
+            if (!p.valid) {
+
+                return {
+                    accepted: false,
+                    reason: p.reason
+                };
+            }
+        }
+
+
+        /*
          * NAPRAWA - replay. Blok nie moze zawierac podpisu, ktory juz
          * jest w lancuchu. Bez tego blok z duplikatem przechodzil cala
          * walidacje (PoW, trudnosc, oplaty) i przenosil srodki drugi raz
@@ -1982,6 +2079,22 @@ class Blockchain {
                     reason:
                         `blok #${i}: znacznik czasu zbyt daleko w przyszlosci`
                 };
+            }
+
+            /* NAPRAWA KRYTYCZNA - podpisy takze przy podmianie CALEGO
+               lancucha. Inaczej atakujacy omija kontrole z receiveBlock,
+               podajac spreparowane bloki jako lancuch przez sync P2P -
+               dokladnie ten sam wzorzec, co przy znacznikach czasu. */
+            {
+                const p = sprawdzPodpisyWBloku(block);
+
+                if (!p.valid) {
+
+                    return {
+                        accepted: false,
+                        reason: `blok #${i}: ${p.reason}`
+                    };
+                }
             }
 
             /* NAPRAWA - replay w podmienianym lancuchu.
