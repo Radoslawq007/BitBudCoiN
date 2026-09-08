@@ -172,7 +172,38 @@ module.exports = {
 
     PROJECT_FEE_PERCENT: 0.02,
 
-    PROJECT_FEE_ACTIVATION_HEIGHT: 1716
+    PROJECT_FEE_ACTIVATION_HEIGHT: 1716,
+
+    /*
+     * ============================================================
+     * WERYFIKACJA PODPISOW - PROG WYSOKOSCI
+     * ============================================================
+     *
+     * Od tej wysokosci kazdy zwykly przelew w bloku MUSI miec poprawny
+     * podpis - takze w blokach przyslanych przez P2P. Ponizej progu
+     * historia zostaje nietknieta.
+     *
+     * Dlaczego prog, a nie "od zawsze": sprawdzenie zywej bazy
+     * (sprawdz-podpisy.js, 28 229 przelewow) pokazalo, ze:
+     *   - 2920 przelewow z wysokosci 109-2704 NIE MA publicKey ani
+     *     signature. Wszystkie pochodza z jednego adresu - adresu puli.
+     *     To wyplaty puli sprzed wdrozenia podpisywania.
+     *   - 1 przelew w bloku 3069 ma odbiorce "HTLC_INTERNAL" i podpis
+     *     obejmujacy inny zestaw pol (stara wersja mechanizmu HTLC,
+     *     ktorej nie ma juz w kodzie).
+     *   - wszystkie 25 308 pozostalych maja poprawny podpis.
+     *
+     * Wymaganie podpisu wstecz odrzucaloby wlasna historie przy kazdej
+     * resynchronizacji z peerem i zatrzymaloby siec - co byloby gorsze
+     * niz luka, ktora ta zmiana zamyka.
+     *
+     * 3070 to pierwszy blok powyzej ostatniego problematycznego. Objete
+     * kontrola jest 99.997% lancucha.
+     *
+     * Bitcoin postepuje tak samo przy zmianach regul: nowa regula
+     * obowiazuje od ustalonej wysokosci, historii sie nie przepisuje.
+     */
+    SIGNATURE_ENFORCEMENT_HEIGHT: 3070
 };
 
 }
