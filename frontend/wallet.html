@@ -3,1213 +3,356 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Portfel — BitBudCoin</title>
+<title>Kopanie — BitBudCoin</title>
 <link rel="icon" href="assets/logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/theme.css">
 <style>
-  .fee-tiers { display:flex; gap:6px; margin-bottom:8px; }
-  .fee-tier-btn { flex:1; padding:9px 4px; font-family:var(--font-mono); font-size:.8rem; font-weight:600; border:1px solid var(--border); background:var(--surface-2); color:var(--text-dim); border-radius:var(--radius-sm); cursor:pointer; }
-  .fee-tier-btn.active { background:var(--leaf); color:#0b0f0d; border-color:var(--leaf); }
-  #sendFee[readonly] { opacity:.7; }
-  .addr-display { font-family:var(--font-mono); font-size:1.05rem; color:var(--leaf); word-break:break-all; background:var(--surface-2); padding:14px 16px; border-radius:var(--radius-sm); border:1px solid var(--leaf-dim); }
-  .key-box { display:flex; gap:8px; align-items:flex-start; }
-  .key-box textarea { flex:1; min-height:110px; resize:vertical; font-size:.72rem; line-height:1.4; }
-  .step-badge { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--leaf); color:#0b0f0d; font-size:.75rem; font-weight:700; margin-right:8px; }
-  #results { display:none; }
-  .confirm-row { display:flex; align-items:flex-start; gap:10px; margin:18px 0; }
-  .confirm-row input[type=checkbox] { width:auto; margin-top:3px; }
-  .hint { font-size:.8rem; color:var(--text-dim); margin-top:6px; }
-  .tabs { display:flex; gap:8px; margin:24px 0 0; border-bottom:1px solid var(--border); }
-  .tab-btn { background:none; border:none; color:var(--text-dim); font-family:var(--font-display); font-weight:600; font-size:.95rem; padding:10px 4px; cursor:pointer; border-bottom:2px solid transparent; }
-  .tab-btn.active { color:var(--leaf); border-bottom-color:var(--leaf); }
-  .htlc-tab-btn { background:none; border:none; color:var(--text-dim); font-family:var(--font-display); font-weight:600; font-size:.85rem; padding:8px 4px; cursor:pointer; border-bottom:2px solid transparent; }
-  .htlc-tab-btn.active { color:var(--leaf); border-bottom-color:var(--leaf); }
-  .tab-panel { display:none; }
-  .tab-panel.active { display:block; }
-  .balance-row { display:flex; align-items:baseline; gap:8px; margin-top:14px; font-family:var(--font-mono); }
-  .balance-row .n { font-size:1.6rem; color:var(--leaf); }
-  .btn-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
-  #importBundle { min-height:90px; font-size:.72rem; }
+  #autoMineLog { max-height:180px; overflow-y:auto; font-family:var(--font-mono); font-size:.78rem; color:var(--text-dim); margin-top:12px; border-top:1px solid var(--border); padding-top:10px; }
+  #autoMineLog div { padding:3px 0; }
+  .mine-stats { display:flex; gap:24px; font-family:var(--font-mono); font-size:.95rem; margin-top:14px; }
+  .mine-stats .n { color:var(--leaf); font-size:1.3rem; display:block; }
+  .mine-stats .l { color:var(--text-dim); font-size:.72rem; text-transform:uppercase; }
+
+  .stat-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin-top:6px; }
+  .stat-value { font-family:var(--font-display); font-size:1.15rem; font-weight:600; color:var(--text); word-break:break-word; }
+  .stat-value.leaf { color:var(--leaf); }
+  .stat-value.flame { color:var(--flame); }
+  .stat-label { font-family:var(--font-mono); font-size:.66rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.03em; margin-top:2px; }
+
+  .live-indicator { display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:.72rem; color:var(--text-dim); margin-left:10px; vertical-align:middle; }
+  .live-dot { width:7px; height:7px; border-radius:50%; background:var(--leaf); animation:live-pulse 1.8s ease-in-out infinite; }
+  @keyframes live-pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.4; transform:scale(.8); } }
+
+  .th-hashrate { text-align:right; }
 </style>
 </head>
 <body>
 
 <div class="page">
-  <h1 style="margin-top:32px;" data-i18n="wallet_h1">Portfel</h1>
+  <h1 style="margin-top:32px;" data-i18n="miner_h1">Kopanie</h1>
 
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="create" data-i18n="wallet_tab_create">Nowy portfel</button>
-    <button class="tab-btn" data-tab="manage" data-i18n="wallet_tab_manage">Mam już portfel</button>
+  <div class="card">
+    <h3 data-i18n="miner_pool_status">Status puli<span class="live-indicator"><span class="live-dot"></span><span data-i18n="explorer_live_label">na żywo</span></span></h3>
+    <div id="poolStatus" class="skeleton" style="height:80px;"></div>
   </div>
 
-  <!-- ========== NOWY PORTFEL: fraza jako domyślna droga, surowe klucze schowane pod "zaawansowane" ========== -->
-  <div class="tab-panel active" id="tab-create">
-    <p style="margin-top:20px;" data-i18n="wallet_intro">Klucz prywatny powstaje <strong>tutaj, w tej przeglądarce</strong> i nigdy nigdzie nie jest wysyłany.</p>
-
-    <div class="card" id="phraseNewCard">
-      <h3 data-i18n="wallet_phrase_heading">12 słów zamiast klucza</h3>
-      <p style="font-size:.85rem;color:var(--text-dim);margin:-8px 0 12px;" data-i18n="wallet_phrase_subtitle">Łatwiej przepisać ręcznie, łatwiej rozpoznać literówkę. Ta sama fraza zawsze odtwarza dokładnie ten sam portfel.</p>
-      <button class="btn flame" id="generatePhraseBtn" style="width:100%;justify-content:center;" data-i18n="wallet_phrase_generate_btn">Wygeneruj nową frazę</button>
-      <div id="phraseResult" style="display:none;margin-top:16px;">
-        <div class="warning-banner">⚠️ Zapisz te 12 słów, w tej kolejności, na papierze. Kto je ma, ma dostęp do portfela.</div>
-        <div id="phraseWordsGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0;font-family:var(--font-mono);"></div>
-        <div class="addr-display" id="phraseAddressOut"></div>
-        <div class="confirm-row" style="margin-top:12px;">
-          <input type="checkbox" id="phraseConfirmSaved">
-          <label for="phraseConfirmSaved" style="margin:0;" data-i18n="wallet_phrase_confirm_saved">Zapisałem te 12 słów w bezpiecznym miejscu.</label>
-        </div>
-        <button class="btn" id="usePhraseWalletBtn" style="width:100%;justify-content:center;margin-top:12px;" disabled data-i18n="wallet_phrase_use_btn">Użyj tego portfela</button>
-      </div>
-    </div>
-
-    <p style="text-align:center;margin:22px 0;">
-      <button type="button" id="showRawKeysToggle" class="btn secondary" style="font-size:.82rem;" data-i18n="wallet_show_raw_keys">Zaawansowane: surowe klucze zamiast frazy</button>
-    </p>
-
-    <div id="rawKeysSection" style="display:none;">
-      <div class="warning-banner">
-        ⚠️ <span data-i18n="wallet_warning">Jeśli zgubisz klucz prywatny, tracisz dostęp do adresu na zawsze. Zapisz go, zanim zamkniesz tę kartę.</span>
-      </div>
-
-      <div class="card">
-        <button class="btn" id="generateBtn" style="width:100%;justify-content:center;font-size:1rem;padding:16px;" data-i18n="wallet_generate_btn">
-          Wygeneruj nowy portfel
-        </button>
-      </div>
-
-      <div id="results">
-        <div class="card">
-          <div class="card-label"><span class="step-badge">1</span><span data-i18n="wallet_step1">Twój adres BbC</span></div>
-          <div class="addr-display" id="addressOut"></div>
-        </div>
-
-        <div class="card">
-          <div class="card-label"><span class="step-badge">2</span><span data-i18n="wallet_step2">Klucz publiczny</span></div>
-          <div class="key-box">
-            <textarea readonly id="pubKeyOut"></textarea>
-            <button class="btn secondary copy-btn" data-copy-target="pubKeyOut" data-i18n="wallet_copy_addr">Kopiuj</button>
-          </div>
-        </div>
-
-        <div class="card" style="border-color:var(--danger);">
-          <div class="card-label" style="color:#ffb3a8;"><span class="step-badge" style="background:var(--danger);color:#fff;">3</span><span data-i18n="wallet_step3">Klucz PRYWATNY — nigdy nikomu nie pokazuj</span></div>
-          <div class="key-box">
-            <textarea readonly id="privKeyOut"></textarea>
-            <button class="btn secondary copy-btn" data-copy-target="privKeyOut" data-i18n="wallet_copy_addr">Kopiuj</button>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-label"><span class="step-badge">4</span><span data-i18n="wallet_step4">Zapisz na dysk</span></div>
-          <div class="btn-row">
-            <button class="btn flame" id="downloadBundleBtn" data-i18n="wallet_download_bundle">Pobierz oba klucze (1 plik)</button>
-          </div>
-          <p class="hint" data-i18n="wallet_bundle_hint">Ten jeden plik wystarczy, żeby później wczytać ten portfel w zakładce "Mam już portfel" i wysyłać/odbierać.</p>
-        </div>
-
-        <div class="confirm-row">
-          <input type="checkbox" id="confirmSaved">
-          <label for="confirmSaved" style="margin:0;" data-i18n="wallet_confirm_saved">Zapisałem klucz prywatny w bezpiecznym miejscu.</label>
-        </div>
-
-        <div class="card" id="rememberFromGenerateCard" style="display:none;border-color:var(--flame);">
-          <h3 data-i18n="wallet_remember_heading">💾 Zapamiętać ten portfel na tym urządzeniu?</h3>
-          <p style="font-size:.85rem;" data-i18n="wallet_remember_desc_short">Zaszyfrowany prawdziwym hasłem (AES-256) — następnym razem tylko hasło, bez wklejania kluczy.</p>
-          <div class="field">
-            <label data-i18n="wallet_set_password">Ustaw hasło</label>
-            <input id="rememberFromGeneratePassword" type="password" placeholder="Nowe hasło do tego urządzenia">
-          </div>
-          <button class="btn secondary" id="rememberFromGenerateBtn" data-i18n="wallet_remember_btn">Zapamiętaj</button>
-          <div id="rememberFromGenerateStatus" style="margin-top:8px;font-family:var(--font-mono);font-size:.85rem;"></div>
-        </div>
-      </div>
-    </div>
+  <div class="card">
+    <h3><span>Aktywni górnicy — solo</span> <span style="font-weight:400;color:var(--text-dim);font-size:.75rem;text-transform:none;letter-spacing:0;" data-i18n="miner_active_miners_window">(ostatnie kilka minut)</span></h3>
+    <div id="activeSoloList" class="skeleton" style="height:60px;"></div>
   </div>
 
+  <div class="card">
+    <h3><span>Aktywni górnicy — pula</span> <span style="font-weight:400;color:var(--text-dim);font-size:.75rem;text-transform:none;letter-spacing:0;">(bieżąca runda)</span></h3>
+    <div id="activePoolList" class="skeleton" style="height:60px;"></div>
+  </div>
 
-  <!-- ========== MAM JUŻ PORTFEL (odblokuj / wklej / wyślij / odbierz) ========== -->
-  <div class="tab-panel" id="tab-manage">
-    <div class="card" id="unlockCard" style="display:none;">
-      <h3 data-i18n="wallet_unlock_heading">🔒 Masz zapisany portfel na tym urządzeniu</h3>
-      <div class="field">
-        <label data-i18n="wallet_password_label">Hasło</label>
-        <input id="unlockPassword" type="password" placeholder="Twoje hasło">
-      </div>
-      <div class="btn-row">
-        <button class="btn flame" id="unlockBtn" data-i18n="wallet_unlock_btn">Odblokuj</button>
-        <button class="btn secondary" id="forgetWalletBtn" style="font-size:.8rem;" data-i18n="wallet_forget_btn">Zapomnij ten portfel</button>
-      </div>
-      <div id="unlockError" class="error-banner" style="display:none;margin-top:10px;"></div>
+  <div class="card">
+    <h3 data-i18n="miner_auto_title">Kopanie automatyczne (w tej przeglądarce)</h3>
+    <p data-i18n="miner_auto_desc">Liczy hashe tutaj, na Twoim urządzeniu, i samo zgłasza znalezione shares — bez klikania czegokolwiek co chwilę.</p>
+    <div class="field">
+      <label data-i18n="miner_your_address">Twój adres BbC</label>
+      <input id="autoMinerAddress" placeholder="BbC...">
     </div>
-
-    <div class="card" id="importCard">
-      <h3 data-i18n="wallet_login_heading">Zaloguj się</h3>
-      <p data-i18n="wallet_login_hint">Wklej swoje stare klucze albo wpisz 12 słów — rozpoznam samo, co to jest.</p>
-      <textarea id="importBundle" placeholder="Klucze (-----BEGIN PRIVATE KEY-----...) albo 12 słów oddzielonych spacją"></textarea>
-      <button class="btn" id="loadWalletBtn" style="margin-top:10px;" data-i18n="wallet_login_heading">Zaloguj się</button>
-      <div id="importError" class="error-banner" style="display:none;margin-top:10px;"></div>
+    <div class="field">
+      <label data-i18n="miner_threads_label">Liczba wątków (więcej = szybciej, ale więcej baterii/ciepła)</label>
+      <input type="range" id="autoMineThreads" min="1" max="4" value="2" style="width:100%;">
+      <div style="text-align:center;font-family:var(--font-mono);color:var(--leaf);margin-top:4px;" id="autoMineThreadsLabel">2</div>
     </div>
+    <button class="btn" id="autoMineToggle" data-i18n="miner_start_btn">Zacznij kopać</button>
+    <p class="hint" style="margin-top:10px;color:var(--text-dim);font-size:.8rem;" data-i18n="miner_auto_hint">Kopie dopóki ta karta jest otwarta na ekranie — zamknięcie karty albo zgaszenie ekranu telefonu może to zatrzymać.</p>
 
-
-    <div class="card" id="rememberCard" style="display:none;">
-      <h3 data-i18n="wallet_remember_heading2">💾 Zapamiętać ten portfel tutaj?</h3>
-      <p style="font-size:.85rem;" data-i18n="wallet_remember_desc_long">Zaszyfrowany prawdziwym hasłem (AES-256) — następnym razem tylko hasło, bez wklejania kluczy. Zgubione hasło = trzeba wczytać portfel od nowa wklejeniem (klucze nadal masz w swoim pliku).</p>
-      <div class="field">
-        <label data-i18n="wallet_set_password">Ustaw hasło</label>
-        <input id="rememberPassword" type="password" placeholder="Nowe hasło do tego urządzenia">
-      </div>
-      <button class="btn secondary" id="rememberBtn" data-i18n="wallet_remember_btn">Zapamiętaj</button>
-      <div id="rememberStatus" style="margin-top:8px;font-family:var(--font-mono);font-size:.85rem;"></div>
+    <div class="mine-stats">
+      <div><span class="n" id="autoStatShares">0</span><span class="l">Shares</span></div>
+      <div><span class="n" id="autoStatBlocks">0</span><span class="l" data-i18n="miner_blocks_label">Bloki</span></div>
     </div>
+    <div id="autoMineLog"></div>
+  </div>
 
-    <div class="card" id="receiveCard" style="display:none;">
-      <h3 data-i18n="wallet_receive_title">Odbierz</h3>
-      <div class="addr-display" id="myAddress"></div>
-      <div class="btn-row">
-        <button class="btn secondary" id="copyAddrBtn" data-i18n="wallet_copy_addr">Kopiuj adres</button>
-        <button class="btn secondary" id="shareAddrBtn" data-i18n="wallet_share">Udostępnij</button>
-      </div>
-      <div class="balance-row">
-        <span class="n" id="myBalance">—</span> BbC
-        <button class="btn secondary" id="refreshBalanceBtn" style="margin-left:auto;padding:6px 10px;font-size:.8rem;">↻</button>
-      </div>
+  <div class="card" style="border-color:var(--flame);">
+    <h3 data-i18n="miner_solo_title">⚡ Solo — cała nagroda dla Ciebie</h3>
+    <p data-i18n="miner_solo_desc">Liczy w tej przeglądarce, tak jak kopanie przez pulę — ale bez dzielenia się. Znajdziesz blok, cała nagroda trafia prosto na Twój adres.</p>
+    <div class="field">
+      <label data-i18n="miner_your_address">Twój adres BbC</label>
+      <input id="soloAutoAddress" placeholder="BbC...">
     </div>
-
-    <!-- Historia transakcji zalogowanego portfela.
-         Do tej pory trzeba bylo skopiowac wlasny adres i wkleic go w
-         address.html, zeby zobaczyc wlasne przelewy. Ten sam endpoint,
-         tylko od razu tu, dla adresu ktory jest juz odblokowany. -->
-    <div class="card" id="historyCard" style="display:none;">
-      <h3>
-        <span data-i18n="wallet_history_title">Historia</span>
-        <span id="historyCount" style="color:var(--text-dim);font-weight:400;"></span>
-      </h3>
-      <div id="historyBody">
-        <div class="skeleton" style="height:80px;border-radius:8px;"></div>
-      </div>
+    <div class="field">
+      <label data-i18n="miner_threads_label">Liczba wątków (więcej = szybciej, ale więcej baterii/ciepła)</label>
+      <input type="range" id="soloAutoThreads" min="1" max="4" value="2" style="width:100%;">
+      <div style="text-align:center;font-family:var(--font-mono);color:var(--flame);margin-top:4px;" id="soloAutoThreadsLabel">2</div>
     </div>
+    <button class="btn flame" id="soloAutoToggle" data-i18n="miner_solo_start">Zacznij kopać solo</button>
+    <div style="margin-top:14px;font-family:var(--font-mono);font-size:.85rem;"><span data-i18n="miner_blocks_label">Bloki</span>: <span id="soloAutoBlocks">0</span> · <span data-i18n="miner_attempts_label">Próby</span>: <span id="soloAutoAttempts">0</span></div>
+    <div id="soloAutoLog" style="max-height:160px;overflow-y:auto;font-family:var(--font-mono);font-size:.78rem;color:var(--text-dim);margin-top:10px;"></div>
+  </div>
 
-    <div class="card" id="sendCard" style="display:none;">
-      <h3 data-i18n="wallet_send_title">Wyślij</h3>
-      <div class="field">
-        <label data-i18n="wallet_send_to">Adres odbiorcy</label>
-        <input id="sendTo" placeholder="BbC..." list="savedContactsList">
-        <datalist id="savedContactsList"></datalist>
-        <!-- Stan sumy kontrolnej adresu. Literowka powstaje TUTAJ,
-             przy wklejaniu - i tutaj jest zatrzymywana. -->
-        <div id="sendToCheck" style="margin-top:6px;font-family:var(--font-mono);font-size:.78rem;min-height:1.1em;"></div>
-        <div id="contactsQuickPick" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
-      </div>
-      <div class="field"><label data-i18n="wallet_send_amount">Kwota (BbC)</label><input id="sendAmount" type="number" step="any" placeholder="0.0"></div>
-      <div class="field">
-        <label data-i18n="wallet_send_fee">Opłata</label>
-        <div class="fee-tiers">
-          <button type="button" class="fee-tier-btn" data-fee="low">Low</button>
-          <button type="button" class="fee-tier-btn active" data-fee="fast">Fast</button>
-          <button type="button" class="fee-tier-btn" data-fee="turbo">Turbo</button>
-          <button type="button" class="fee-tier-btn" data-fee="manual">Manual</button>
-        </div>
-        <input id="sendFee" type="number" step="any" value="0.01" readonly>
-      </div>
-      <button class="btn flame" id="sendBtn" style="width:100%;justify-content:center;" data-i18n="wallet_send_btn">Wyślij</button>
-      <div id="sendResult" style="margin-top:12px;font-family:var(--font-mono);font-size:.85rem;"></div>
-    </div>
-
-    <!-- ========== HTLC: ekran TECHNICZNY, surowe pola - nie ładny swap (to później) ========== -->
-    <div class="card" id="htlcCard" style="display:none;">
-      <h3>🔒 HTLC (techniczne)</h3>
-      <p style="font-size:.85rem;color:var(--text-dim);">Blokady czasowo-hashowe pod wymiany między łańcuchami. Surowe pola, nie ładny ekran wymiany — to osobno, później.</p>
-
-      <div class="tabs" style="margin-top:14px;">
-        <button class="htlc-tab-btn active" data-htlctab="create">Utwórz</button>
-        <button class="htlc-tab-btn" data-htlctab="claim">Odbierz</button>
-        <button class="htlc-tab-btn" data-htlctab="refund">Zwrot</button>
-        <button class="htlc-tab-btn" data-htlctab="check">Sprawdź</button>
-      </div>
-
-      <div class="htlc-tab-panel" id="htlctab-create" style="display:block;">
-        <div class="field"><label>ID (auto, można zmienić)</label><input id="htlcCreateId"></div>
-        <div class="field"><label>Sekret (auto — ZAPISZ, przekażesz go drugiej stronie osobno)</label><input id="htlcCreateSecret"></div>
-        <div class="field"><label>Hash sekretu (hashLock) — auto z sekretu, albo wklej cudzy jeśli odpowiadasz</label><input id="htlcCreateHashLock"></div>
-        <div class="field"><label>Adres odbiorcy (claimant)</label><input id="htlcCreateClaimant" placeholder="BbC..."></div>
-        <div class="field"><label>Kwota (BbC)</label><input id="htlcCreateAmount" type="number" step="any"></div>
-        <div class="field"><label>Opłata</label><input id="htlcCreateFee" type="number" step="any" value="0.01"></div>
-        <div class="field"><label>Za ile godzin ma minąć termin</label><input id="htlcTimeoutHours" type="number" step="any" value="48"></div>
-        <button type="button" class="btn secondary" id="htlcCalcTimeoutBtn" style="width:100%;justify-content:center;margin-bottom:8px;">↻ Przelicz z realnego tempa bloków</button>
-        <div id="htlcTimeoutCalcInfo" style="font-family:var(--font-mono);font-size:.76rem;color:var(--text-dim);margin-bottom:12px;line-height:1.5;"></div>
-        <div class="field"><label>Wysokość terminu (numer bloku) — wyliczona automatycznie, można nadpisać ręcznie</label><input id="htlcCreateTimeout" type="number"></div>
-        <button class="btn flame" id="htlcCreateBtn" style="width:100%;justify-content:center;">Utwórz HTLC</button>
-        <div id="htlcCreateResult" style="margin-top:10px;font-family:var(--font-mono);font-size:.82rem;"></div>
-      </div>
-
-      <div class="htlc-tab-panel" id="htlctab-claim" style="display:none;">
-        <div class="field"><label>ID HTLC</label><input id="htlcClaimId"></div>
-        <div class="field"><label>Sekret</label><input id="htlcClaimSecret"></div>
-        <button class="btn flame" id="htlcClaimBtn" style="width:100%;justify-content:center;">Odbierz</button>
-        <div id="htlcClaimResult" style="margin-top:10px;font-family:var(--font-mono);font-size:.82rem;"></div>
-      </div>
-
-      <div class="htlc-tab-panel" id="htlctab-refund" style="display:none;">
-        <div class="field"><label>ID HTLC</label><input id="htlcRefundId"></div>
-        <button class="btn flame" id="htlcRefundBtn" style="width:100%;justify-content:center;">Zwrot</button>
-        <div id="htlcRefundResult" style="margin-top:10px;font-family:var(--font-mono);font-size:.82rem;"></div>
-      </div>
-
-      <div class="htlc-tab-panel" id="htlctab-check" style="display:none;">
-        <div class="field"><label>ID HTLC</label><input id="htlcCheckId"></div>
-        <button class="btn secondary" id="htlcCheckBtn" style="width:100%;justify-content:center;">Sprawdź status</button>
-        <div id="htlcCheckResult" style="margin-top:10px;"></div>
-      </div>
-    </div>
-
-    <!-- ========== OFERTY ZAKUPU: podpis portfela zamiast wspólnego sekretu ========== -->
-    <div class="card" id="offersCard" style="display:none;">
-      <h3 data-i18n="offers_heading">📋 Oferty zakupu do Ciebie</h3>
-      <p style="font-size:.85rem;color:var(--text-dim);" data-i18n="offers_intro">Oferty, w których jesteś wskazanym sprzedającym — akceptacja/odrzucenie podpisem tego portfela, bez hasła.</p>
-      <button class="btn secondary" id="loadOffersBtn" style="width:100%;justify-content:center;" data-i18n="offers_load_btn">Wczytaj oferty</button>
-      <div id="offersList" style="margin-top:14px;"></div>
-    </div>
+  <div class="card">
+    <h3 data-i18n="miner_bench_title">Ile realnie liczy Twoje urządzenie?</h3>
+    <p data-i18n="miner_bench_desc">Prawdziwy pomiar wykonany teraz, na żywo — nie specyfikacja z ulotki.</p>
+    <button class="btn secondary" id="benchBtn" data-i18n="miner_bench_btn">Sprawdź szybkość</button>
+    <div id="benchResult" style="margin-top:14px;font-family:var(--font-mono);"></div>
   </div>
 </div>
 
-<footer style="text-align:center;color:var(--text-dim);font-size:.8rem;padding:40px 20px;" data-i18n="wallet_footer">
-  BitBudCoin (BbC) · klucz prywatny nigdy nie opuszcza tej przeglądarki
-</footer>
+<footer>BitBudCoin (BbC) · <a href="docks.html">dokumentacja</a></footer>
 
-<script src="assets/address-checksum-frontend.js"></script>
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
-<script src="assets/native-responsive.js"></script>
-<script src="assets/wallet-crypto.js"></script>
-<script src="assets/capsule-crypto.js"></script>
-<script src="assets/seed-wordlist.js"></script>
-<script src="assets/seed-phrase.js"></script>
-<script src="assets/btc-bridge.js"></script>
+<script src="assets/browser-miner.js"></script>
+<script src="assets/solo-miner.js"></script>
 <script src="assets/i18n.js"></script>
+<script src="assets/native-responsive.js"></script>
 <script>
 mountSmokeField();
 mountNavStatus();
+setActiveNav();
 
-// --- Zakładki ---
-document.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-        document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
-        btn.classList.add("active");
-        document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
-    });
+const cores = navigator.hardwareConcurrency || 4;
+const maxThreads = Math.max(1, Math.min(cores, 8));
+const defaultThreads = Math.max(1, Math.min(2, maxThreads));
+["autoMineThreads", "soloAutoThreads"].forEach((id) => {
+    const el = document.getElementById(id);
+    el.max = maxThreads;
+    el.value = defaultThreads;
+    document.getElementById(id + "Label").textContent = defaultThreads;
+    el.addEventListener("input", () => { document.getElementById(id + "Label").textContent = el.value; });
 });
 
-// --- Przełącznik "surowe klucze" (domyślnie schowany, fraza jest główną drogą) ---
-document.getElementById("showRawKeysToggle").addEventListener("click", () => {
-    const section = document.getElementById("rawKeysSection");
-    const willShow = section.style.display === "none";
-    section.style.display = willShow ? "block" : "none";
-    document.getElementById("showRawKeysToggle").textContent = willShow
-        ? t("wallet_hide_raw_keys")
-        : t("wallet_show_raw_keys");
-    if (willShow) section.scrollIntoView({ behavior: "smooth", block: "nearest" });
+function formatHashrate(h) {
+    if (!h || h <= 0) return "0 H/s";
+    if (h >= 1e6) return (h / 1e6).toFixed(2) + " MH/s";
+    if (h >= 1e3) return (h / 1e3).toFixed(2) + " kH/s";
+    return Math.round(h) + " H/s";
+}
+
+const VARDIFF_TARGET_SECONDS = 12;
+function estimateMinerHashrate(difficulty) {
+    return difficulty / VARDIFF_TARGET_SECONDS;
+}
+function estimatePoolHashrate(minerDifficulties) {
+    return Object.values(minerDifficulties || {}).reduce((sum, d) => sum + estimateMinerHashrate(d), 0);
+}
+
+// NAPRAWA (dzisiaj): korzystala z apiGet("/pool/status") co 8s, i przy
+// KAZDYM chwilowym bledzie CZYSCILA wszystkie trzy tabele do banera
+// bledu - dokladnie "znika i pokazuje smieci" zamiast trzymac ostatnie
+// dobre dane. Teraz jedno zrodlo (BBCLiveState, ten sam co odznaka na
+// gorze), zero osobnego pollingu, i baner bledu tylko gdy NIGDY jeszcze
+// nie bylo zadnych danych - poza tym zawsze ostatni dobry stan +
+// dyskretne oznaczenie ⚠️ gdy dane nie sa live.
+function renderPoolStatus(status, live) {
+    const poolStatusEl = document.getElementById("poolStatus");
+    const soloListEl = document.getElementById("activeSoloList");
+    const poolListEl = document.getElementById("activePoolList");
+
+    const poolHashrate = estimatePoolHashrate(status.minerDifficulties);
+    const warn = live ? "" : ` <span style="opacity:.6;">⚠️</span>`;
+
+    poolStatusEl.classList.remove("skeleton");
+    poolStatusEl.style.height = "";
+    poolStatusEl.innerHTML = `
+        <div class="stat-grid">
+            <div><div class="stat-value leaf">#${fmtNumber(status.workingOnHeight, 0)}${warn}</div><div class="stat-label">${t("miner_working_on_block")}</div></div>
+            <div><div class="stat-value">${status.totalSharesThisRound}</div><div class="stat-label">${t("miner_shares_this_round")}</div></div>
+            <div><div class="stat-value">${(status.poolFee * 100).toFixed(0)}%</div><div class="stat-label">${t("miner_pool_fee_label")}</div></div>
+            <!-- Kafelek mowil "TRUDNOSC SHARE / BLOKU", a pokazywal WYLACZNIE
+                 trudnosc share (256). Wygladalo to, jakby trudnosc sieci
+                 runela z miliardow do 256 - mylace na tyle, ze sam sie na
+                 tym potknalem przy diagnozie. Teraz obie liczby, share nad
+                 trudnoscia bloku. -->
+            <div><div class="stat-value">${fmtNumber(status.shareDifficulty)}<span style="color:var(--text-dim);font-size:.6em;"> / </span><span style="font-size:.62em;">${status.blockDifficulty ? fmtNumber(status.blockDifficulty, 0) : "—"}</span></div><div class="stat-label">${t("miner_share_block_diff")}</div></div>
+            <div><div class="stat-value leaf">${formatHashrate(poolHashrate)}</div><div class="stat-label">${t("miner_pool_hashrate")}</div></div>
+            <div><div class="stat-value flame">${formatHashrate(status.soloHashrate)}</div><div class="stat-label">${t("miner_solo_hashrate")}</div></div>
+        </div>`;
+
+    const allMiners = status.activeMiners || [];
+    const soloMiners = allMiners.filter((m) => m.source === "solo");
+    const poolMiners = allMiners.filter((m) => m.source !== "solo");
+    const windowMin = Math.max(1, Math.round((status.activeMinersWindowSeconds || 300) / 60));
+
+    soloListEl.classList.remove("skeleton");
+    soloListEl.style.height = "";
+    if (soloMiners.length === 0) {
+        soloListEl.innerHTML = `<div style="color:var(--text-dim);font-size:.88rem;">${t("miner_no_active_miners")} ${windowMin} min.</div>`;
+    } else {
+        const soloRows = soloMiners.map((m) => `
+            <tr>
+                <td class="mono">${fmtAddress(m.minerAddress)}</td>
+                <td class="num th-hashrate">${formatHashrate(m.hashrate)}</td>
+            </tr>`).join("");
+        soloListEl.innerHTML = `
+            <table>
+                <thead><tr><th>${t("miner_th_address")}</th><th class="th-hashrate">~H/s</th></tr></thead>
+                <tbody>${soloRows}</tbody>
+            </table>`;
+    }
+
+    poolListEl.classList.remove("skeleton");
+    poolListEl.style.height = "";
+    if (poolMiners.length === 0) {
+        poolListEl.innerHTML = `<div style="color:var(--text-dim);font-size:.88rem;">Nikt jeszcze nie zgłosił share w tej rundzie.</div>`;
+    } else {
+        const poolRows = poolMiners.map((m) => {
+            const hashrateCol = formatHashrate(estimateMinerHashrate((status.minerDifficulties || {})[m.minerAddress]));
+            return `
+            <tr>
+                <td class="mono">${fmtAddress(m.minerAddress)}</td>
+                <td class="num" style="text-align:right;">${m.shares} shares</td>
+                <td class="num th-hashrate" style="color:var(--text-dim);">${hashrateCol}</td>
+            </tr>`;
+        }).join("");
+        poolListEl.innerHTML = `
+            <table>
+                <thead><tr><th>${t("miner_th_address")}</th><th style="text-align:right;">Shares (runda)</th><th class="th-hashrate">~H/s</th></tr></thead>
+                <tbody>${poolRows}</tbody>
+            </table>`;
+    }
+}
+
+function showPoolStatusError(message) {
+    const poolStatusEl = document.getElementById("poolStatus");
+    const soloListEl = document.getElementById("activeSoloList");
+    const poolListEl = document.getElementById("activePoolList");
+    poolStatusEl.classList.remove("skeleton");
+    poolStatusEl.innerHTML = `<div class="error-banner">${t("common_pool_unavailable")}${message ? ": " + message : ""}</div>`;
+    soloListEl.classList.remove("skeleton");
+    soloListEl.innerHTML = "";
+    poolListEl.classList.remove("skeleton");
+    poolListEl.innerHTML = "";
+}
+
+BBCLiveState.subscribe(({ state, live }) => {
+    if (!state || !state.pool) {
+        // NAPRAWA: poprzednio przekazywalem juz-przetlumaczony tekst jako
+        // "message", a showPoolStatusError SAMA doklejala ten sam prefiks -
+        // stad "Pula niedostepna: Pula niedostepna". Teraz bez duplikatu.
+        if (!BBCLiveState.getLastGoodAt()) showPoolStatusError("");
+        return;
+    }
+    renderPoolStatus({
+        workingOnHeight: state.pool.workingOnHeight,
+        totalSharesThisRound: state.pool.totalSharesThisRound,
+        poolFee: state.pool.poolFee,
+        shareDifficulty: state.pool.shareDifficulty,
+        blockDifficulty: state.pool.blockDifficulty,
+        minerDifficulties: state.pool.minerDifficulties,
+        soloHashrate: state.soloHashrate,
+        activeMiners: state.activeMiners
+    }, live);
+});
+BBCLiveState.init();
+document.addEventListener("bbc:langchange", () => {
+    const s = BBCLiveState.getState();
+    if (s && s.pool) renderPoolStatus({
+        workingOnHeight: s.pool.workingOnHeight, totalSharesThisRound: s.pool.totalSharesThisRound,
+        poolFee: s.pool.poolFee, shareDifficulty: s.pool.shareDifficulty,
+        blockDifficulty: s.pool.blockDifficulty, minerDifficulties: s.pool.minerDifficulties,
+        soloHashrate: s.soloHashrate, activeMiners: s.activeMiners
+    }, BBCLiveState.isLive());
 });
 
-// --- Tworzenie nowego portfela ---
-let lastGenerated = null;
-
-document.getElementById("generateBtn").addEventListener("click", async () => {
-    const btn = document.getElementById("generateBtn");
+async function benchmarkDevice(durationMs) {
+    const start = performance.now();
+    let count = 0;
+    while (performance.now() - start < durationMs) {
+        const data = new TextEncoder().encode("benchmark" + count);
+        await crypto.subtle.digest("SHA-256", data);
+        count++;
+        if (count % 150 === 0) await new Promise((r) => setTimeout(r, 0));
+    }
+    return Math.round(count / ((performance.now() - start) / 1000));
+}
+function formatDuration(seconds) {
+    if (seconds < 60) return Math.round(seconds) + t("miner_bench_sec");
+    if (seconds < 3600) return Math.round(seconds / 60) + " " + t("miner_bench_min");
+    return (seconds / 3600).toFixed(1) + " " + t("miner_bench_hr");
+}
+document.getElementById("benchBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("benchBtn");
+    const resultEl = document.getElementById("benchResult");
+    if (BrowserMiner.isMining() || SoloMiner.isMining()) {
+        resultEl.textContent = t("miner_bench_busy");
+        return;
+    }
     btn.disabled = true;
-    btn.textContent = t("wallet_generating");
-    try {
-        const wallet = await generateWallet();
-        lastGenerated = wallet;
-        document.getElementById("addressOut").textContent = wallet.address;
-        document.getElementById("pubKeyOut").value = wallet.publicKeyPem;
-        document.getElementById("privKeyOut").value = wallet.privateKeyPem;
-        document.getElementById("results").style.display = "block";
-        document.getElementById("confirmSaved").checked = false;
-        document.getElementById("results").scrollIntoView({ behavior: "smooth" });
-        if (!hasRememberedWallet()) {
-            document.getElementById("rememberFromGenerateCard").style.display = "block";
-        }
-    } catch (err) {
-        alert(t("wallet_generate_error") + err.message);
-    } finally {
-        btn.disabled = false;
-        btn.textContent = t("wallet_generate_btn");
-    }
+    document.getElementById("autoMineToggle").disabled = true;
+    document.getElementById("soloAutoToggle").disabled = true;
+    resultEl.textContent = t("miner_bench_running");
+    const rate = await benchmarkDevice(1500);
+    const info = await apiGet("/info");
+    const avgSeconds = info.difficulty / rate;
+    resultEl.innerHTML = `<span style="color:var(--leaf);font-size:1.4rem;">${fmtNumber(rate)}</span> H/s<br>
+        <span style="color:var(--text-dim);font-size:.85rem;">${t("miner_bench_estimate")} ${formatDuration(avgSeconds)}</span>`;
+    btn.disabled = false;
+    document.getElementById("autoMineToggle").disabled = false;
+    document.getElementById("soloAutoToggle").disabled = false;
+    btn.textContent = t("miner_bench_btn");
 });
 
-document.getElementById("rememberFromGenerateBtn").addEventListener("click", async () => {
-    const password = document.getElementById("rememberFromGeneratePassword").value;
-    const statusEl = document.getElementById("rememberFromGenerateStatus");
-    if (!password || password.length < 4) { statusEl.style.color = "var(--danger)"; statusEl.textContent = "Hasło za krótkie."; return; }
-    if (!lastGenerated) { statusEl.style.color = "var(--danger)"; statusEl.textContent = "Najpierw wygeneruj portfel."; return; }
-    const bundleText = lastGenerated.publicKeyPem + "\n" + lastGenerated.privateKeyPem;
-    const encrypted = await encryptCapsuleMessage(bundleText, password);
-    localStorage.setItem(REMEMBERED_WALLET_KEY, JSON.stringify(encrypted));
-    statusEl.style.color = "var(--leaf)";
-    statusEl.textContent = "✓ Zapisano. Następnym razem wystarczy hasło, w zakładce \"Mój portfel\".";
-    document.getElementById("rememberFromGeneratePassword").value = "";
-});
-
-document.getElementById("downloadBundleBtn").addEventListener("click", () => {
-    if (!lastGenerated) return;
-    downloadWalletBundle(lastGenerated.address, lastGenerated.publicKeyPem, lastGenerated.privateKeyPem);
-});
-
-document.querySelectorAll(".copy-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-        const target = document.getElementById(btn.dataset.copyTarget);
-        const original = btn.textContent;
-        try {
-            await navigator.clipboard.writeText(target.value);
-            btn.textContent = t("wallet_copied");
-        } catch (err) {
-            target.select();
-            btn.textContent = t("wallet_selected");
-        }
-        setTimeout(() => { btn.textContent = original; }, 1500);
-    });
-});
-
-window.addEventListener("beforeunload", (e) => {
-    const results = document.getElementById("results");
-    const confirmed = document.getElementById("confirmSaved").checked;
-    if (results.style.display === "block" && !confirmed) { e.preventDefault(); e.returnValue = ""; }
-});
-
-// --- Wczytywanie istniejącego portfela ---
-let currentWallet = null; // { address, publicKeyPem, privateKey: CryptoKey }
-let currentBundleText = null; // surowy tekst kluczy - potrzebny tylko do ewentualnego zapisania zaszyfrowanego
-
-const REMEMBERED_WALLET_KEY = "bbc_encrypted_wallet";
-
-function hasRememberedWallet() {
-    return localStorage.getItem(REMEMBERED_WALLET_KEY) !== null;
-}
-
-async function loadWalletFromBundleText(text) {
-    const errorEl = document.getElementById("importError");
-    errorEl.style.display = "none";
-    const { publicKeyPem, privateKeyPem } = parseWalletBundle(text);
-
-    if (!publicKeyPem || !privateKeyPem) {
-        errorEl.textContent = t("wallet_import_error");
-        errorEl.style.display = "block";
-        return false;
-    }
-
-    const address = await deriveAddressFromPublicKeyPem(publicKeyPem);
-    const privateKey = await importPrivateKeyFromPem(privateKeyPem);
-    currentWallet = { address, publicKeyPem, privateKey };
-    currentBundleText = text;
-
-    document.getElementById("myAddress").textContent = address;
-    document.getElementById("receiveCard").style.display = "block";
-    document.getElementById("historyCard").style.display = "block";
-    document.getElementById("sendCard").style.display = "block";
-    document.getElementById("htlcCard").style.display = "block";
-    document.getElementById("offersCard").style.display = "block";
-    await refreshHtlcCreateDefaults();
-    await refreshBalance();
-    refreshHistory();
-    return true;
-}
-
-// --- Fraza 12 słów: generowanie ---
-let lastPhraseWallet = null;
-document.getElementById("generatePhraseBtn").addEventListener("click", async () => {
-    const words = generateSeedPhrase();
-    const { publicKeyPem, privateKeyPem } = await deriveKeyPairFromSeedPhrase(words);
-    const address = await deriveAddressFromPublicKeyPem(publicKeyPem);
-    lastPhraseWallet = { words, publicKeyPem, privateKeyPem, address };
-
-    const grid = document.getElementById("phraseWordsGrid");
-    grid.innerHTML = words.map((w, i) => `<div style="background:var(--surface-2);padding:8px 10px;border-radius:6px;"><span style="color:var(--text-dim);">${i + 1}.</span> ${w}</div>`).join("");
-    document.getElementById("phraseAddressOut").textContent = address;
-    document.getElementById("phraseResult").style.display = "block";
-    document.getElementById("phraseConfirmSaved").checked = false;
-    document.getElementById("usePhraseWalletBtn").disabled = true;
-});
-
-document.getElementById("phraseConfirmSaved").addEventListener("change", (e) => {
-    document.getElementById("usePhraseWalletBtn").disabled = !e.target.checked;
-});
-
-document.getElementById("usePhraseWalletBtn").addEventListener("click", async () => {
-    if (!lastPhraseWallet) return;
-    const bundleText = lastPhraseWallet.publicKeyPem + "\n" + lastPhraseWallet.privateKeyPem;
-    document.querySelector('[data-tab="manage"]').click();
-    await loadWalletFromBundleText(bundleText);
-});
-
-// Przy starcie - jeśli jest zapamiętany portfel, pokaż odblokowanie zamiast wklejania
-if (hasRememberedWallet()) {
-    document.getElementById("unlockCard").style.display = "block";
-    document.getElementById("importCard").style.display = "none";
-}
-
-document.getElementById("unlockBtn").addEventListener("click", async () => {
-    const password = document.getElementById("unlockPassword").value;
-    const errorEl = document.getElementById("unlockError");
-    errorEl.style.display = "none";
-    if (!password) return;
-    try {
-        const stored = JSON.parse(localStorage.getItem(REMEMBERED_WALLET_KEY));
-        const bundleText = await decryptCapsuleMessage(stored.ciphertext, stored.salt, stored.iv, password);
-        const ok = await loadWalletFromBundleText(bundleText);
-        if (!ok) { errorEl.textContent = "Zapisane dane są uszkodzone."; errorEl.style.display = "block"; }
-    } catch (e) {
-        errorEl.textContent = "Złe hasło.";
-        errorEl.style.display = "block";
-    }
-});
-
-document.getElementById("forgetWalletBtn").addEventListener("click", () => {
-    if (!confirm("Na pewno? Usunie to zapisaną, zaszyfrowaną kopię z TEGO urządzenia (Twoje klucze w pliku, jeśli go masz, nie znikają).")) return;
-    localStorage.removeItem(REMEMBERED_WALLET_KEY);
-    document.getElementById("unlockCard").style.display = "none";
-    document.getElementById("importCard").style.display = "block";
-});
-
-document.getElementById("rememberBtn").addEventListener("click", async () => {
-    const password = document.getElementById("rememberPassword").value;
-    const statusEl = document.getElementById("rememberStatus");
-    if (!password || password.length < 4) { statusEl.style.color = "var(--danger)"; statusEl.textContent = "Hasło za krótkie."; return; }
-    const encrypted = await encryptCapsuleMessage(currentBundleText, password);
-    localStorage.setItem(REMEMBERED_WALLET_KEY, JSON.stringify(encrypted));
-    statusEl.style.color = "var(--leaf)";
-    statusEl.textContent = "✓ Zapisano. Następnym razem wystarczy hasło.";
-    document.getElementById("rememberPassword").value = "";
-});
-
-function looksLikeSeedPhrase(text) {
-    const words = text.trim().split(/\s+/).filter(Boolean);
-    return words.length === 12 && !text.includes("BEGIN");
-}
-
-document.getElementById("loadWalletBtn").addEventListener("click", async () => {
-    const errorEl = document.getElementById("importError");
-    errorEl.style.display = "none";
-    const raw = document.getElementById("importBundle").value;
-
-    let ok;
-    if (looksLikeSeedPhrase(raw)) {
-        const words = raw.trim().split(/\s+/).filter(Boolean);
-        try {
-            const { publicKeyPem, privateKeyPem } = await deriveKeyPairFromSeedPhrase(words);
-            ok = await loadWalletFromBundleText(publicKeyPem + "\n" + privateKeyPem);
-        } catch (err) {
-            errorEl.textContent = err.message;
-            errorEl.style.display = "block";
-            ok = false;
-        }
+document.getElementById("autoMineToggle").addEventListener("click", () => {
+    const btn = document.getElementById("autoMineToggle");
+    if (BrowserMiner.isMining()) {
+        BrowserMiner.stop();
+        btn.textContent = t("miner_start_btn");
+        btn.classList.remove("flame");
+        document.getElementById("soloAutoToggle").disabled = false;
+        document.getElementById("benchBtn").disabled = false;
+        document.getElementById("autoMineThreads").disabled = false;
     } else {
-        ok = await loadWalletFromBundleText(raw).catch((err) => {
-            errorEl.textContent = t("wallet_load_error") + err.message;
-            errorEl.style.display = "block";
-            return false;
+        const addr = document.getElementById("autoMinerAddress").value.trim();
+        if (!addr) { alert(t("miner_need_address_alert")); return; }
+        BrowserMiner.start(addr, API_BASE, document.getElementById("autoMineThreads").value, {
+            onUpdate: (s) => {
+                document.getElementById("autoStatShares").textContent = s.shares;
+                document.getElementById("autoStatBlocks").textContent = s.blocksFound;
+            },
+            onLog: (msg) => {
+                const line = document.createElement("div");
+                line.textContent = msg;
+                const log = document.getElementById("autoMineLog");
+                log.prepend(line);
+                while (log.children.length > 30) log.removeChild(log.lastChild);
+            }
         });
-    }
-
-    if (ok && !hasRememberedWallet()) {
-        document.getElementById("rememberCard").style.display = "block";
+        btn.textContent = t("miner_stop_btn");
+        btn.classList.add("flame");
+        document.getElementById("autoMineThreads").disabled = true;
+        document.getElementById("soloAutoToggle").disabled = true;
+        document.getElementById("benchBtn").disabled = true;
     }
 });
 
-/*
- * Historia transakcji zalogowanego portfela.
- *
- * Ta sama zasada co przy saldzie kilka linii nizej: przy chwilowym
- * bledzie sieci NIE czyscimy juz pokazanej listy. Zniknieta historia
- * wyglada jak utracone pieniadze, nawet jesli to tylko zerwane polaczenie.
- */
-async function refreshHistory() {
-    if (!currentWallet) return;
-
-    const body = document.getElementById("historyBody");
-    const licznik = document.getElementById("historyCount");
-    if (!body) return;
-
-    try {
-        const txs = await apiGet(
-            `/transactions/address/${encodeURIComponent(currentWallet.address)}`
-        );
-
-        licznik.textContent = "(" + txs.length + ")";
-
-        if (txs.length === 0) {
-            body.innerHTML =
-                '<div class="empty-state" style="padding:24px 8px;">' +
-                '<div class="glyph">🍃</div>' +
-                (t("wallet_history_empty") || "Brak transakcji na tym adresie.") +
-                '</div>';
-            body.dataset.everLoaded = "1";
-            return;
-        }
-
-        // Najnowsze na gorze - w portfelu interesuje przede wszystkim
-        // to, co wpadlo ostatnio.
-        const posortowane = txs
-            .slice()
-            .sort((a, b) => (b.blockHeight || 0) - (a.blockHeight || 0));
-
-        body.innerHTML =
-            '<table><thead><tr>' +
-            '<th>' + (t("address_th_type") || "Typ") + '</th>' +
-            '<th>' + (t("dashboard_height") || "Blok") + '</th>' +
-            '<th style="text-align:right;">' + (t("address_th_amount") || "Kwota") + '</th>' +
-            '</tr></thead><tbody>' +
-            posortowane.map((tx) => {
-                const doMnie = tx.to === currentWallet.address;
-                const kolor = doMnie ? "var(--leaf)" : "var(--flame)";
-                const znak = doMnie ? "+" : "−";
-                return '<tr onclick="location.href=\'block.html?height=' + tx.blockHeight + '\'" style="cursor:pointer">' +
-                    '<td><span class="badge ' + escapeHtml(tx.type) + '">' + escapeHtml(tx.type) + '</span></td>' +
-                    '<td>#' + tx.blockHeight + '</td>' +
-                    '<td style="text-align:right;color:' + kolor + '">' +
-                        znak + fmtNumber(tx.amount) +
-                    '</td></tr>';
-            }).join("") +
-            '</tbody></table>';
-
-        body.dataset.everLoaded = "1";
-
-    } catch (e) {
-        if (!body.dataset.everLoaded) {
-            body.innerHTML =
-                '<div class="empty-state" style="padding:20px 8px;color:var(--text-dim);">' +
-                (t("wallet_history_error") || "Nie udało się pobrać historii.") +
-                '</div>';
-        }
-    }
-}
-
-
-async function refreshBalance() {
-    if (!currentWallet) return;
-    const el = document.getElementById("myBalance");
-    if (!el.dataset.everLoaded) el.textContent = "…";
-    try {
-        const bal = await apiGet(`/balance/${currentWallet.address}`);
-        const shown = bal.pendingAwareBalance ?? bal.balance;
-        el.textContent = fmtNumber(shown);
-        el.dataset.everLoaded = "1";
-    } catch (e) {
-        // NAPRAWA: przy chwilowym bledzie trzymaj ostatnie znane saldo,
-        // nie zamieniaj go w komunikat bledu - to Twoje prawdziwe pieniadze
-        // na ekranie, nie mozna dawac wrazenia ze "zniklo".
-        if (!el.dataset.everLoaded) el.textContent = t("wallet_balance_error");
-    }
-}
-document.getElementById("refreshBalanceBtn").addEventListener("click", () => {
-    refreshBalance();
-    refreshHistory();
-});
-// NAPRAWA: wczesniej TYLKO na klik - teraz dodatkowo co 20s w tle,
-// klik dalej dziala dla natychmiastowego odswiezenia na zadanie.
-setInterval(refreshBalance, 20000);
-
-document.getElementById("copyAddrBtn").addEventListener("click", async () => {
-    await navigator.clipboard.writeText(currentWallet.address);
-    const btn = document.getElementById("copyAddrBtn");
-    const original = btn.textContent;
-    btn.textContent = t("wallet_copied");
-    setTimeout(() => { btn.textContent = original; }, 1500);
-});
-
-document.getElementById("shareAddrBtn").addEventListener("click", async () => {
-    if (navigator.share) {
-        try { await navigator.share({ title: "Mój adres BitBudCoin", text: currentWallet.address }); }
-        catch (e) { /* użytkownik anulował - nic nie robimy */ }
+document.getElementById("soloAutoToggle").addEventListener("click", () => {
+    const btn = document.getElementById("soloAutoToggle");
+    if (SoloMiner.isMining()) {
+        SoloMiner.stop();
+        btn.textContent = t("miner_solo_start");
+        document.getElementById("autoMineToggle").disabled = false;
+        document.getElementById("benchBtn").disabled = false;
+        document.getElementById("soloAutoThreads").disabled = false;
     } else {
-        await navigator.clipboard.writeText(currentWallet.address);
-        alert(t("wallet_share_fallback"));
-    }
-});
-
-// --- Wysyłanie ---
-// --- Poziomy opłaty: rosną razem z kwotą, z minimum na dole ---
-function calculateTierFee(tier, amount) {
-    const amt = Math.max(0, Number(amount) || 0);
-    if (tier === "low") return Math.max(0.001, amt * 0.0005);   // 0,05% kwoty, min 0.001
-    if (tier === "fast") return Math.max(0.003, amt * 0.0015);  // 0,15% kwoty, min 0.003
-    if (tier === "turbo") return Math.max(0.008, amt * 0.004);  // 0,4% kwoty, min 0.008
-    return null;
-}
-function fmtFee(n) {
-    return Number(n.toFixed(6)).toString();
-}
-function activeTier() {
-    const btn = document.querySelector(".fee-tier-btn.active");
-    return btn ? btn.dataset.fee : null;
-}
-function refreshTierFee() {
-    const tier = activeTier();
-    if (!tier || tier === "manual") return;
-    const amount = document.getElementById("sendAmount").value;
-    document.getElementById("sendFee").value = fmtFee(calculateTierFee(tier, amount));
-}
-
-document.querySelectorAll(".fee-tier-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-        document.querySelectorAll(".fee-tier-btn").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        const feeInput = document.getElementById("sendFee");
-        if (btn.dataset.fee === "manual") {
-            feeInput.readOnly = false;
-            feeInput.focus();
-        } else {
-            feeInput.readOnly = true;
-            refreshTierFee();
-        }
-    });
-});
-document.getElementById("sendAmount").addEventListener("input", refreshTierFee);
-refreshTierFee();
-
-// --- Zapisani odbiorcy ---
-const CONTACTS_KEY = "bbc_saved_contacts";
-
-function getSavedContacts() {
-    try { return JSON.parse(localStorage.getItem(CONTACTS_KEY)) || []; }
-    catch (e) { return []; }
-}
-function saveSavedContacts(list) {
-    localStorage.setItem(CONTACTS_KEY, JSON.stringify(list));
-}
-function isKnownAddress(address) {
-    return getSavedContacts().some((c) => c.address === address);
-}
-function renderContacts() {
-    const contacts = getSavedContacts();
-    const datalist = document.getElementById("savedContactsList");
-    datalist.innerHTML = contacts.map((c) => `<option value="${c.address}">${escapeHtml(c.label)}</option>`).join("");
-
-    const quickPick = document.getElementById("contactsQuickPick");
-    quickPick.innerHTML = contacts.map((c) => `
-        <button type="button" class="btn secondary contact-chip" data-address="${c.address}" style="padding:6px 10px;font-size:.78rem;">${escapeHtml(c.label)}</button>
-    `).join("");
-    quickPick.querySelectorAll(".contact-chip").forEach((chip) => {
-        chip.addEventListener("click", () => {
-            document.getElementById("sendTo").value = chip.dataset.address;
-            document.getElementById("sendTo").dispatchEvent(new Event("input"));
-        });
-    });
-}
-renderContacts();
-
-// Reset ostrzeżenia o nowym adresie, gdy pole się zmienia
-document.getElementById("sendTo").addEventListener("input", () => {
-    pendingConfirmedAddress = null;
-    const btn = document.getElementById("sendBtn");
-    btn.textContent = t("wallet_send_btn");
-    btn.classList.remove("secondary");
-    odswiezStanAdresu();
-});
-
-/*
- * Suma kontrolna adresu odbiorcy.
- *
- * Trzy stany, nie dwa - "brak checksumu" to co innego niz "checksum
- * sie nie zgadza". Adresy sprzed tej zmiany (same male litery) niosa
- * zero informacji o wielkosci liter, wiec nie da sie ich sprawdzic.
- * Blokujemy WYLACZNIE jawnie zly checksum, bo to zawsze literowka,
- * nigdy zamiar. Blokowanie legacy odcieloby wszystkich dotychczasowych
- * uzytkownikow.
- */
-let stanAdresu = "malformed";
-
-async function odswiezStanAdresu() {
-    const pole = document.getElementById("sendTo");
-    const box = document.getElementById("sendToCheck");
-    const adres = pole.value.trim();
-
-    if (!adres) {
-        stanAdresu = "malformed";
-        box.textContent = "";
-        pole.style.borderColor = "";
-        return;
-    }
-
-    stanAdresu = await bbcCheckAddress(adres);
-
-    if (stanAdresu === "valid") {
-        box.textContent = "✓ suma kontrolna adresu poprawna";
-        box.style.color = "var(--leaf)";
-        pole.style.borderColor = "var(--leaf)";
-
-    } else if (stanAdresu === "invalid") {
-        box.innerHTML = "✕ <b>suma kontrolna NIE pasuje — w adresie jest literówka</b>";
-        box.style.color = "var(--danger)";
-        pole.style.borderColor = "var(--danger)";
-
-    } else if (stanAdresu === "legacy") {
-        box.textContent = "adres w starym formacie — nie da się sprawdzić literówki";
-        box.style.color = "var(--text-dim)";
-        pole.style.borderColor = "";
-
-    } else {
-        box.textContent = "nieprawidłowy format adresu";
-        box.style.color = "var(--danger)";
-        pole.style.borderColor = "var(--danger)";
-    }
-}
-
-let pendingConfirmedAddress = null;
-
-document.getElementById("sendBtn").addEventListener("click", async () => {
-    const resultEl = document.getElementById("sendResult");
-    const to = document.getElementById("sendTo").value.trim();
-    const amount = Number(document.getElementById("sendAmount").value);
-    const fee = Number(document.getElementById("sendFee").value);
-    const btn = document.getElementById("sendBtn");
-
-    if (!to) { resultEl.textContent = t("wallet_need_recipient"); return; }
-
-    // Zly checksum = literowka. Zatrzymujemy BEZWARUNKOWO - srodki wyslane
-    // na przekrecony adres sa nie do odzyskania i nie do namierzenia.
-    if ((await bbcCheckAddress(to)) === "invalid") {
-        resultEl.innerHTML = '<span style="color:var(--danger);">Suma kontrolna adresu nie pasuje. W adresie jest literówka — sprawdź go jeszcze raz.</span>';
-        return;
-    }
-    if (!amount || amount <= 0) { resultEl.textContent = t("wallet_need_amount"); return; }
-    if (fee < 0) { resultEl.textContent = t("wallet_fee_negative"); return; }
-
-    // Nowy, nierozpoznany adres - wymagaj świadomego drugiego kliknięcia
-    if (!isKnownAddress(to) && pendingConfirmedAddress !== to) {
-        pendingConfirmedAddress = to;
-        btn.textContent = "⚠️ " + t("wallet_confirm_new_address");
-        btn.classList.add("secondary");
-        resultEl.innerHTML = `<span style="color:#ffb3a8;">${t("wallet_new_address_warning")}</span><br><span class="mono" style="word-break:break-all;">${escapeHtml(to)}</span>`;
-        return;
-    }
-
-    btn.disabled = true;
-    btn.textContent = t("wallet_signing");
-    resultEl.textContent = t("wallet_signing");
-
-    try {
-        /* Do sieci idzie postac ZNORMALIZOWANA (same male litery).
-           Salda sa kluczowane surowym stringiem adresu, wiec "BbCabc..."
-           i "BbCAbC..." byłyby dwoma roznymi kontami. Podpis obejmuje
-           pole "to", wiec normalizacja MUSI nastapic przed podpisaniem. */
-        const toSiec = bbcToNetworkForm(to);
-        const tx = { from: currentWallet.address, to: toSiec, amount, fee, timestamp: Date.now() };
-        const signature = await signPayload(currentWallet.privateKey, tx);
-        const candidate = { ...tx, publicKey: currentWallet.publicKeyPem, signature };
-
-        const result = await apiPost("/transactions/send", candidate);
-        resultEl.textContent = t("wallet_send_success");
-
-        if (!isKnownAddress(to)) {
-            const label = prompt(t("wallet_save_contact_prompt"));
-            if (label && label.trim()) {
-                const contacts = getSavedContacts();
-                contacts.push({ label: label.trim(), address: to });
-                saveSavedContacts(contacts);
-                renderContacts();
+        const addr = document.getElementById("soloAutoAddress").value.trim();
+        if (!addr) { alert(t("miner_need_address_alert")); return; }
+        SoloMiner.start(addr, API_BASE, document.getElementById("soloAutoThreads").value, {
+            onUpdate: (s) => {
+                document.getElementById("soloAutoBlocks").textContent = s.blocksFound;
+                document.getElementById("soloAutoAttempts").textContent = fmtNumber(s.attempts);
+            },
+            onLog: (msg) => {
+                const line = document.createElement("div");
+                line.textContent = msg;
+                const log = document.getElementById("soloAutoLog");
+                log.prepend(line);
+                while (log.children.length > 30) log.removeChild(log.lastChild);
             }
-        }
-
-        document.getElementById("sendAmount").value = "";
-        document.getElementById("sendTo").value = "";
-        pendingConfirmedAddress = null;
-    } catch (err) {
-        resultEl.textContent = "❌ " + err.message;
-    } finally {
-        btn.disabled = false;
-        btn.textContent = t("wallet_send_btn");
-        btn.classList.remove("secondary");
-        await refreshBalance();
-        btn.disabled = false;
-    }
-});
-
-// --- HTLC (ekran techniczny) ---
-
-function randomHex(numBytes) {
-    const arr = crypto.getRandomValues(new Uint8Array(numBytes));
-    return Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-async function sha256HexOfText(text) {
-    const data = new TextEncoder().encode(text);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-document.querySelectorAll(".htlc-tab-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-        document.querySelectorAll(".htlc-tab-btn").forEach((b) => b.classList.remove("active"));
-        document.querySelectorAll(".htlc-tab-panel").forEach((p) => (p.style.display = "none"));
-        btn.classList.add("active");
-        document.getElementById("htlctab-" + btn.dataset.htlctab).style.display = "block";
-    });
-});
-
-async function refreshHtlcCreateDefaults() {
-    document.getElementById("htlcCreateId").value = randomHex(16);
-    const secret = randomHex(32);
-    document.getElementById("htlcCreateSecret").value = secret;
-    document.getElementById("htlcCreateHashLock").value = await sha256HexOfText(secret);
-    await recalcHtlcTimeout();
-}
-
-// Liczy realną wysokość terminu z ZMIERZONEGO tempa ostatnich bloków, nie ze
-// wzoru czy założenia (to dokładnie ten krok, który ręcznie liczony na piechotę
-// wcześniej się pomylił o ~4,7x - 37 bloków zamiast ~173 na deklarowane 48h).
-// +2 na start: sama transakcja HTLC_CREATE potrzebuje co najmniej 1 wykopanego
-// bloku żeby wejść do łańcucha, plus margines na czas między liczeniem a
-// wysłaniem. +20% na margines bezpieczeństwa: koszt zbyt DŁUGIEGO terminu jest
-// znikomy (dłużej trzeba by czekać na ewentualny zwrot), koszt zbyt KRÓTKIEGO
-// już raz kosztował prawdziwe pieniądze.
-async function calculateRealTimeoutHeight(hours) {
-    const [info, blocks] = await Promise.all([
-        apiGet("/info"),
-        apiGet("/blocks?limit=50")
-    ]);
-    if (!blocks || blocks.length < 10) {
-        throw new Error(`za mało bloków do wiarygodnego przeliczenia (potrzeba min. 10, jest ${blocks ? blocks.length : 0})`);
-    }
-    const first = blocks[0], last = blocks[blocks.length - 1];
-    const spanSeconds = (first.timestamp - last.timestamp) / 1000;
-    const spanBlocks = first.height - last.height;
-    if (spanBlocks <= 0 || spanSeconds <= 0) throw new Error("nie udało się policzyć tempa bloków z pobranych danych");
-
-    const avgBlockTime = spanSeconds / spanBlocks;
-    const blocksNeededExact = (hours * 3600) / avgBlockTime;
-    const blocksWithMargin = Math.ceil(blocksNeededExact * 1.2);
-    const timeoutHeight = info.height + 2 + blocksWithMargin;
-
-    return { timeoutHeight, avgBlockTime, blocksWithMargin, currentHeight: info.height, realHours: (blocksWithMargin * avgBlockTime) / 3600 };
-}
-
-async function recalcHtlcTimeout() {
-    const infoEl = document.getElementById("htlcTimeoutCalcInfo");
-    const hours = Number(document.getElementById("htlcTimeoutHours").value) || 48;
-    infoEl.textContent = "Liczę z ostatnich 50 bloków…";
-    try {
-        const r = await calculateRealTimeoutHeight(hours);
-        document.getElementById("htlcCreateTimeout").value = r.timeoutHeight;
-        infoEl.innerHTML = `Tempo bloków: ~${(r.avgBlockTime / 60).toFixed(1)} min/blok (z ostatnich 50, teraz #${r.currentHeight})<br>Margines: ${r.blocksWithMargin} bloków ≈ ${r.realHours.toFixed(1)}h realnie (deklarowane ${hours}h + zapas)<br>Wysokość terminu: <strong style="color:var(--leaf)">${r.timeoutHeight}</strong>`;
-    } catch (err) {
-        infoEl.innerHTML = `<span style="color:var(--danger)">❌ Nie udało się przeliczyć automatycznie (${escapeHtml(err.message)}) — wpisz wysokość ręcznie, ostrożnie, najlepiej z dużym zapasem.</span>`;
-    }
-}
-document.getElementById("htlcCalcTimeoutBtn").addEventListener("click", recalcHtlcTimeout);
-
-document.getElementById("htlcCreateBtn").addEventListener("click", async () => {
-    const resultEl = document.getElementById("htlcCreateResult");
-    const htlcId = document.getElementById("htlcCreateId").value.trim();
-    const hashLock = document.getElementById("htlcCreateHashLock").value.trim();
-    const claimant = document.getElementById("htlcCreateClaimant").value.trim();
-    const amount = Number(document.getElementById("htlcCreateAmount").value);
-    const fee = Number(document.getElementById("htlcCreateFee").value);
-    const timeoutHeight = Number(document.getElementById("htlcCreateTimeout").value);
-
-    if (!htlcId || !hashLock || !claimant || !amount || !timeoutHeight) {
-        resultEl.textContent = "Wypełnij wszystkie pola (ID, hash, odbiorca, kwota, wysokość terminu).";
-        return;
-    }
-
-    // Kolejność pól MUSI się zgadzać z htlcCreatePayload() w backend/wallet.js -
-    // podpis liczony jest z JSON.stringify tego dokładnego obiektu.
-    try {
-        if (!currentWallet) { resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${t("htlc_wallet_not_loaded")}</span>`; return; }
-
-        // Ostatnia linia obrony: sprawdzamy NA ŻYWO czy termin ma sensowny zapas,
-        // niezależnie od tego czy pochodzi z auto-przeliczenia czy ręcznej edycji.
-        // Nie blokuje na twardo (mogą być uzasadnione krótkie terminy), tylko ostrzega.
-        try {
-            const freshInfo = await apiGet("/info");
-            const margin = timeoutHeight - freshInfo.height;
-            if (margin < 20) {
-                const proceed = confirm(`Uwaga: termin (blok ${timeoutHeight}) jest tylko ${margin} bloków od teraz (blok ${freshInfo.height}). To może być za mało czasu. Kontynuować mimo to?`);
-                if (!proceed) { resultEl.textContent = "Anulowano."; return; }
-            }
-        } catch (marginErr) { /* jeśli to sprawdzenie się nie uda, nie blokujemy dalszej walidacji */ }
-
-        const payload = {
-            htlcId, from: currentWallet.address, amount, fee, hashLock, timeoutHeight,
-            claimant, refundee: currentWallet.address, timestamp: Date.now()
-        };
-        const signature = await signPayload(currentWallet.privateKey, payload);
-        const tx = { ...payload, type: "HTLC_CREATE", publicKey: currentWallet.publicKeyPem, signature };
-        const result = await apiPost("/htlc/submit", tx);
-        resultEl.innerHTML = `<span style="color:var(--leaf)">✅ ${t("htlc_create_success")}</span>`;
-        await refreshHtlcCreateDefaults();
-    } catch (err) {
-        resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${escapeHtml(err.message)}</span>`;
-    }
-});
-
-document.getElementById("htlcClaimBtn").addEventListener("click", async () => {
-    const resultEl = document.getElementById("htlcClaimResult");
-    const htlcId = document.getElementById("htlcClaimId").value.trim();
-    const secret = document.getElementById("htlcClaimSecret").value.trim();
-    if (!htlcId || !secret) { resultEl.textContent = "Podaj ID i sekret."; return; }
-
-    const payload = { htlcId, claimant: currentWallet.address, secret, timestamp: Date.now() };
-    try {
-        const signature = await signPayload(currentWallet.privateKey, payload);
-        const tx = { ...payload, type: "HTLC_CLAIM", publicKey: currentWallet.publicKeyPem, signature };
-        await apiPost("/htlc/submit", tx);
-        resultEl.innerHTML = `<span style="color:var(--leaf)">✅ ${t("htlc_claim_success")}</span>`;
-    } catch (err) {
-        resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${escapeHtml(err.message)}</span>`;
-    }
-});
-
-document.getElementById("htlcRefundBtn").addEventListener("click", async () => {
-    const resultEl = document.getElementById("htlcRefundResult");
-    const htlcId = document.getElementById("htlcRefundId").value.trim();
-    if (!htlcId) { resultEl.textContent = "Podaj ID."; return; }
-
-    const payload = { htlcId, refundee: currentWallet.address, timestamp: Date.now() };
-    try {
-        const signature = await signPayload(currentWallet.privateKey, payload);
-        const tx = { ...payload, type: "HTLC_REFUND", publicKey: currentWallet.publicKeyPem, signature };
-        await apiPost("/htlc/submit", tx);
-        resultEl.innerHTML = `<span style="color:var(--leaf)">✅ ${t("htlc_refund_success")}</span>`;
-    } catch (err) {
-        resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${escapeHtml(err.message)}</span>`;
-    }
-});
-
-document.getElementById("htlcCheckBtn").addEventListener("click", async () => {
-    const resultEl = document.getElementById("htlcCheckResult");
-    const htlcId = document.getElementById("htlcCheckId").value.trim();
-    if (!htlcId) { resultEl.textContent = "Podaj ID."; return; }
-    try {
-        const htlc = await apiGet("/htlc/" + encodeURIComponent(htlcId));
-        resultEl.innerHTML = `<pre style="white-space:pre-wrap;word-break:break-all;font-size:.75rem;background:var(--surface-2);padding:10px;border-radius:8px;">${escapeHtml(JSON.stringify(htlc, null, 2))}</pre>`;
-    } catch (err) {
-        resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${escapeHtml(err.message)}</span>`;
-    }
-});
-
-// --- Oferty zakupu (accept/reject podpisem portfela, bez wspólnego sekretu) ---
-
-let offerGeneratedKeys = {};
-let offerUnsavedKeys = new Set();
-
-// NAPRAWA (dzisiaj, PILNA): przechowywalo privHex JAWNYM TEKSTEM w
-// localStorage. Ten sam mechanizm co "zapamietaj portfel" (AES-256-GCM,
-// capsule-crypto.js) ponizej, teraz i tutaj - localStorage jest czytelne
-// dla kazdego JS na tej samej domenie, kazdy XSS gdziekolwiek na stronie
-// = kradziez klucza BTC. Haslo opcjonalne - pusty backup jest pomijany
-// (uzytkownik polega wtedy wylacznie na pobranym pliku), ale jesli juz
-// zapisujemy, to tylko zaszyfrowane.
-async function saveOfferKeyToLocalStorage(offerId, privHex, pubKeyHash, password) {
-    if (!password) return;
-    try {
-        const encrypted = await encryptCapsuleMessage(privHex, password);
-        localStorage.setItem("btc_key_backup_" + offerId, JSON.stringify({
-            offerId, encryptedPrivateKey: encrypted, pubKeyHash, savedAt: Date.now()
-        }));
-    } catch (err) { /* localStorage niedostępny - reszta zabezpieczeń nadal działa */ }
-}
-async function loadOfferKeyFromLocalStorage(offerId, password) {
-    try {
-        const raw = localStorage.getItem("btc_key_backup_" + offerId);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (!parsed.encryptedPrivateKey) return null;
-        const privateKeyHex = await decryptCapsuleMessage(
-            parsed.encryptedPrivateKey.ciphertext,
-            parsed.encryptedPrivateKey.salt,
-            parsed.encryptedPrivateKey.iv,
-            password
-        );
-        return { offerId, privateKeyHex, pubKeyHash: parsed.pubKeyHash, savedAt: parsed.savedAt };
-    } catch (err) { return null; }
-}
-function downloadOfferKeyFile(offerId, privHex, pubKeyHash) {
-    const content =
-`BitBudCoin - klucz prywatny BTC dla oferty ${offerId}
-Wygenerowano: ${new Date().toISOString()}
-
-KLUCZ PRYWATNY (potrzebny do odebrania BTC):
-${privHex}
-
-Hash klucza publicznego (wysyłany do oferty):
-${pubKeyHash}
-
-Nikomu nie udostępniaj tego pliku. Bez tego klucza nie da się odebrać wpłaconego BTC.
-`;
-    downloadTextFile(`bbc-btc-key-${offerId}.txt`, content);
-}
-
-window.addEventListener("beforeunload", (e) => {
-    if (offerUnsavedKeys.size > 0) { e.preventDefault(); e.returnValue = ""; }
-});
-
-async function loadMyOffers() {
-    const listEl = document.getElementById("offersList");
-    listEl.innerHTML = `<p>${t("revoffer_loading")}</p>`;
-    try {
-        const all = await apiGet("/swap/offers");
-        const mine = Object.values(all).filter((o) => o.targetSellerAddress === currentWallet.address && o.status === "pending");
-
-        if (mine.length === 0) {
-            listEl.innerHTML = `<div class="empty-state" data-i18n="offers_none_pending">${t("offers_none_pending")}</div>`;
-            return;
-        }
-
-        listEl.innerHTML = mine.map((o) => `
-            <div class="card offer-card" id="offer-${o.offerId}" style="margin-top:10px;">
-                <div class="amounts" style="font-family:var(--font-mono);color:var(--leaf);font-size:1rem;">${o.expectedAmount} BTC → ${o.bbcAmount} BbC</div>
-                <div class="meta" style="font-size:.8rem;color:var(--text-dim);margin:6px 0 10px;">${t("revoffer_id_label")}: ${o.offerId} · ${t("revoffer_timeout_label")}: ${o.timeoutHours}h${o.note ? " · " + escapeHtml(o.note) : ""}</div>
-                <div class="btn-row">
-                    <button class="btn flame" data-offer-action="accept" data-id="${o.offerId}" data-i18n="revoffer_accept_btn">${t("revoffer_accept_btn")}</button>
-                    <button class="btn secondary" data-offer-action="reject" data-id="${o.offerId}" data-i18n="revoffer_reject_btn">${t("revoffer_reject_btn")}</button>
-                </div>
-                <div class="accept-sub" id="offer-accept-sub-${o.offerId}" style="display:none;">
-                    <div class="key-warning" data-i18n="revoffer_key_warning">${t("revoffer_key_warning")}</div>
-                    <div class="key-warning" id="offer-recovered-${o.offerId}" style="display:none;background:rgba(74,222,128,.1);border-color:var(--leaf);" data-i18n="swap_recovered_notice">${t("swap_recovered_notice")}</div>
-                    <div class="priv-display" id="offer-priv-${o.offerId}"></div>
-                    <button class="download-key-btn" data-offer-download="${o.offerId}">📥 <span data-i18n="revoffer_download_key">${t("revoffer_download_key")}</span></button>
-                    <label class="confirm-saved-row"><input type="checkbox" id="offer-confirm-${o.offerId}"><span data-i18n="revoffer_confirm_saved">${t("revoffer_confirm_saved")}</span></label>
-                    <button class="btn flame" data-offer-confirm-accept="${o.offerId}" style="width:100%;justify-content:center;margin-top:8px;" disabled data-i18n="revoffer_confirm_btn">${t("revoffer_confirm_btn")}</button>
-                    <div id="offer-accept-result-${o.offerId}" style="margin-top:8px;font-family:var(--font-mono);font-size:.82rem;"></div>
-                </div>
-            </div>
-        `).join("");
-
-        // NAPRAWA (dzisiaj): nowo wstrzykniete karty ofert maja data-i18n,
-        // ale nic tu nie wolalo applyTranslations() ponownie - jesli
-        // uzytkownik przelaczyl jezyk PO zaladowaniu strony, ta konkretna
-        // tresc zostawala zamrozona w jezyku sprzed przelaczenia (reszta
-        // strony aktualizowala sie poprawnie, tylko dynamicznie
-        // wstrzykiwane fragmenty jak ten - nie). Przyciski i tak renderuja
-        // sie poprawnie PRZY WSTAWIENIU (szablon woli t() bezposrednio) -
-        // to tylko domyka przypadek "przelacz jezyk, potem otworz liste".
-        if (typeof applyTranslations === "function") {
-            applyTranslations(currentLang);
-        }
-
-        listEl.querySelectorAll('[data-offer-action="accept"]').forEach((btn) => {
-            btn.addEventListener("click", () => showOfferAcceptForm(btn.dataset.id));
         });
-        listEl.querySelectorAll('[data-offer-action="reject"]').forEach((btn) => {
-            btn.addEventListener("click", () => rejectMyOffer(btn.dataset.id));
-        });
-        listEl.querySelectorAll('[data-offer-download]').forEach((btn) => {
-            btn.addEventListener("click", () => {
-                const k = offerGeneratedKeys[btn.dataset.offerDownload];
-                if (!k) return;
-                downloadOfferKeyFile(btn.dataset.offerDownload, k.privHex, k.pubKeyHash);
-                btn.classList.add("downloaded");
-                btn.innerHTML = "✅ <span>" + t("revoffer_downloaded") + "</span>";
-            });
-        });
-    } catch (err) {
-        listEl.innerHTML = `<div class="error-banner">${escapeHtml(err.message)}</div>`;
+        btn.textContent = t("miner_stop_btn");
+        document.getElementById("autoMineToggle").disabled = true;
+        document.getElementById("soloAutoThreads").disabled = true;
+        document.getElementById("benchBtn").disabled = true;
     }
-}
-document.getElementById("loadOffersBtn").addEventListener("click", loadMyOffers);
-
-async function showOfferAcceptForm(offerId) {
-    const sub = document.getElementById("offer-accept-sub-" + offerId);
-    sub.style.display = "block";
-
-    if (!offerGeneratedKeys[offerId]) {
-        // Sprawdzamy NAJPIERW localStorage, zanim wylosujemy cokolwiek nowego -
-        // dokładnie ta poprawka, którą dziś zrobiliśmy w starym review-offers.html,
-        // od razu wbudowana tutaj, żeby nigdy nie trzeba jej było powtarzać.
-        const rawBackup = localStorage.getItem("btc_key_backup_" + offerId);
-        let existing = null;
-        if (rawBackup) {
-            let parsedBackup = null;
-            try { parsedBackup = JSON.parse(rawBackup); } catch (e) {}
-            if (parsedBackup && parsedBackup.privateKeyHex && !parsedBackup.encryptedPrivateKey) {
-                // NAPRAWA (dzisiaj, PILNA): stary wpis sprzed poprawki szyfrowania -
-                // jawny klucz siedzacy w localStorage. Usuwamy go stad niezaleznie
-                // od tego co uzytkownik zrobi dalej - nie zostawiamy jawnego klucza
-                // lezacego bezczynnie.
-                offerGeneratedKeys[offerId] = { privHex: parsedBackup.privateKeyHex, pubKeyHash: parsedBackup.pubKeyHash };
-                document.getElementById("offer-priv-" + offerId).textContent = parsedBackup.privateKeyHex;
-                document.getElementById("offer-recovered-" + offerId).style.display = "block";
-                localStorage.removeItem("btc_key_backup_" + offerId);
-                alert("Znaleziono starą, niezaszyfrowaną kopię tego klucza w pamięci przeglądarki - usunięto ją. Klucz nadal widoczny poniżej, pobierz go teraz.");
-                existing = offerGeneratedKeys[offerId];
-            } else if (parsedBackup && parsedBackup.encryptedPrivateKey) {
-                const pw = prompt("Ten klucz ma zaszyfrowaną kopię lokalną - podaj hasło użyte przy zapisie (Anuluj = wygeneruj nowy klucz):");
-                if (pw) {
-                    const decrypted = await loadOfferKeyFromLocalStorage(offerId, pw);
-                    if (decrypted && decrypted.privateKeyHex) {
-                        offerGeneratedKeys[offerId] = { privHex: decrypted.privateKeyHex, pubKeyHash: decrypted.pubKeyHash };
-                        document.getElementById("offer-priv-" + offerId).textContent = decrypted.privateKeyHex;
-                        document.getElementById("offer-recovered-" + offerId).style.display = "block";
-                        existing = offerGeneratedKeys[offerId];
-                    } else {
-                        alert("Złe hasło albo uszkodzona kopia - generuję nowy klucz zamiast tego.");
-                    }
-                }
-            }
-        }
-        if (!existing) {
-            const priv = randomPrivKeyBigInt();
-            const pubPoint = scalarMult(priv, G);
-            const pubKeyHash = bytesToHex(await hash160(compressPubKey(pubPoint)));
-            const privHex = priv.toString(16).padStart(64, "0");
-            offerGeneratedKeys[offerId] = { privHex, pubKeyHash };
-            document.getElementById("offer-priv-" + offerId).textContent = privHex;
-            const savePw = prompt("Opcjonalnie: ustaw hasło, żeby zapisać zaszyfrowaną kopię tego klucza lokalnie na wypadek zamknięcia karty (Anuluj albo puste = pomiń, polegaj tylko na pobranym pliku):");
-            if (savePw) await saveOfferKeyToLocalStorage(offerId, privHex, pubKeyHash, savePw);
-        }
-        offerUnsavedKeys.add(offerId);
-    }
-
-    const checkbox = document.getElementById("offer-confirm-" + offerId);
-    const confirmBtn = document.querySelector(`[data-offer-confirm-accept="${offerId}"]`);
-    checkbox.addEventListener("change", () => {
-        confirmBtn.disabled = !checkbox.checked;
-        if (checkbox.checked) offerUnsavedKeys.delete(offerId); else offerUnsavedKeys.add(offerId);
-    });
-    confirmBtn.addEventListener("click", () => confirmOfferAccept(offerId), { once: true });
-}
-
-async function confirmOfferAccept(offerId) {
-    const resultEl = document.getElementById("offer-accept-result-" + offerId);
-    const keys = offerGeneratedKeys[offerId];
-    try {
-        const payload = {
-            offerId, sellerPubKeyHash: keys.pubKeyHash, sellerBbcAddress: currentWallet.address,
-            timestamp: Date.now()
-        };
-        const signature = await signPayload(currentWallet.privateKey, payload);
-        const body = { ...payload, publicKey: currentWallet.publicKeyPem, signature };
-        const res = await fetch(API_BASE + `/swap/offers/${offerId}/accept`, {
-            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || `${t("common_backend_error")} (${res.status})`);
-
-        resultEl.innerHTML = `<span style="color:var(--leaf)">✅ ${t("revoffer_accepted")}</span>`;
-        setTimeout(() => document.getElementById("offer-" + offerId).remove(), 1500);
-    } catch (err) {
-        resultEl.innerHTML = `<span style="color:var(--danger)">❌ ${escapeHtml(err.message)}</span>`;
-    }
-}
-
-async function rejectMyOffer(offerId) {
-    try {
-        const payload = { offerId, timestamp: Date.now() };
-        const signature = await signPayload(currentWallet.privateKey, payload);
-        const body = { ...payload, publicKey: currentWallet.publicKeyPem, signature };
-        const res = await fetch(API_BASE + `/swap/offers/${offerId}/reject`, {
-            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || `${t("common_backend_error")} (${res.status})`);
-        document.getElementById("offer-" + offerId).remove();
-    } catch (err) {
-        alert(err.message);
-    }
-}
+});
 </script>
 </body>
 </html>
