@@ -181,5 +181,8 @@ module.exports = {
     PROJECT_FEE_ADDRESS:
         "tBbCf4c7f835449ea7ffd9d4890b4c9fa2379166157c",
     PROJECT_FEE_PERCENT: 0.02,
-    PROJECT_FEE_ACTIVATION_HEIGHT: 5
+    PROJECT_FEE_ACTIVATION_HEIGHT: 5,
+
+    /* Testnet startuje z czysta historia - podpis wymagany od bloku 0. */
+    SIGNATURE_ENFORCEMENT_HEIGHT: 0
 };
