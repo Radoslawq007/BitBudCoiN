@@ -36,6 +36,23 @@ function sprawdzPodpisyWBloku(block) {
         return { valid: true };
     }
 
+    /*
+     * Ponizej progu historia zostaje nietknieta - patrz komentarz przy
+     * SIGNATURE_ENFORCEMENT_HEIGHT w config.js. Domyslka 0 dla starszych
+     * konfiguracji bez tego pola: lepiej sprawdzac wszystko niz nic.
+     */
+    const prog =
+        typeof CONFIG.SIGNATURE_ENFORCEMENT_HEIGHT === "number"
+            ? CONFIG.SIGNATURE_ENFORCEMENT_HEIGHT
+            : 0;
+
+    if (
+        typeof block.height === "number" &&
+        block.height < prog
+    ) {
+        return { valid: true };
+    }
+
     const BEZ_PODPISU = new Set([
         "coinbase",
         "fee",
@@ -55,12 +72,21 @@ function sprawdzPodpisyWBloku(block) {
             (tx.type === undefined || tx.type === "transfer") &&
             tx.from;
 
-        // HTLC maja wlasna weryfikacje w htlc-wallet.js i inny ksztalt
-        // podpisu - nie przepuszczamy ich przez ten sam sprawdzian.
+        /*
+         * HTLC maja wlasna weryfikacje w htlc-wallet.js i inny ksztalt
+         * podpisu - nie przepuszczamy ich przez ten sam sprawdzian.
+         *
+         * Drugi warunek dotyczy STAREJ wersji mechanizmu: w bloku 3069
+         * lezy transakcja z type "transfer", ale odbiorca "HTLC_INTERNAL".
+         * Sprawdzenie po samym type by jej nie wylapalo. "HTLC_INTERNAL"
+         * nie wystepuje juz nigdzie w kodzie - to relikt.
+         */
         const toHtlc =
             tx &&
-            typeof tx.type === "string" &&
-            tx.type.startsWith("HTLC_");
+            (
+                (typeof tx.type === "string" && tx.type.startsWith("HTLC_")) ||
+                tx.to === "HTLC_INTERNAL"
+            );
 
         if (toHtlc) {
             continue;
