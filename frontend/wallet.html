@@ -177,6 +177,20 @@
       </div>
     </div>
 
+    <!-- Historia transakcji zalogowanego portfela.
+         Do tej pory trzeba bylo skopiowac wlasny adres i wkleic go w
+         address.html, zeby zobaczyc wlasne przelewy. Ten sam endpoint,
+         tylko od razu tu, dla adresu ktory jest juz odblokowany. -->
+    <div class="card" id="historyCard" style="display:none;">
+      <h3>
+        <span data-i18n="wallet_history_title">Historia</span>
+        <span id="historyCount" style="color:var(--text-dim);font-weight:400;"></span>
+      </h3>
+      <div id="historyBody">
+        <div class="skeleton" style="height:80px;border-radius:8px;"></div>
+      </div>
+    </div>
+
     <div class="card" id="sendCard" style="display:none;">
       <h3 data-i18n="wallet_send_title">Wyślij</h3>
       <div class="field">
@@ -393,11 +407,13 @@ async function loadWalletFromBundleText(text) {
 
     document.getElementById("myAddress").textContent = address;
     document.getElementById("receiveCard").style.display = "block";
+    document.getElementById("historyCard").style.display = "block";
     document.getElementById("sendCard").style.display = "block";
     document.getElementById("htlcCard").style.display = "block";
     document.getElementById("offersCard").style.display = "block";
     await refreshHtlcCreateDefaults();
     await refreshBalance();
+    refreshHistory();
     return true;
 }
 
@@ -502,6 +518,75 @@ document.getElementById("loadWalletBtn").addEventListener("click", async () => {
     }
 });
 
+/*
+ * Historia transakcji zalogowanego portfela.
+ *
+ * Ta sama zasada co przy saldzie kilka linii nizej: przy chwilowym
+ * bledzie sieci NIE czyscimy juz pokazanej listy. Zniknieta historia
+ * wyglada jak utracone pieniadze, nawet jesli to tylko zerwane polaczenie.
+ */
+async function refreshHistory() {
+    if (!currentWallet) return;
+
+    const body = document.getElementById("historyBody");
+    const licznik = document.getElementById("historyCount");
+    if (!body) return;
+
+    try {
+        const txs = await apiGet(
+            `/transactions/address/${encodeURIComponent(currentWallet.address)}`
+        );
+
+        licznik.textContent = "(" + txs.length + ")";
+
+        if (txs.length === 0) {
+            body.innerHTML =
+                '<div class="empty-state" style="padding:24px 8px;">' +
+                '<div class="glyph">🍃</div>' +
+                (t("wallet_history_empty") || "Brak transakcji na tym adresie.") +
+                '</div>';
+            body.dataset.everLoaded = "1";
+            return;
+        }
+
+        // Najnowsze na gorze - w portfelu interesuje przede wszystkim
+        // to, co wpadlo ostatnio.
+        const posortowane = txs
+            .slice()
+            .sort((a, b) => (b.blockHeight || 0) - (a.blockHeight || 0));
+
+        body.innerHTML =
+            '<table><thead><tr>' +
+            '<th>' + (t("address_th_type") || "Typ") + '</th>' +
+            '<th>' + (t("dashboard_height") || "Blok") + '</th>' +
+            '<th style="text-align:right;">' + (t("address_th_amount") || "Kwota") + '</th>' +
+            '</tr></thead><tbody>' +
+            posortowane.map((tx) => {
+                const doMnie = tx.to === currentWallet.address;
+                const kolor = doMnie ? "var(--leaf)" : "var(--flame)";
+                const znak = doMnie ? "+" : "−";
+                return '<tr onclick="location.href=\'block.html?height=' + tx.blockHeight + '\'" style="cursor:pointer">' +
+                    '<td><span class="badge ' + escapeHtml(tx.type) + '">' + escapeHtml(tx.type) + '</span></td>' +
+                    '<td>#' + tx.blockHeight + '</td>' +
+                    '<td style="text-align:right;color:' + kolor + '">' +
+                        znak + fmtNumber(tx.amount) +
+                    '</td></tr>';
+            }).join("") +
+            '</tbody></table>';
+
+        body.dataset.everLoaded = "1";
+
+    } catch (e) {
+        if (!body.dataset.everLoaded) {
+            body.innerHTML =
+                '<div class="empty-state" style="padding:20px 8px;color:var(--text-dim);">' +
+                (t("wallet_history_error") || "Nie udało się pobrać historii.") +
+                '</div>';
+        }
+    }
+}
+
+
 async function refreshBalance() {
     if (!currentWallet) return;
     const el = document.getElementById("myBalance");
@@ -518,7 +603,10 @@ async function refreshBalance() {
         if (!el.dataset.everLoaded) el.textContent = t("wallet_balance_error");
     }
 }
-document.getElementById("refreshBalanceBtn").addEventListener("click", refreshBalance);
+document.getElementById("refreshBalanceBtn").addEventListener("click", () => {
+    refreshBalance();
+    refreshHistory();
+});
 // NAPRAWA: wczesniej TYLKO na klik - teraz dodatkowo co 20s w tle,
 // klik dalej dziala dla natychmiastowego odswiezenia na zadanie.
 setInterval(refreshBalance, 20000);
