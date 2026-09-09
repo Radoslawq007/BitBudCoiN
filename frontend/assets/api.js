@@ -389,6 +389,65 @@ function fmtNumber(
  * =====================================================
  */
 
+/*
+ * =====================================================
+ * fmtDifficulty - trudnosc w postaci skroconej
+ * =====================================================
+ *
+ * Trudnosc rosnie wykladniczo wraz z moca sieci. Dzis to 3 234 814 914,
+ * czyli 13 znakow. Przy dziesieciokrotnym wzroscie mocy bedzie ich 19 -
+ * a kafelek na telefonie ma szerokosc okolo polowy ekranu.
+ *
+ * Skroty te same, co przy hashrate (kH/s, MH/s), zeby czytalo sie
+ * spojnie w calym interfejsie:
+ *     10^3  K      10^6  M      10^9  G
+ *     10^12 T      10^15 P      10^18 E
+ *
+ * Ponizej 100 000 pokazujemy pelna liczbe - skracanie malych wartosci
+ * tylko odbiera precyzje bez zysku na miejscu. Dotyczy to zwlaszcza
+ * trudnosci share (dzis 256), ktora ma byc czytelna co do jednosci.
+ */
+function fmtDifficulty(n) {
+
+    const v = Number(n);
+
+    if (!Number.isFinite(v)) {
+        return "\u2014";
+    }
+
+    if (Math.abs(v) < 100000) {
+        return fmtNumber(v, 0);
+    }
+
+    const jednostki = [
+        [1e18, "E"],
+        [1e15, "P"],
+        [1e12, "T"],
+        [1e9,  "G"],
+        [1e6,  "M"],
+        [1e3,  "K"]
+    ];
+
+    for (const [prog, znak] of jednostki) {
+
+        if (Math.abs(v) >= prog) {
+
+            const skala = v / prog;
+
+            // Trzy cyfry znaczace: 3.23G, 32.3G, 324G - stala szerokosc
+            // niezaleznie od rzedu wielkosci.
+            const cyfry =
+                skala >= 100 ? 0 :
+                skala >= 10  ? 1 : 2;
+
+            return skala.toFixed(cyfry) + " " + znak;
+        }
+    }
+
+    return fmtNumber(v, 0);
+}
+
+
 function fmtHash(
     h,
     len = 10
@@ -630,6 +689,9 @@ window.apiPost =
 
 window.fmtNumber =
     fmtNumber;
+
+window.fmtDifficulty =
+    fmtDifficulty;
 
 window.fmtHash =
     fmtHash;
