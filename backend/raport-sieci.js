@@ -143,7 +143,10 @@ if (ostatnie1000.length > 1) {
     if (roznice.length) sredniCzas = roznice.reduce((a, b) => a + b, 0) / roznice.length / 1000;
 }
 
-db.close();
+/* BLAD, ktory to naprawia: db.close() stalo TUTAJ, a ponizej obiekt
+   "dane" wola jeszcze gornicyOkres(), transferyOkres() i adresyAktywne().
+   Baza byla juz zamknieta => "Error: database is not open".
+   Zamykamy dopiero, gdy wszystkie zapytania sa policzone. */
 
 const dane = {
     wygenerowano: new Date().toISOString(),
@@ -181,6 +184,8 @@ const dane = {
         aktywne30dni: adresyAktywne(30)
     }
 };
+
+db.close();
 
 if (JSON_OUT) {
     console.log(JSON.stringify(dane, null, 2));
