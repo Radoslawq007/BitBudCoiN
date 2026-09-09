@@ -161,7 +161,7 @@ function renderPoolStatus(status, live) {
                  runela z miliardow do 256 - mylace na tyle, ze sam sie na
                  tym potknalem przy diagnozie. Teraz obie liczby, share nad
                  trudnoscia bloku. -->
-            <div><div class="stat-value">${fmtNumber(status.shareDifficulty)}<span style="color:var(--text-dim);font-size:.6em;"> / </span><span style="font-size:.62em;">${status.blockDifficulty ? fmtNumber(status.blockDifficulty, 0) : "—"}</span></div><div class="stat-label">${t("miner_share_block_diff")}</div></div>
+            <div title="share: ${fmtNumber(status.shareDifficulty)} / blok: ${status.blockDifficulty ? fmtNumber(status.blockDifficulty, 0) : "?"}"><div class="stat-value">${fmtNumber(status.shareDifficulty)}<span style="color:var(--text-dim);font-size:.6em;"> / </span><span style="font-size:.62em;">${status.blockDifficulty ? fmtDifficulty(status.blockDifficulty) : "—"}</span></div><div class="stat-label">${t("miner_share_block_diff")}</div></div>
             <div><div class="stat-value leaf">${formatHashrate(poolHashrate)}</div><div class="stat-label">${t("miner_pool_hashrate")}</div></div>
             <div><div class="stat-value flame">${formatHashrate(status.soloHashrate)}</div><div class="stat-label">${t("miner_solo_hashrate")}</div></div>
         </div>`;
