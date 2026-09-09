@@ -71,22 +71,32 @@
         z pieniędzmi drugiej.
     </p>
 
-    <!-- ===================== KTO SPRZEDAJE ===================== -->
+    <!-- ===================== OTWARTE PROPOZYCJE ===================== -->
+    <!--
+      ZMIANA MODELU: bylo "jeden sprzedajacy, reszta kupuje" - adres
+      wpisany na sztywno w SELLER_ADDRESS, a przycisk martwy dopoki go
+      nie uzupelniono. To znaczylo, ze wszyscy czekaja na dostepnosc
+      jednej osoby.
+
+      Teraz tablica ogloszen: kazdy widzi otwarte propozycje i moze
+      zlozyc wlasna, do dowolnego adresu. Backend zawsze to umozliwial -
+      createOffer() przyjmuje dowolny targetSellerAddress. Brakowalo
+      tylko miejsca, w ktorym widac, kto czego szuka.
+    -->
     <div class="card">
-        <h3 id="x-seller-h">Kto sprzedaje BbC</h3>
-        <p id="x-seller-p" style="margin-top:0;">
-            Na razie jedna osoba — ta, która zbudowała tę sieć. Nie udaję,
-            że jest nas więcej.
-        </p>
+        <h3 id="x-board-h">Otwarte propozycje</h3>
+        <p id="x-board-p" style="margin-top:0;"></p>
 
-        <div class="seller-addr" id="sellerAddr">—</div>
+        <div id="offerBoard">
+            <div class="skeleton" style="height:70px;border-radius:8px;"></div>
+        </div>
 
-        <button class="btn secondary" id="copyAddrBtn" type="button">Kopiuj adres</button>
-        <a class="btn flame" id="proposeBtn" href="create-offer.html" style="margin-left:8px;">Zaproponuj zakup</a>
+        <a class="btn flame" id="proposeBtn" href="create-offer.html"
+           style="width:100%;justify-content:center;margin-top:14px;">Złóż własną propozycję</a>
 
         <p style="margin-top:14px;font-size:.84rem;" id="x-seller-note">
             Nic nie jest wiążące w momencie wysłania propozycji. Podajesz ile
-            BTC dajesz i ile BbC chcesz — sprzedający widzi to i decyduje.
+            BTC dajesz i ile BbC chcesz — druga strona widzi to i decyduje.
             Dopiero po akceptacji powstaje kontrakt.
         </p>
     </div>
@@ -130,15 +140,6 @@
 <script src="assets/native-responsive.js"></script>
 <script src="assets/i18n.js"></script>
 <script>
-/* =============================================================
-   >>> JEDYNA LINIA DO UZUPELNIENIA <<<
-   Adres BbC, z ktorego SPRZEDAJESZ. To na niego trafi propozycja
-   zakupu i tym kluczem podpiszesz akceptacje w review-offers.html.
-   NIE adres puli - pula to konto operacyjne, nie Twoje.
-   ============================================================= */
-const SELLER_ADDRESS = "BbC0000000000000000000000000000000000000000";
-
-
 /* --- Tlumaczenia lokalne ---------------------------------------
    Nowe teksty trzymam TUTAJ, a nie w i18n.js (76 KB), zeby nie
    kazac Ci wklejac ogromnego pliku z telefonu. Podpinam sie pod
@@ -147,6 +148,12 @@ const X = {
   pl: {
     h1: "Kup BbC za BTC",
     intro: "To nie jest giełda. Nie ma tu księgi zleceń, par handlowych ani automatycznego dopasowywania. Jest coś prostszego i uczciwszego: atomowa wymiana BTC ↔ BbC, bezpośrednio między dwiema osobami, zabezpieczona kontraktem HTLC. Żadna strona nie może zniknąć z pieniędzmi drugiej.",
+    boardH: "Otwarte propozycje",
+    boardP: "Każdy może złożyć propozycję każdemu. Poniżej to, co czeka na odpowiedź teraz.",
+    boardEmpty: "Nikt jeszcze nie złożył propozycji. Możesz być pierwszy — druga strona zobaczy ją i zdecyduje.",
+    thWants: "Chce",
+    thGives: "Daje",
+    thTo: "Do adresu",
     sellerH: "Kto sprzedaje BbC",
     sellerP: "Na razie jedna osoba — ta, która zbudowała tę sieć. Nie udaję, że jest nas więcej.",
     sellerNote: "Nic nie jest wiążące w momencie wysłania propozycji. Podajesz ile BTC dajesz i ile BbC chcesz — sprzedający widzi to i decyduje. Dopiero po akceptacji powstaje kontrakt.",
@@ -154,7 +161,7 @@ const X = {
     stateH: "Stan na teraz",
     copy: "Kopiuj adres",
     copied: "Skopiowane",
-    propose: "Zaproponuj zakup",
+    propose: "Złóż własną propozycję",
     steps: [
       ["Propozycja.", "Piszesz ile BTC oferujesz za ile BbC. Sprzedający dostaje to do akceptacji."],
       ["Wysyłasz BTC.", "Na adres kontraktu HTLC, nie prosto do sprzedającego. Twoje BTC są zablokowane, ale wciąż Twoje."],
@@ -176,6 +183,12 @@ const X = {
   en: {
     h1: "Buy BbC with BTC",
     intro: "This is not an exchange. No order book, no trading pairs, no automatic matching. It is something simpler and more honest: an atomic BTC ↔ BbC swap, directly between two people, secured by an HTLC contract. Neither side can walk away with the other's money.",
+    boardH: "Open proposals",
+    boardP: "Anyone can propose to anyone. Below is what is currently awaiting a reply.",
+    boardEmpty: "Nobody has made a proposal yet. You can be first — the other side will see it and decide.",
+    thWants: "Wants",
+    thGives: "Gives",
+    thTo: "To address",
     sellerH: "Who sells BbC",
     sellerP: "For now, one person — the one who built this network. I am not pretending there are more of us.",
     sellerNote: "Sending a proposal commits you to nothing. You state how much BTC you offer and how much BbC you want — the seller sees it and decides. The contract is created only after acceptance.",
@@ -183,7 +196,7 @@ const X = {
     stateH: "Where things stand",
     copy: "Copy address",
     copied: "Copied",
-    propose: "Propose a purchase",
+    propose: "Make your own proposal",
     steps: [
       ["Proposal.", "You state how much BTC you offer for how much BbC. The seller receives it for acceptance."],
       ["You send BTC.", "To an HTLC contract address, not straight to the seller. Your BTC is locked, but still yours."],
@@ -234,38 +247,67 @@ function applyLocalTexts() {
       ol.appendChild(li);
     });
   }
-  set("copyAddrBtn", xt("copy"));
   set("proposeBtn", xt("propose"));
+  set("x-board-h", xt("boardH"));
   renderStats();
 }
 document.addEventListener("bbc:langchange", applyLocalTexts);
 
 
-/* --- Adres sprzedajacego --- */
-const addrEl = document.getElementById("sellerAddr");
-const proposeEl = document.getElementById("proposeBtn");
-const addrLooksReal = /^BbC[0-9a-fA-F]{40}$/.test(SELLER_ADDRESS) &&
-                      !/^BbC0{40}$/.test(SELLER_ADDRESS);
-
-if (addrLooksReal) {
-  addrEl.textContent = SELLER_ADDRESS;
-  proposeEl.href = "create-offer.html?seller=" + encodeURIComponent(SELLER_ADDRESS);
-} else {
-  addrEl.textContent = "⚠ Adres sprzedającego nie został jeszcze ustawiony (SELLER_ADDRESS w exchange.html)";
-  addrEl.style.color = "var(--danger)";
-  addrEl.style.borderColor = "var(--danger)";
-  proposeEl.style.opacity = ".45";
-  proposeEl.style.pointerEvents = "none";
+/* --- Tablica otwartych propozycji ---------------------------
+   Renderujemy DOKLADNIE to, co zwraca /swap/offers - bez upiekszania.
+   Pola pochodza z createOffer() w swap-offers.js:
+   offerId, chain, bbcAmount, expectedAmount, timeoutHours, note,
+   targetSellerAddress, status, createdAt.                        */
+function skrocAdres(a) {
+    if (!a || a.length < 16) return a || "?";
+    return a.slice(0, 10) + "\u2026" + a.slice(-6);
 }
 
-document.getElementById("copyAddrBtn").addEventListener("click", () => {
-  if (!addrLooksReal) return;
-  navigator.clipboard.writeText(SELLER_ADDRESS).then(() => {
-    const b = document.getElementById("copyAddrBtn");
-    b.textContent = xt("copied");
-    setTimeout(() => { b.textContent = xt("copy"); }, 1600);
-  }).catch(() => {});
-});
+function renderujTablice(dane) {
+
+    const box = document.getElementById("offerBoard");
+    const opis = document.getElementById("x-board-p");
+    if (!box) return;
+
+    box.className = "";
+
+    const wszystkie = Object.values(dane || {});
+    const otwarte = wszystkie.filter((o) => o.status === "pending");
+
+    opis.textContent = xt("boardP");
+
+    if (otwarte.length === 0) {
+        box.innerHTML =
+            '<div class="empty-state" style="padding:22px 8px;">' +
+            '<div class="glyph">\u{1F343}</div>' +
+            xt("boardEmpty") +
+            '</div>';
+        return;
+    }
+
+    box.innerHTML =
+        '<table><thead><tr>' +
+        '<th>' + xt("thWants") + '</th>' +
+        '<th>' + xt("thGives") + '</th>' +
+        '<th style="text-align:right;">' + xt("thTo") + '</th>' +
+        '</tr></thead><tbody>' +
+        otwarte.map((o) =>
+            '<tr>' +
+            '<td style="color:var(--leaf);">' + fmtNumber(o.bbcAmount) + ' BbC</td>' +
+            '<td style="color:var(--flame);">' + o.expectedAmount + ' ' + escapeHtml(o.chain || "BTC") + '</td>' +
+            '<td style="text-align:right;font-size:.82rem;">' +
+                '<a href="create-offer.html?seller=' + encodeURIComponent(o.targetSellerAddress) + '" ' +
+                'title="' + escapeHtml(o.targetSellerAddress) + '">' +
+                escapeHtml(skrocAdres(o.targetSellerAddress)) + '</a>' +
+            '</td></tr>' +
+            (o.note
+                ? '<tr><td colspan="3" style="color:var(--text-dim);font-size:.8rem;padding-top:0;">' +
+                  escapeHtml(o.note) + '</td></tr>'
+                : "")
+        ).join("") +
+        '</tbody></table>';
+}
 
 
 /* --- Prawdziwy stan ofert, prosto z /swap/offers --------------
@@ -304,6 +346,8 @@ function renderStats() {
     '<div><span class="n">' + done + '</span><span class="l">' + xt("lDone") + '</span></div>';
 
   note.textContent = (all.length === 0) ? xt("noneYet") : xt("someYet");
+
+  renderujTablice(statsData);
 
   // Skrzynka sprzedajacego: gdy cokolwiek czeka, karta ma sie rzucac
   // w oczy - inaczej rownie dobrze moglaby jej nie byc.
