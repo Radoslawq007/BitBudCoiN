@@ -60,6 +60,28 @@ const q1 = (sql, ...p) => db.prepare(sql).get(...p);
 const DZIEN = 86400000;
 const teraz = Date.now();
 
+/*
+ * OKNA LICZYMY PO WYSOKOSCI BLOKU, NIE PO ZNACZNIKACH CZASU.
+ *
+ * Powod znaleziony w zywej bazie: 4 sierpnia 2026 powstalo 18 496 blokow
+ * w jedna dobe - blok co 4.7 sekundy przy celu 480 s. Podobnie 23 i 9
+ * sierpnia. To okres sprzed aktywacji ASERT (blok 100 000), gdy stary DAA
+ * z retargetem co 2028 blokow nie nadazal za moca.
+ *
+ * Skutek dla raportu: okno "ostatnie 30 dni" liczone po czasie siegalo
+ * w sierpien i lapalo 39 365 blokow zamiast okolo 5 400. Udzialy gornikow
+ * wychodzily z tego okresu, nie z biezacego - a gielda policzylaby wlasne
+ * liczby i dostala co innego.
+ *
+ * Po wysokosci: przy dzisiejszym tempie okolo 180 blokow dziennie
+ * (zmierzone: 176-212 przez ostatnie 14 dni) 30 dni to 5400 blokow,
+ * 7 dni to 1260.
+ */
+const BLOKOW_NA_DZIEN = 180;
+const OKNO_7 = 7 * BLOKOW_NA_DZIEN;
+const OKNO_30 = 30 * BLOKOW_NA_DZIEN;
+const H_MAX = q1("SELECT MAX(height) AS h FROM blocks").h;
+
 /* ---------- LANCUCH ---------- */
 const chain = q1(
     "SELECT COUNT(*) AS blokow, MIN(height) AS min_h, MAX(height) AS max_h, " +
@@ -83,20 +105,17 @@ const gornicySoloKiedykolwiek = q1(
     "SELECT COUNT(DISTINCT to_address) AS n FROM transactions WHERE type='coinbase' AND to_address != ?", POOL
 ).n;
 
-function gornicyOkres(dni) {
-    const od = teraz - dni * DZIEN;
+function gornicyOkres(blokow) {
     return q1(
-        "SELECT COUNT(DISTINCT t.to_address) AS n FROM transactions t " +
-        "JOIN blocks b ON b.height = t.blockHeight " +
-        "WHERE t.type='coinbase' AND b.timestamp >= ?", od
+        "SELECT COUNT(DISTINCT to_address) AS n FROM transactions " +
+        "WHERE type='coinbase' AND blockHeight >= ?", H_MAX - blokow
     ).n;
 }
 
 const topGornicy = q(
-    "SELECT t.to_address AS adres, COUNT(*) AS bloki FROM transactions t " +
-    "JOIN blocks b ON b.height = t.blockHeight " +
-    "WHERE t.type='coinbase' AND b.timestamp >= ? " +
-    "GROUP BY t.to_address ORDER BY bloki DESC LIMIT 10", teraz - 30 * DZIEN
+    "SELECT to_address AS adres, COUNT(*) AS bloki FROM transactions " +
+    "WHERE type='coinbase' AND blockHeight >= ? " +
+    "GROUP BY to_address ORDER BY bloki DESC LIMIT 10", H_MAX - OKNO_30
 );
 const blokiOstatnie30 = topGornicy.reduce((s, g) => s + g.bloki, 0);
 
@@ -104,11 +123,10 @@ const blokiOstatnie30 = topGornicy.reduce((s, g) => s + g.bloki, 0);
 const typy = q("SELECT type, COUNT(*) AS n FROM transactions GROUP BY type ORDER BY n DESC");
 const transferyLacznie = q1("SELECT COUNT(*) AS n FROM transactions WHERE type='transfer'").n;
 
-function transferyOkres(dni) {
-    const od = teraz - dni * DZIEN;
+function transferyOkres(blokow) {
     return q1(
-        "SELECT COUNT(*) AS n FROM transactions t JOIN blocks b ON b.height = t.blockHeight " +
-        "WHERE t.type='transfer' AND b.timestamp >= ?", od
+        "SELECT COUNT(*) AS n FROM transactions " +
+        "WHERE type='transfer' AND blockHeight >= ?", H_MAX - blokow
     ).n;
 }
 
@@ -118,16 +136,32 @@ const adresyKiedykolwiek = q1(
     "UNION SELECT from_address FROM transactions WHERE from_address IS NOT NULL)"
 ).n;
 
-function adresyAktywne(dni) {
-    const od = teraz - dni * DZIEN;
+function adresyAktywne(blokow) {
+    const od = H_MAX - blokow;
     return q1(
         "SELECT COUNT(*) AS n FROM (" +
-        "SELECT t.to_address AS a FROM transactions t JOIN blocks b ON b.height=t.blockHeight " +
-        "WHERE t.type='transfer' AND b.timestamp >= ? " +
-        "UNION SELECT t.from_address FROM transactions t JOIN blocks b ON b.height=t.blockHeight " +
-        "WHERE t.type='transfer' AND t.from_address IS NOT NULL AND b.timestamp >= ?)", od, od
+        "SELECT to_address AS a FROM transactions WHERE type='transfer' AND blockHeight >= ? " +
+        "UNION SELECT from_address FROM transactions " +
+        "WHERE type='transfer' AND from_address IS NOT NULL AND blockHeight >= ?)", od, od
     ).n;
 }
+
+/* ---------- TEMPO EMISJI ----------
+   Agent CMC pyta wprost o emisje i halvingi. Deklaracja "halving co
+   210 000 blokow = ok. 3.19 roku" zaklada blok co 480 s. Realne tempo
+   bylo inne, wiec podajemy oba. */
+const dniPoDacie = q(
+    "SELECT date(timestamp/1000,'unixepoch') AS d, COUNT(*) AS n " +
+    "FROM blocks GROUP BY d ORDER BY n DESC LIMIT 5"
+);
+const ostatnie14 = q(
+    "SELECT date(timestamp/1000,'unixepoch') AS d, COUNT(*) AS n " +
+    "FROM blocks WHERE height >= ? GROUP BY d ORDER BY d DESC LIMIT 14",
+    H_MAX - 14 * BLOKOW_NA_DZIEN * 2
+);
+const sredniaOstatnie14 = ostatnie14.length
+    ? Math.round(ostatnie14.slice(1).reduce((a, r) => a + r.n, 0) / Math.max(1, ostatnie14.length - 1))
+    : null;
 
 /* ---------- CZASY BLOKOW ---------- */
 const ostatnie1000 = q(
@@ -163,8 +197,8 @@ const dane = {
     gornicy: {
         adresyKtoreKiedykolwiekWykopalyBlok: gornicyKiedykolwiek,
         wTymSolo: gornicySoloKiedykolwiek,
-        aktywni7dni: gornicyOkres(7),
-        aktywni30dni: gornicyOkres(30),
+        aktywni7dni: gornicyOkres(OKNO_7),
+        aktywni30dni: gornicyOkres(OKNO_30),
         top10Ostatnie30dni: topGornicy.map((g) => ({
             adres: g.adres,
             bloki: g.bloki,
@@ -175,13 +209,22 @@ const dane = {
     transakcje: {
         wgTypu: Object.fromEntries(typy.map((t) => [t.type, t.n])),
         transferyLacznie,
-        transfery7dni: transferyOkres(7),
-        transfery30dni: transferyOkres(30)
+        transfery7dni: transferyOkres(OKNO_7),
+        transfery30dni: transferyOkres(OKNO_30)
+    },
+    emisja: {
+        blokowNaDzienTeraz: sredniaOstatnie14,
+        blokowNaDzienCel: Math.round(86400 / 480),
+        najintensywniejszeDni: dniPoDacie.map((r) => ({ dzien: r.d, blokow: r.n })),
+        halvingCoBlokow: 210000,
+        halvingPrzyObecnymTempieDni: sredniaOstatnie14
+            ? Math.round(210000 / sredniaOstatnie14) : null,
+        halvingPrzyCeluDni: Math.round(210000 / (86400 / 480))
     },
     adresy: {
         kiedykolwiekWystapily: adresyKiedykolwiek,
-        aktywne7dni: adresyAktywne(7),
-        aktywne30dni: adresyAktywne(30)
+        aktywne7dni: adresyAktywne(OKNO_7),
+        aktywne30dni: adresyAktywne(OKNO_30)
     }
 };
 
@@ -250,6 +293,26 @@ L("");
 L("  przelewy lacznie           : " + n(dane.transakcje.transferyLacznie));
 L("  przelewy ostatnie 7 dni    : " + n(dane.transakcje.transfery7dni));
 L("  przelewy ostatnie 30 dni   : " + n(dane.transakcje.transfery30dni));
+
+L("");
+L("TEMPO EMISJI");
+L("-".repeat(70));
+L("  blokow dziennie teraz      : " + n(dane.emisja.blokowNaDzienTeraz) +
+  "   (cel: " + n(dane.emisja.blokowNaDzienCel) + ")");
+L("  halving co                 : " + n(dane.emisja.halvingCoBlokow) + " blokow");
+L("     przy obecnym tempie     : ~" + n(dane.emisja.halvingPrzyObecnymTempieDni) + " dni");
+L("     przy celu 480 s         : ~" + n(dane.emisja.halvingPrzyCeluDni) + " dni");
+L("");
+L("  Najintensywniejsze doby w historii lancucha:");
+for (const d of dane.emisja.najintensywniejszeDni) {
+    const naBlok = Math.round(86400 / d.blokow);
+    L("    " + d.dzien + "   " + String(d.blokow).padStart(6) + " blokow" +
+      "   (blok co ~" + naBlok + " s)");
+}
+L("");
+L("  Te doby to okres sprzed aktywacji ASERT (blok 100 000).");
+L("  Dlatego okna 7/30 dni w tym raporcie liczone sa PO WYSOKOSCI");
+L("  bloku, nie po znacznikach czasu - inaczej lapalyby sierpien.");
 
 L("");
 L("ADRESY");
