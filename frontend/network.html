@@ -58,7 +58,7 @@ function renderNetworkInfo(info) {
         row("Chain ID", info.chainId),
         row(t("network_row_version"), info.version),
         row(t("dashboard_height"), "#" + fmtNumber(info.height, 0)),
-        row(t("network_row_current_difficulty"), fmtNumber(info.difficulty, 0)),
+        row(t("network_row_current_difficulty"), fmtDifficulty(info.difficulty)),
         row(t("network_row_blocks_to_retarget"), fmtNumber(info.blocksUntilRetarget, 0)),
         row(t("network_row_blocks_to_halving"), fmtNumber(info.blocksUntilHalving, 0)),
         row(t("index_stat_supply"), fmtNumber(info.circulatingSupply) + " BbC"),
