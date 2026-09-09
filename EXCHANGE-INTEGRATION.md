@@ -1,7 +1,7 @@
 # BitBudCoin (BbC)
 ## Exchange & Institutional Integration
 
-**Document version:** 1.2 — September 2026
+**Document version:** 1.3 — September 2026
 **Chain height at publication:** 102,744
 **Author:** Radosław Iwański
 
@@ -132,6 +132,13 @@ codebase.
 This differs from Bitcoin, which selects on most-cumulative-work
 specifically because length is exploitable when difficulty varies. See
 section 13.
+
+### Signature enforcement
+
+Every `transfer` in a block at or above height 3,070 must carry a valid
+Ed25519 signature, verified on both the single-block and full-chain
+paths. See section 14 for why the threshold exists and what lies below
+it.
 
 ### Timestamp rules
 
@@ -567,9 +574,28 @@ secp256k1, SegWit serialisation, HTLC scripts — were verified against
 official test vectors, and all 43 tests pass. Consensus code has
 targeted regression tests, including for the two issues in section 14.
 
-**This is internal test coverage, not an external audit.** No security
-firm has reviewed this code. Section 14 is a self-disclosure, not an
-audit report, and we label it that way deliberately.
+The consensus layer was reviewed systematically across three sessions:
+signature verification, chain replacement, difficulty adjustment,
+timestamp handling, transaction replay, and address validation. Three
+vulnerabilities were found, reproduced by execution, and closed. That
+work is real and section 14 documents it in full.
+
+**It was nonetheless conducted by the maintainer, not by an independent
+security firm.** We use "test coverage" rather than "audit" throughout
+this document for that reason — the word carries a specific meaning in
+your process, and we would rather be precise than borrow it.
+
+What we can point to is the process. The first systematic review of the
+consensus layer found three issues, reproduced each one by execution
+before claiming it, closed all three, and shipped a regression test with
+every fix — including tests that confirm the fixes do not reject honest
+traffic. The findings are documented in section 14 with the same detail
+we would want if we were evaluating someone else's chain.
+
+That is how a review is supposed to work, and it is the standard we
+intend to hold. It is not a substitute for an independent audit, which
+remains the appropriate next step and which we would welcome as part of
+an integration process.
 
 ---
 
@@ -590,6 +616,50 @@ cheap blocks would have been accepted.
 
 Both checks now run on both paths. Regression tests confirm that honest
 longer chains are still accepted.
+
+### Fixed, September 2026: unverified signatures in peer blocks
+
+**This was the most severe of the three.**
+
+`verifyTransactionSignature()` was called in exactly one place:
+`mempool.js`, when a transaction arrived through this node's own API.
+A block delivered over P2P bypasses the mempool entirely. A comment in
+`receiveBlock()` had already identified this gap and closed it for
+*address format* — but signature verification was never added.
+
+The result: `receiveBlock()` checked that a transfer's recipient address
+was well-formed, and never checked whether the sender had authorised the
+transfer at all.
+
+Verified by execution. A block containing a transfer signed with the
+literal string `AAAApodrobionyPodpis...` was accepted, and the victim's
+balance fell from 50 to 9.999 while the attacker's rose to 90. **Any
+peer could drain any address in the network without possessing its
+private key.** Mining the block required real proof of work; nothing
+else stood in the way.
+
+Signature verification now runs on both paths — single-block receipt and
+full-chain replacement — for every `transfer` and for legacy transfers
+that carry no `type` field. Protocol-generated types (`coinbase`, `fee`,
+`protocol_fee`, `genesis`) have no signature by construction and are
+exempt. HTLC transactions use their own verification in
+`htlc-wallet.js`.
+
+**Enforcement begins at height 3,070**, and the reason matters for
+anyone auditing the chain. A scan of all 28,229 historical transfers
+found 2,920 with no `publicKey` or `signature` at all, spanning heights
+109 to 2,704 — every one of them from a single address, the mining pool,
+predating the introduction of signing. One further transaction at height
+3,069 belongs to an earlier HTLC implementation that no longer exists in
+the codebase. All 24,748 transfers above that point verify.
+
+Requiring signatures retroactively would have caused the node to reject
+its own history on the next resynchronisation and halt the network —
+worse than the vulnerability being closed. The activation-height
+approach follows the same principle Bitcoin applies to rule changes: new
+rules take effect at a stated height; history is not rewritten. Coverage
+is 99.997% of the chain, and no new block can fall below the threshold,
+since the chain now stands above height 103,000.
 
 ### Fixed, September 2026: transaction replay
 
@@ -619,6 +689,8 @@ BbC's history**. The vulnerability existed but was never exploited.
 | Cryptographic primitives vs official vectors | 43 pass |
 | `test-replacechain-czas.js` | attack rejected, honest sync unaffected |
 | `test-replay.js` | replay rejected, normal traffic unaffected |
+| `test-podrobiony-podpis.js` | forged signature rejected, genuine transfers unaffected |
+| `sprawdz-podpisy.js` | 24,748 / 24,748 historical transfers verify |
 
 ---
 
