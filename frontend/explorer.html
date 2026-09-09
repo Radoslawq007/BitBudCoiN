@@ -208,7 +208,7 @@ function buildBlockRowHtml(b, isNew) {
         <td class="col-height">#${b.height}${badge}</td>
         <td>${timeAgo(b.timestamp)}</td>
         <td class="col-txs">${txCount}</td>
-        <td class="col-difficulty">${fmtNumber(b.difficulty, 0)}</td>
+        <td class="col-difficulty" title="${fmtNumber(b.difficulty, 0)}">${fmtDifficulty(b.difficulty)}</td>
         <td class="col-hash">${fmtHash(b.hash)}</td>
     </tr>`;
 }
@@ -230,7 +230,8 @@ function prependNewBlocks(blocks) {
 function updateStatsBar(blocks) {
     if (blocks.length === 0) return;
     document.getElementById("stat-height").textContent = "#" + fmtNumber(blocks[0].height, 0);
-    document.getElementById("stat-difficulty").textContent = fmtNumber(blocks[0].difficulty, 0);
+    document.getElementById("stat-difficulty").textContent = fmtDifficulty(blocks[0].difficulty);
+    document.getElementById("stat-difficulty").title = fmtNumber(blocks[0].difficulty, 0);
 
     // Śr. czas bloku z aktualnie załadowanych bloków - pomijamy anomalie
     // (np. sąsiedztwo genesis, które ma sztucznie odległy timestamp).
@@ -325,7 +326,8 @@ if (typeof BBCLiveState !== "undefined") {
         if (!state) return;
         const warn = live ? "" : " ⚠️";
         document.getElementById("stat-height").textContent = "#" + fmtNumber(state.height, 0) + warn;
-        document.getElementById("stat-difficulty").textContent = fmtNumber(state.difficulty, 0);
+        document.getElementById("stat-difficulty").textContent = fmtDifficulty(state.difficulty);
+        document.getElementById("stat-difficulty").title = fmtNumber(state.difficulty, 0);
     });
     BBCLiveState.init();
 }
