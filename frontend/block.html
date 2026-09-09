@@ -74,7 +74,7 @@ async function load() {
             <tr><td style="color:var(--text-dim); width:35%;">${t("block_hash_label")}</td><td class="mono" style="word-break:break-all;">${escapeHtml(block.hash)}</td></tr>
             <tr><td style="color:var(--text-dim);">${t("block_prev_hash_label")}</td><td class="mono" style="word-break:break-all;">${block.height === 0 ? `<span style="color:var(--text-dim)">${t("block_genesis_note")}</span>` : escapeHtml(block.previousHash)}</td></tr>
             <tr><td style="color:var(--text-dim);">${t("block_when_label")}</td><td>${timeAgo(block.timestamp)}</td></tr>
-            <tr><td style="color:var(--text-dim);">${t("index_stat_difficulty")}</td><td>${fmtNumber(block.difficulty, 0)}</td></tr>
+            <tr><td style="color:var(--text-dim);">${t("index_stat_difficulty")}</td><td title="${fmtNumber(block.difficulty, 0)}">${fmtDifficulty(block.difficulty)}</td></tr>
             <tr><td style="color:var(--text-dim);">${t("block_nonce_label")}</td><td class="mono">${fmtNumber(block.nonce, 0)}</td></tr>`;
 
         const txs = block.transactions || [];
