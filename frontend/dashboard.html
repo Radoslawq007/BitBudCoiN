@@ -146,7 +146,10 @@ BBCLiveState.subscribe(({ state, live }) => {
     const warn = live ? "" : " ⚠️";
 
     unskeleton("s-height", "#" + fmtNumber(state.height, 0) + warn);
-    unskeleton("s-difficulty", fmtNumber(state.difficulty, 0));
+    // Trudnosc rosnie wykladniczo - pelna liczba rozwala kafelek na
+    // telefonie. Skrot w tresci, dokladna wartosc w title (przytrzymanie).
+    unskeleton("s-difficulty", fmtDifficulty(state.difficulty));
+    { const el = document.getElementById("s-difficulty"); if (el) el.title = fmtNumber(state.difficulty, 0); }
     unskeleton("s-supply", fmtNumber(state.circulatingSupply, 0) + " / " + fmtNumber(state.maxSupply, 0));
     unskeleton("s-reward", fmtNumber(state.currentBlockReward) + " " + state.symbol);
     unskeleton("s-halving", fmtNumber(state.blocksUntilHalving, 0) + " " + t("common_blocks_suffix"));
