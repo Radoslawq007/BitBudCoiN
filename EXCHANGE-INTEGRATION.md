@@ -1,7 +1,7 @@
 # BitBudCoin (BbC)
 ## Exchange & Institutional Integration
 
-**Document version:** 1.3 — September 2026
+**Document version:** 1.4 — September 2026
 **Chain height at publication:** 102,744
 **Author:** Radosław Iwański
 
@@ -51,7 +51,7 @@ company, foundation, treasury, or funding round behind it.
 |---|---|
 | Target block time | 480 s (8 minutes) |
 | Initial block reward | 50 BbC |
-| Halving interval | 210,000 blocks (≈ 3.19 years) |
+| Halving interval | 210,000 blocks (see emission note below) |
 | Blocks until next halving | 107,256 |
 | Genesis address | `BbC694f9417395ed990fce2b3c3fe3d756959bf3b1e` |
 | Premine | 700 BbC |
@@ -82,6 +82,35 @@ market-cap methodology.
 The premine of 700 BbC (0.0033% of final supply) was allocated to the
 mining pool operating address `BbCcbcfc6f043ddb1f5ac83dd59feab439e192a1fb7`
 and is used for pool payout float.
+
+### Emission has not been uniform
+
+At the target block time of 480 s, 210,000 blocks would take roughly
+3.19 years. **Historical issuance ran considerably faster than that.**
+
+Before ASERT activated at height 100,000, the legacy retarget interval of
+2,028 blocks could not keep pace with hashrate changes. Several days in
+August 2026 produced blocks at intervals of five to ten seconds:
+
+| Date | Blocks in 24 h | Effective interval |
+|---|---|---|
+| 2026-08-04 | 18,496 | ~5 s |
+| 2026-08-23 | 16,205 | ~5 s |
+| 2026-08-09 | 13,532 | ~6 s |
+| 2026-08-03 | 9,401 | ~9 s |
+| 2026-08-02 | 8,667 | ~10 s |
+
+The chain reached height 103,000 in 251 days rather than the ~5.7 years
+uniform 480 s blocks would imply. Circulating supply is consequently
+5,131,400 BbC — roughly 24% of the 21,000,700 ceiling — within the first
+year.
+
+Since ASERT activation the rate has held at target: 184 blocks per day
+measured over the last two weeks, against a target of 180. The first
+halving is now projected at approximately 1,141 days from now, close to
+the 1,167 days uniform target blocks would give.
+
+Any analysis of BbC emission should use block height, not elapsed time.
 
 ---
 
@@ -744,6 +773,23 @@ than no testnet.
 
 The testnet may be restarted from a fresh genesis during early
 integration work. Treat any testnet chain state as disposable.
+
+### Some early coinbase rewards were paid to invalid addresses
+
+A small number of blocks mined before address validation was enforced
+paid their coinbase reward to strings that are not valid BbC addresses —
+for example the literal `gpusolo1...`, a miner label rather than an
+address. These sit at heights 22,962 to 23,078 and 73,271 to 73,275.
+
+The coins exist in the ledger and count toward circulating supply, but
+no private key corresponds to those strings. They cannot be spent and
+cannot be attributed to anyone. Treat them as permanently burned when
+calculating effective circulating supply.
+
+Both `POST /solo/submit` and `POST /pool/submit` now reject a miner
+address that fails the format check, and `receiveBlock()` rejects any
+block whose coinbase recipient is malformed. A block of this kind cannot
+enter the chain today.
 
 ### 129 blocks are missing from the canonical chain
 
