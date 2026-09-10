@@ -1,4 +1,25 @@
 const CONFIG = require("./config");
+
+/*
+ * NAPRAWA - mempool bez limitu i bez wygasania.
+ *
+ * this.pending nie mialo ZADNEGO ograniczenia rozmiaru, a transakcje
+ * usuwane byly wylacznie przy potwierdzeniu w bloku (pruneConfirmed).
+ * Transakcja, ktora nigdy nie zostanie wykopana - bo nadawca w
+ * miedzyczasie wydal srodki inna droga i zabraklo mu salda - zostawala
+ * w pamieci ORAZ w bazie na zawsze.
+ *
+ * Kazda taka transakcja jest zapisywana przez saveMempoolTx(), wiec
+ * przezywa restart wezla. Przy 950 MB RAM to narastajacy problem, ktory
+ * nie znika sam.
+ *
+ * MAX_MEMPOOL_SIZE: przy MAX_TRANSACTIONS_PER_BLOCK = 5000 zapas na
+ * kilka blokow do przodu z gora wystarcza.
+ * MEMPOOL_TTL_MS: 24 h. Transakcja niewykopana przez dobe przy celu
+ * 8 minut na blok (180 blokow) nie zostanie wykopana nigdy.
+ */
+const MAX_MEMPOOL_SIZE = 20000;
+const MEMPOOL_TTL_MS = 24 * 60 * 60 * 1000;
 const { verifyTransactionSignature } = require("./wallet");
 
 /**
@@ -34,9 +55,48 @@ class Mempool {
         return balance;
     }
 
+    /*
+     * Usuwa transakcje starsze niz MEMPOOL_TTL_MS. Wolane przy kazdym
+     * wejsciu, wiec sprzatanie dzieje sie samo, bez osobnego zegara.
+     */
+    _usunPrzeterminowane() {
+        const teraz = Date.now();
+        let usuniete = 0;
+
+        for (const [podpis, tx] of this.pending) {
+            const wiek = teraz - (tx.timestamp || 0);
+            if (wiek > MEMPOOL_TTL_MS) {
+                this.pending.delete(podpis);
+                try { this.storage.deleteMempoolTx(podpis); } catch (e) {}
+                usuniete++;
+            }
+        }
+
+        if (usuniete > 0) {
+            console.log(
+                "Mempool: usunieto " + usuniete +
+                " transakcji starszych niz 24h"
+            );
+        }
+    }
+
     addTransaction(tx) {
         if (!tx || typeof tx.amount !== "number" || !Number.isFinite(tx.amount) || !(tx.amount > 0)) {
             return { accepted: false, reason: "Nieprawidłowa kwota" };
+        }
+
+        /* NAPRAWA - limit rozmiaru mempoola, patrz komentarz przy
+           MAX_MEMPOOL_SIZE. Najpierw sprzatamy przeterminowane, zeby
+           naturalny obrot nie blokowal nowych transakcji. */
+        if (this.pending.size >= MAX_MEMPOOL_SIZE) {
+            this._usunPrzeterminowane();
+
+            if (this.pending.size >= MAX_MEMPOOL_SIZE) {
+                return {
+                    accepted: false,
+                    reason: "Mempool pełny - spróbuj ponownie za chwilę"
+                };
+            }
         }
         // NAPRAWA (dzisiaj, PILNA): "typeof tx.fee === 'number' ? tx.fee : 0"
         // NIE lapalo NaN - typeof NaN === "number" jest true w JS, wiec NaN
