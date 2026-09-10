@@ -109,6 +109,22 @@ class FamilyChat {
         this.storage.saveFamilyMessage(record);
         lastMessageAt.set(tx.address, Date.now());
 
+        /*
+         * NAPRAWA - mapa lastMessageAt nie miala limitu. Adresy sa darmowe
+         * do wygenerowania, wiec ktos mogl zalozyc miliony portfeli i po
+         * jednej wiadomosci z kazdego - mapa rosla bez konca.
+         *
+         * Wpisy starsze niz odstep miedzy wiadomosciami nie sa juz do
+         * niczego potrzebne: sluza wylacznie do sprawdzenia, czy nadawca
+         * nie pisze za czesto.
+         */
+        if (lastMessageAt.size > 5000) {
+            const prog = Date.now() - MIN_SECONDS_BETWEEN_MESSAGES * 1000 * 10;
+            for (const [adres, kiedy] of lastMessageAt) {
+                if (kiedy < prog) lastMessageAt.delete(adres);
+            }
+        }
+
         if (scamMatch) {
             return { accepted: true, pending: true, reason: "Wiadomość czeka na zatwierdzenie (wygląda podejrzanie)" };
         }
