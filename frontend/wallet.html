@@ -166,6 +166,12 @@
 
     <div class="card" id="receiveCard" style="display:none;">
       <h3 data-i18n="wallet_receive_title">Odbierz</h3>
+
+      <!-- Kod QR generowany LOKALNIE (assets/qr.js), bez biblioteki z CDN.
+           Gdyby CDN zostal podmieniony, kod moglby zakodowac cudzy adres,
+           a uzytkownik zeskanowalby go bez mrugniecia. -->
+      <div id="myAddressQR" style="text-align:center;margin:4px 0 14px;"></div>
+
       <div class="addr-display" id="myAddress"></div>
       <div class="btn-row">
         <button class="btn secondary" id="copyAddrBtn" data-i18n="wallet_copy_addr">Kopiuj adres</button>
@@ -279,6 +285,7 @@
   BitBudCoin (BbC) · klucz prywatny nigdy nie opuszcza tej przeglądarki
 </footer>
 
+<script src="assets/qr.js"></script>
 <script src="assets/address-checksum-frontend.js"></script>
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
@@ -409,6 +416,7 @@ async function loadWalletFromBundleText(text) {
     document.getElementById("myAddress").textContent = address;
     document.getElementById("receiveCard").style.display = "block";
     document.getElementById("historyCard").style.display = "block";
+    rysujQR();
     document.getElementById("sendCard").style.display = "block";
     document.getElementById("htlcCard").style.display = "block";
     document.getElementById("offersCard").style.display = "block";
@@ -526,6 +534,26 @@ document.getElementById("loadWalletBtn").addEventListener("click", async () => {
  * bledzie sieci NIE czyscimy juz pokazanej listy. Zniknieta historia
  * wyglada jak utracone pieniadze, nawet jesli to tylko zerwane polaczenie.
  */
+/*
+ * Kod QR adresu. Rysowany dopiero po zalogowaniu, bo wczesniej nie ma
+ * czego kodowac. SVG zamiast canvas - dziala przy restrykcyjnym CSP
+ * i skaluje sie bez rozmycia.
+ */
+function rysujQR() {
+    const box = document.getElementById("myAddressQR");
+    if (!box || !currentWallet || typeof bbcQR === "undefined") return;
+    try {
+        box.innerHTML = bbcQR.svg(currentWallet.address, {
+            rozmiar: 200,
+            ciemny: "#04180b",
+            jasny: "#ffffff"
+        });
+    } catch (e) {
+        box.innerHTML = "";
+    }
+}
+
+
 let historiaRozwinieta = false;
 
 /*
