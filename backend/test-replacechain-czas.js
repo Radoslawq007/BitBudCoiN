@@ -51,6 +51,21 @@ const L = (s) => console.log(s);
 
 /* Klasa Block nie jest eksportowana. replaceChain waliduje strukture,
    nie instanceof - wiec zwykly obiekt wystarczy. */
+/* Kazdy blok powyzej genesis MUSI miec dokladnie jedna coinbase -
+   od czasu naprawy sprawdzLiczbeCoinbase(). Wczesniej test budowal
+   bloki z pusta lista transakcji, co juz nie jest poprawnym blokiem. */
+const ADRES_TESTOWY = "BbC" + "a".repeat(40);
+function coinbase(height, timestamp) {
+    return {
+        from: null,
+        to: ADRES_TESTOWY,
+        amount: CONFIG.BLOCK_REWARD / Math.pow(2, Math.floor(height / CONFIG.HALVING_INTERVAL)),
+        fee: 0,
+        type: "coinbase",
+        timestamp
+    };
+}
+
 function makeBlock({ height, timestamp, previousHash, transactions, difficulty }) {
     const b = { height, timestamp, previousHash, transactions, difficulty, nonce: 0 };
     const target = difficultyToTargetHex(difficulty);
@@ -87,7 +102,7 @@ for (let i = 0; i < 2; i++) {
         height: prev.height + 1,
         timestamp: Date.now() + ROK + i * 480000,
         previousHash: prev.hash,
-        transactions: [],
+        transactions: [coinbase(prev.height + 1, Date.now() + ROK + i * 480000)],
         difficulty: CONFIG.DIFFICULTY
     });
     kandydat.push(b);
@@ -183,7 +198,7 @@ for (let i = 0; i < 2; i++) {
         height: pv.height + 1,
         timestamp: pv.timestamp + 480000,   // normalny odstep, w przeszlosci
         previousHash: pv.hash,
-        transactions: [],
+        transactions: [coinbase(pv.height + 1, pv.timestamp + 480000)],
         difficulty: CONFIG.DIFFICULTY
     });
     uczciwyDluzszy.push(b);
