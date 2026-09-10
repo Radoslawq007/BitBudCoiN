@@ -293,7 +293,8 @@ function asertNextDifficulty({
     idealBlockTime,
     halflife,
     maxTarget
-}) {
+,
+    minDifficulty}) {
     anchorDifficulty = BigInt(
         Math.max(
             1,
@@ -326,10 +327,26 @@ function asertNextDifficulty({
         maxTarget
     });
 
-    return targetToDifficulty(
+    const wyliczona = targetToDifficulty(
         nextTarget,
         maxTarget
     );
+
+    /*
+     * Podloga trudnosci - patrz MIN_DIFFICULTY w konfiguracji.
+     *
+     * Stosowana TUTAJ, w jednym miejscu, zeby liczenie i walidacja
+     * zawsze dawaly ten sam wynik. Gdyby podloga byla nakladana tylko
+     * przy liczeniu, wezel odrzucalby wlasne bloki.
+     *
+     * Brak MIN_DIFFICULTY w konfiguracji => brak podlogi, zachowanie
+     * identyczne jak przed ta zmiana. Mainnet jej nie ma celowo.
+     */
+    const podloga = Number(minDifficulty) || 0;
+
+    return podloga > 0
+        ? Math.max(podloga, wyliczona)
+        : wyliczona;
 }
 
 module.exports = {
