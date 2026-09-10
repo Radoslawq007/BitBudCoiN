@@ -134,6 +134,30 @@ module.exports = {
 
     /*
      * ============================================================
+     * MINIMALNA TRUDNOSC - PODLOGA
+     * ============================================================
+     *
+     * ASERT obniza trudnosc, gdy bloki trwaja dluzej niz cel. Przy
+     * dostatecznie dlugim przestoju spada do 1, a wtedy KAZDY hash jest
+     * poprawnym blokiem - siec da sie zaspamowac i przepisac w sekunde.
+     *
+     * Zaobserwowane na tym testnecie: po zatrzymaniu wezla na noc
+     * trudnosc spadla z 1 048 576 do 1 i tam zostala.
+     *
+     * 16^5 = 1 048 576 to ta sama wartosc, od ktorej testnet startuje -
+     * trudnosc nigdy nie schodzi ponizej punktu wyjscia. Przy gorniku
+     * przegladarkowym (0.17 MH/s) daje to blok co okolo 6 s, wiec siec
+     * odbudowuje sie szybko, ale nie za darmo.
+     *
+     * MAINNET CELOWO NIE MA TEJ PODLOGI. To zmiana w konsensusie:
+     * gdyby jeden wezel ja mial, a inne nie, lancuchy rozjechalyby sie
+     * dokladnie w chwili kryzysu. Na mainnecie wymaga to uzgodnienia
+     * ze wszystkimi operatorami wezlow, nie jednostronnego wdrozenia.
+     */
+    MIN_DIFFICULTY: 1048576,
+
+    /*
+     * ============================================================
      * POOL
      * ============================================================
      */
