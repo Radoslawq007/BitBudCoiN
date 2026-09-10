@@ -90,14 +90,17 @@ const coinbase = {
 
 const genesis = makeBlock({
     height: 0,
-    timestamp: 1700000000000,
+    timestamp: Date.now() - 90 * 60 * 1000,
     previousHash: "0".repeat(64),
     transactions: [coinbase],
     difficulty: CONFIG.DIFFICULTY
 });
 
 /* --- Transakcja A -> B, podpisana poprawnie --- */
-const ts = 1700000480000;
+/* Czas bazowy MUSI byc realistyczny: mempool odrzuca transakcje starsze
+   niz 24 h (wyrownane z MEMPOOL_TTL_MS). Staly znacznik z 2023 roku
+   przechodzil, zanim ta kontrola powstala. */
+const ts = Date.now() - 30 * 60 * 1000;
 const txBody = { from: A.address, to: B.address, amount: 10, fee: 0.001, timestamp: ts };
 const TYPE = "transfer";
 const sig = Wallet.signTransaction(txBody, A.privateKey);
