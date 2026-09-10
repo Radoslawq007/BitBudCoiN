@@ -23,7 +23,15 @@ const CONFIG = require("./config");
  * przez warstwę blockchain. P2P nie wykonuje własnego ASERT.
  */
 
-const MAX_BUFFER_BYTES = 64 * 1024 * 1024;
+/*
+ * NAPRAWA: bylo 64 MB NA KAZDE POLACZENIE. Przy 950 MB RAM maszyny
+ * produkcyjnej 15 polaczen wystarczalo do wyczerpania pamieci.
+ *
+ * Bufor musi pomiescic jedna wiadomosc (MAX_MESSAGE_BYTES = 8 MB) plus
+ * zapas na ramkowanie. 10 MB spelnia to z gora, a 64 MB nie mialo
+ * uzasadnienia - zadna poprawna wiadomosc nie jest tak duza.
+ */
+const MAX_BUFFER_BYTES = 10 * 1024 * 1024;
 
 const SEEN_HASHES_CAP = 10000;
 
@@ -49,6 +57,30 @@ const CHAIN_SYNC_TIMEOUT_MS = 120000;
 const CHAIN_SYNC_MIN_LEAD = 25;
 
 const MAX_PEERS = 64;
+
+/*
+ * NAPRAWA - wyczerpanie pamieci przez polaczenia przychodzace.
+ *
+ * MAX_PEERS bylo sprawdzane WYLACZNIE w connectToPeer(), czyli dla
+ * polaczen wychodzacych. Callback net.createServer() wolal
+ * _handleConnection() bezwarunkowo.
+ *
+ * Jedyna kontrola w _handleConnection brzmiala:
+ *     if (this.sockets.has(remoteAddr))
+ * gdzie remoteAddr = "IP:port". Port jest EFEMERYCZNY, wiec kazde nowe
+ * polaczenie z tego samego IP mialo inny klucz i warunek nigdy nie
+ * trafial.
+ *
+ * Potwierdzone wykonaniem (test-p2p-limit.js): 40 polaczen z jednego
+ * adresu, 40 przyjetych, 0 odrzuconych.
+ *
+ * MAX_SOCKETS_PER_IP zamyka atak z jednego zrodla. MAX_INCOMING_SOCKETS
+ * ogranicza najgorszy przypadek pamieci:
+ *     32 polaczenia x 10 MB bufora = 320 MB
+ * przy 950 MB maszyny i ok. 200 MB zajmowanych przez lancuch.
+ */
+const MAX_INCOMING_SOCKETS = 32;
+const MAX_SOCKETS_PER_IP = 3;
 
 const PROTOCOL_VERSION = "vMax-1";
 
@@ -248,10 +280,53 @@ class P2PNode {
         this._clearChainSync(address);
     }
 
+    /* Samo IP, bez portu efemerycznego - to jest wlasciwa jednostka
+       limitowania. Obsluguje tez zapis IPv4-w-IPv6 (::ffff:1.2.3.4). */
+    _samoIp(remoteAddr) {
+        const bezPortu = String(remoteAddr || "").replace(/:\d+$/, "");
+        return bezPortu.replace(/^::ffff:/, "");
+    }
+
+    _iluZTegoIp(ip) {
+        let ile = 0;
+        for (const adres of this.sockets.keys()) {
+            if (this._samoIp(adres) === ip) ile++;
+        }
+        return ile;
+    }
+
     _handleConnection(socket, remoteAddr) {
         if (this.closed) {
             socket.destroy();
             return;
+        }
+
+        /* NAPRAWA - limity polaczen przychodzacych, patrz komentarz przy
+           MAX_INCOMING_SOCKETS. Peery skonfigurowane sa zwolnione, zeby
+           wlasna siec nie odbila sie od wlasnego limitu. */
+        const skonfigurowany = this.configuredPeers.has(remoteAddr);
+
+        if (!skonfigurowany) {
+
+            if (this.sockets.size >= MAX_INCOMING_SOCKETS) {
+                console.warn(
+                    "Limit polaczen (" + MAX_INCOMING_SOCKETS +
+                    ") - odrzucam " + remoteAddr
+                );
+                try { socket.destroy(); } catch (e) {}
+                return;
+            }
+
+            const ip = this._samoIp(remoteAddr);
+
+            if (this._iluZTegoIp(ip) >= MAX_SOCKETS_PER_IP) {
+                console.warn(
+                    "Limit " + MAX_SOCKETS_PER_IP +
+                    " polaczen na adres - odrzucam " + remoteAddr
+                );
+                try { socket.destroy(); } catch (e) {}
+                return;
+            }
         }
 
         /*
