@@ -2,6 +2,12 @@ const CONFIG = require("./config");
 const { computeBlockHash, difficultyToTargetHex } = require("./bbcblockchain");
 
 const MAX_SEEN_SHARE_HASHES = 20000;
+
+/* Limit sledzonych trudnosci gornikow - patrz komentarz przy
+   getMinerDifficulty(). 5000 to z gora wiecej, niz ta siec kiedykolwiek
+   miala aktywnych gornikow (rekord historyczny: 21 adresow). */
+const MAX_TRACKED_MINER_DIFFICULTIES = 5000;
+const MINER_DIFFICULTY_TTL_MS = 24 * 60 * 60 * 1000;
 const VARDIFF_TARGET_SECONDS = 12;
 const VARDIFF_MAX_STEP = 4;
 const VARDIFF_MIN_DIFFICULTY = 16;
@@ -60,6 +66,56 @@ class MiningPool {
         if (!candidateCoinbase || candidateCoinbase.to !== this.poolAddress) {
             return { accepted: false, reason: "coinbase w zgloszeniu nie idzie na adres puli - odrzucone" };
         }
+        /*
+         * NAPRAWA: submitShare NIE sprawdzalo ani candidate.height, ani
+         * candidate.previousHash.
+         *
+         * Gornik mogl pobrac szablon RAZ i kopac przeciw niemu bez konca.
+         * Kazde zgloszenie przechodzilo (hash zgadza sie z trescia, PoW
+         * spelnia jego trudnosc, coinbase idzie na pule) i liczylo sie do
+         * wyplaty - mimo ze taki blok NIGDY nie zostalby przyjety, bo
+         * wskazuje na nieaktualnego poprzednika.
+         *
+         * Skutek: taki gornik zarabia z blokow znalezionych przez
+         * pozostalych. To kradziez od innych uczestnikow puli.
+         *
+         * Dopuszczamy szczyt lancucha ORAZ jego rodzica. Jeden blok zapasu
+         * jest konieczny: gornik moze wyslac zgloszenie w tej samej chwili,
+         * w ktorej ktos inny znalazl blok, i bylby ukarany za wyscig,
+         * ktorego nie mogl przewidziec.
+         */
+        {
+            const szczyt = this.blockchain.getLatestBlock();
+            const rodzic = this.blockchain.chain.length > 1
+                ? this.blockchain.chain[this.blockchain.chain.length - 2]
+                : null;
+
+            const dozwolone = [szczyt.hash];
+            if (rodzic) dozwolone.push(rodzic.hash);
+
+            if (
+                typeof candidate.previousHash !== "string" ||
+                !dozwolone.includes(candidate.previousHash)
+            ) {
+                return {
+                    accepted: false,
+                    reason: "zgloszenie dotyczy nieaktualnego bloku - pobierz nowa prace"
+                };
+            }
+
+            const oczekiwanaWysokosc =
+                candidate.previousHash === szczyt.hash
+                    ? szczyt.height + 1
+                    : szczyt.height;
+
+            if (candidate.height !== oczekiwanaWysokosc) {
+                return {
+                    accepted: false,
+                    reason: "wysokosc zgloszenia nie pasuje do wskazanego poprzednika"
+                };
+            }
+        }
+
         const shareTargetHex = difficultyToTargetHex(this.getMinerDifficulty(minerAddress));
         if (candidate.hash > shareTargetHex) return { accepted: false, reason: "nie spelnia trudnosci share" };
         const minerDiffAtSubmit = this.getMinerDifficulty(minerAddress);
@@ -124,12 +180,68 @@ class MiningPool {
         if (this.mempool) this.mempool.pruneConfirmed(result.block);
         return { accepted: true, share: true, blockFound: true, block: result.block, paidNow };
     }
+    /*
+     * NAPRAWA - wyciek pamieci przez samo pobieranie pracy.
+     *
+     * BYLO: ta funkcja TWORZYLA wpis dla kazdego adresu, o ktory zapytano.
+     * Wolana jest z getWork(), czyli ze zwyklego GET /pool/work - bez
+     * kopania, bez podpisu, bez zadnego kosztu dla pytajacego.
+     *
+     * Przy globalnym limicie 1000 zadan na minute to 1.44 mln wpisow
+     * dziennie. Kazdy to klucz 43-znakowy plus wartosc - rzedu 200 MB
+     * dziennie na maszynie, ktora ma 950 MB i okolo 200 MB zajete przez
+     * lancuch.
+     *
+     * TERAZ: odczyt NIE zapisuje. Wpis powstaje dopiero przy pierwszym
+     * PRAWDZIWYM zgloszeniu (_adjustMinerDifficulty), czyli po wykonaniu
+     * realnej pracy. VARDIFF dziala tak samo - dla nieznanego gornika
+     * pierwsza trudnosc to i tak wartosc domyslna.
+     */
     getMinerDifficulty(minerAddress) {
-        if (!this.minerDifficulty.has(minerAddress)) this.minerDifficulty.set(minerAddress, this.shareDifficulty);
-        return this.minerDifficulty.get(minerAddress);
+        const zapisana = this.minerDifficulty.get(minerAddress);
+        return zapisana === undefined ? this.shareDifficulty : zapisana;
+    }
+
+    /*
+     * Sprzatanie gornikow, ktorzy dawno nie zglosili nic. Bez tego mapa
+     * rosnie przez caly czas dzialania wezla, nawet przy uczciwym ruchu.
+     */
+    _sprzatnijNieaktywnych() {
+        if (this.minerDifficulty.size <= MAX_TRACKED_MINER_DIFFICULTIES) return;
+
+        const teraz = Date.now();
+
+        for (const [adres, kiedy] of this.minerLastShareAt) {
+            if (teraz - kiedy > MINER_DIFFICULTY_TTL_MS) {
+                this.minerDifficulty.delete(adres);
+                this.minerLastShareAt.delete(adres);
+            }
+        }
+
+        // Gdyby czyszczenie po czasie nie wystarczylo (masowy naplyw
+        // swiezych adresow), usuwamy najstarsze.
+        if (this.minerDifficulty.size > MAX_TRACKED_MINER_DIFFICULTIES) {
+            const wgCzasu = Array.from(this.minerLastShareAt.entries())
+                .sort((a, b) => a[1] - b[1]);
+
+            const doUsuniecia =
+                this.minerDifficulty.size - MAX_TRACKED_MINER_DIFFICULTIES;
+
+            for (let i = 0; i < doUsuniecia && i < wgCzasu.length; i++) {
+                this.minerDifficulty.delete(wgCzasu[i][0]);
+                this.minerLastShareAt.delete(wgCzasu[i][0]);
+            }
+        }
     }
     _adjustMinerDifficulty(minerAddress) {
         const now = Date.now();
+
+        // Wpis powstaje TUTAJ - po zgloszeniu, ktore przeszlo walidacje
+        // i wymagalo realnej pracy. Nie przy samym pytaniu o prace.
+        if (!this.minerDifficulty.has(minerAddress)) {
+            this.minerDifficulty.set(minerAddress, this.shareDifficulty);
+            this._sprzatnijNieaktywnych();
+        }
         const lastAt = this.minerLastShareAt.get(minerAddress);
         this.minerLastShareAt.set(minerAddress, now);
         if (!lastAt) return;
