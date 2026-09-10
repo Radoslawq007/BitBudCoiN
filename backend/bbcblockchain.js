@@ -148,6 +148,49 @@ const PROJECT_FEE_PERCENT =
 const MAX_FUTURE_DRIFT_MS = 10000;
 
 
+
+/*
+ * NAPRAWA KRYTYCZNA - liczba transakcji coinbase w bloku.
+ *
+ * Walidacja sprawdzala KWOTE kazdej coinbase z osobna ("czy rowna sie
+ * nagrodzie za ten blok"), ale NIGDZIE nie sprawdzala, ILE ich jest.
+ * Piec coinbase po 50 BbC przechodzilo jako piec poprawnych.
+ *
+ * Potwierdzone wykonaniem (test-coinbase.js): blok z pieciu coinbase
+ * zostal przyjety, a saldo gornika wyniosло 250 zamiast 50. Tysiac
+ * coinbase to 50 000 BbC z jednego bloku - limit podazy przestawal
+ * cokolwiek znaczyc.
+ *
+ * Blok MUSI miec dokladnie jedna coinbase. Genesis (wysokosc 0) jest
+ * wyjatkiem - ma transakcje typu "genesis", nie "coinbase".
+ */
+function sprawdzLiczbeCoinbase(block) {
+
+    if (!block || !Array.isArray(block.transactions)) {
+        return { valid: true };
+    }
+
+    if (block.height === 0) {
+        return { valid: true };
+    }
+
+    const ile = block.transactions.filter(
+        (tx) => tx && tx.type === "coinbase"
+    ).length;
+
+    if (ile !== 1) {
+        return {
+            valid: false,
+            reason:
+                "blok musi miec dokladnie jedna transakcje coinbase, " +
+                "znaleziono " + ile
+        };
+    }
+
+    return { valid: true };
+}
+
+
 function difficultyToTargetHex(difficulty) {
 
     const safe =
@@ -1576,6 +1619,21 @@ class Blockchain {
         }
 
 
+        /* NAPRAWA KRYTYCZNA - dokladnie jedna coinbase na blok.
+           Patrz komentarz przy sprawdzLiczbeCoinbase(). */
+        {
+            const c = sprawdzLiczbeCoinbase(candidate);
+
+            if (!c.valid) {
+
+                return {
+                    accepted: false,
+                    reason: c.reason
+                };
+            }
+        }
+
+
         /*
          * NAPRAWA KRYTYCZNA - podpisy. Blok od peera omija mempool, wiec
          * to jedyne miejsce, w ktorym podpis zwyklego przelewu jest w
@@ -2106,6 +2164,20 @@ class Blockchain {
                     reason:
                         `blok #${i}: znacznik czasu zbyt daleko w przyszlosci`
                 };
+            }
+
+            /* NAPRAWA KRYTYCZNA - dokladnie jedna coinbase, takze przy
+               podmianie calego lancucha. */
+            {
+                const c = sprawdzLiczbeCoinbase(block);
+
+                if (!c.valid) {
+
+                    return {
+                        accepted: false,
+                        reason: `blok #${i}: ${c.reason}`
+                    };
+                }
             }
 
             /* NAPRAWA KRYTYCZNA - podpisy takze przy podmianie CALEGO
