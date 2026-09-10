@@ -60,11 +60,14 @@ class Mempool {
      * wejsciu, wiec sprzatanie dzieje sie samo, bez osobnego zegara.
      */
     _usunPrzeterminowane() {
-        const teraz = Date.now();
+        const teraz = Date.now();  // wlasny zasieg, nie koliduje z addTransaction
         let usuniete = 0;
 
         for (const [podpis, tx] of this.pending) {
-            const wiek = teraz - (tx.timestamp || 0);
+            /* Math.abs: gdyby w bazie zostal wpis sprzed tej poprawki, z
+               data w przyszlosci, i tak zostanie usuniety zamiast tkwic
+               tam na zawsze. */
+            const wiek = Math.abs(teraz - (tx.timestamp || 0));
             if (wiek > MEMPOOL_TTL_MS) {
                 this.pending.delete(podpis);
                 try { this.storage.deleteMempoolTx(podpis); } catch (e) {}
@@ -83,6 +86,44 @@ class Mempool {
     addTransaction(tx) {
         if (!tx || typeof tx.amount !== "number" || !Number.isFinite(tx.amount) || !(tx.amount > 0)) {
             return { accepted: false, reason: "Nieprawidłowa kwota" };
+        }
+
+        /*
+         * NAPRAWA - znacznik czasu transakcji nie byl NICZYM ograniczony.
+         *
+         * Ujawnilo sie to dopiero po dodaniu wygasania mempoola: wiek
+         * liczony jest jako (teraz - tx.timestamp), wiec transakcja z
+         * data w przyszlosci mialaby wiek UJEMNY i nie wygasla NIGDY.
+         * Atakujacy omijalby cale sprzatanie jednym polem.
+         *
+         * Podpis obejmuje timestamp, wiec nie da sie go podmienic po
+         * podpisaniu - ale nadawca moze wpisac cokolwiek przed.
+         *
+         * Okno: 2 h w przod, 24 h wstecz.
+         *
+         * 2 h to ta sama tolerancja, ktora Bitcoin stosuje dla znacznikow
+         * blokow, i jest tu celowo LUZNIEJSZA niz 10 s przy blokach BbC.
+         * Powod: portfel wysyla Date.now() z PRZEGLADARKI uzytkownika.
+         * Zegar spozniony albo spieszacy sie o kwadrans jest zwyczajny,
+         * a odrzucenie komus przelewu z tego powodu byloby gorsze niz
+         * to, przed czym ta kontrola broni.
+         *
+         * Przy TTL mempoola 24 h nawet transakcja z data +2 h wygasa
+         * po 26 h realnego czasu - wiec sprzatanie dziala dalej.
+         */
+        const teraz = Date.now();
+        const czas = tx.timestamp;
+
+        if (
+            typeof czas !== "number" ||
+            !Number.isFinite(czas) ||
+            czas > teraz + 2 * 60 * 60 * 1000 ||
+            czas < teraz - 24 * 60 * 60 * 1000
+        ) {
+            return {
+                accepted: false,
+                reason: "Nieprawidłowy znacznik czasu transakcji"
+            };
         }
 
         /* NAPRAWA - limit rozmiaru mempoola, patrz komentarz przy
