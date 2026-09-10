@@ -203,7 +203,78 @@ module.exports = {
      * Bitcoin postepuje tak samo przy zmianach regul: nowa regula
      * obowiazuje od ustalonej wysokosci, historii sie nie przepisuje.
      */
-    SIGNATURE_ENFORCEMENT_HEIGHT: 3070
+    SIGNATURE_ENFORCEMENT_HEIGHT: 3070,
+
+    /*
+     * ============================================================
+     * MINIMALNA TRUDNOSC - PODLOGA
+     * ============================================================
+     *
+     * !!! ZMIANA W KONSENSUSIE - NIE WDRAZAJ SAM !!!
+     *
+     * Ten plik wolno wgrac dopiero wtedy, gdy WSZYSCY operatorzy wezlow
+     * maja te sama wartosc. Wezel z podloga odrzuci blok, ktory wezel bez
+     * podlogi przyjmie - lancuchy rozjada sie dokladnie w chwili, w
+     * ktorej ta ochrona mialaby zadzialac.
+     *
+     * Na 10.09.2026 siec ma trzy wezly: Twoj, kolegi (145.241.218.97)
+     * i jeden na Oracle Cloud, ktorego operatora nie znasz. Ten trzeci
+     * NIE zostanie uprzedzony - jesli nie zaktualizuje, przy spadku
+     * trudnosci ponizej podlogi odpadnie od sieci.
+     *
+     * ------------------------------------------------------------
+     * PO CO TO JEST
+     *
+     * ASERT obniza trudnosc, gdy bloki trwaja dluzej niz cel. Przy
+     * dostatecznie dlugim przestoju spada do 1, a wtedy KAZDY hash jest
+     * poprawnym blokiem - lancuch da sie przepisac laptopem.
+     *
+     * Policzone dla mainnetu: przy trudnosci 3 234 814 914 i okresie
+     * polowicznym 3600 s wystarczy okolo 32 GODZIN bez blokow. To nie
+     * jest scenariusz odlegly - siec ma jednego duzego gornika i stala
+     * juz 2.5 godziny, gdy odszedl.
+     *
+     * Zaobserwowane na testnecie: po nocnym postoju trudnosc spadla do 1
+     * i sama nie wrocila.
+     *
+     * ------------------------------------------------------------
+     * DLACZEGO AKURAT 16^5
+     *
+     * 1 048 576 przy gorniku 0.17 MH/s to blok co okolo 6 sekund - siec
+     * odbudowuje sie szybko, ale kopanie przestaje byc darmowe.
+     *
+     * Wartosc jest ~3000 razy nizsza od dzisiejszej trudnosci sieci,
+     * wiec w normalnej pracy NIE zadziala ani razu i wszystkie wezly
+     * beda sie zgadzac tak jak dotad. Roznica ujawnia sie wylacznie w
+     * sytuacji, przed ktora ma chronic.
+     */
+    MIN_DIFFICULTY: 1048576,
+
+    /*
+     * ============================================================
+     * WYSOKOSC AKTYWACJI PODLOGI
+     * ============================================================
+     *
+     * Podloga zaczyna obowiazywac dopiero OD TEGO BLOKU. Ponizej niej
+     * zachowanie jest identyczne jak przed zmiana.
+     *
+     * PO CO: siec ma wezly, ktorych operatorow nie znamy - jeden dziala
+     * na Oracle Cloud i nie ma jak go uprzedzic. Bez wysokosci aktywacji
+     * trzeba by sie z kazdym umowic na wdrozenie w tej samej chwili, co
+     * przy otwartej sieci jest niewykonalne.
+     *
+     * Tak samo rozwiazuje to Bitcoin: regula wchodzi od ogloszonej
+     * wysokosci, a nie od momentu, w ktorym ktos wgral plik. Kto
+     * zaktualizuje przed tym blokiem - dziala dalej. Kto nie - odpadnie
+     * wtedy i tylko wtedy, gdy trudnosc realnie spadnie ponizej podlogi.
+     *
+     * Ten sam wzorzec zastosowano juz przy SIGNATURE_ENFORCEMENT_HEIGHT.
+     *
+     * 105 838 to okolo 14 dni od wysokosci 103 318 (10.09.2026) przy
+     * obecnym tempie ~180 blokow dziennie. Dwa tygodnie na aktualizacje
+     * to zapas z gora wystarczajacy.
+     */
+    MIN_DIFFICULTY_ACTIVATION_HEIGHT: 105838
 };
 
 }
