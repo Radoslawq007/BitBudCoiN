@@ -907,6 +907,7 @@ class Blockchain {
         const rawDifficulty =
             asertNextDifficulty({
                 minDifficulty: CONFIG.MIN_DIFFICULTY,
+                            minDifficultyActivationHeight: CONFIG.MIN_DIFFICULTY_ACTIVATION_HEIGHT,
 
                 anchorHeight:
                     anchor.anchorHeight,
@@ -2287,6 +2288,7 @@ class Blockchain {
                     Number(
                         asertNextDifficulty({
                             minDifficulty: CONFIG.MIN_DIFFICULTY,
+                            minDifficultyActivationHeight: CONFIG.MIN_DIFFICULTY_ACTIVATION_HEIGHT,
 
                             anchorHeight:
                                 BigInt(
