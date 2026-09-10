@@ -26,6 +26,7 @@
 
 <footer><span data-i18n="footer_text">BitBudCoin (BbC) · sieć proof-of-work</span> · <a href="docks.html" data-i18n="footer_docs_link">dokumentacja</a></footer>
 
+<script src="assets/qr.js"></script>
 <script src="assets/api.js"></script>
 <script src="assets/nav.js"></script>
 <script src="assets/native-responsive.js"></script>
@@ -49,7 +50,20 @@ async function search(address, isAutoRefresh = false) {
             apiGet(`/transactions/address/${encodeURIComponent(address)}`)
         ]);
 
-        result.innerHTML = `
+        /* Kod QR sprawdzanego adresu - zeby dalo sie go przekazac
+           telefonem bez przepisywania 43 znakow. Generowany lokalnie
+           (assets/qr.js), bez biblioteki z CDN. */
+        let qrHtml = "";
+        try {
+            if (typeof bbcQR !== "undefined") {
+                qrHtml =
+                    '<div style="text-align:center;margin-bottom:18px;">' +
+                    bbcQR.svg(address, { rozmiar: 170 }) +
+                    '</div>';
+            }
+        } catch (e) { qrHtml = ""; }
+
+        result.innerHTML = qrHtml + `
             <div class="grid cols-2">
                 <div class="card"><div class="card-label">${t("address_confirmed_balance")}</div><div class="card-value leaf">${fmtNumber(balance.balance)} BbC</div></div>
                 <div class="card"><div class="card-label">${t("address_mempool_aware_balance")}</div><div class="card-value">${fmtNumber(balance.pendingAwareBalance)} BbC</div></div>
