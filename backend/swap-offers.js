@@ -64,9 +64,82 @@ function createOffer(info) {
             throw new Error(`createOffer: "${field}" musi byc dodatnia, skonczona liczba`);
         }
     }
-    const offerId = crypto.randomBytes(8).toString("hex");
-    const offer = { offerId, ...info, status: "pending", createdAt: Date.now() };
+    // NAPRAWA: "chain" nie mial listy dozwolonych - komentarz mowil
+    // BTC|BCH, ale przejsc mogло cokolwiek, lacznie z obiektem.
+    const DOZWOLONE_CHAIN = ["BTC", "BCH"];
+    if (!DOZWOLONE_CHAIN.includes(info.chain)) {
+        throw new Error(
+            `createOffer: "chain" musi byc jednym z: ${DOZWOLONE_CHAIN.join(", ")}`
+        );
+    }
+
+    // NAPRAWA: timeoutHours mial tylko dolna granice (> 0). Bez gornej
+    // oferta z timeoutHours = 1e9 nigdy by nie wygasla i zostawala w
+    // pliku na zawsze. Tydzien to gora tego, co ma sens dla swapa.
+    if (info.timeoutHours > 168) {
+        throw new Error('createOffer: "timeoutHours" nie moze przekraczac 168 (tydzien)');
+    }
+
+    // NAPRAWA: "note" nie mial ANI kontroli typu, ANI limitu dlugosci.
+    // Limit ciala zadania to 1 MB, wiec pojedyncza notatka mogla miec
+    // megabajt - a kazda operacja na ofertach czyta i zapisuje CALY plik.
+    let note = "";
+    if (info.note !== undefined && info.note !== null) {
+        if (typeof info.note !== "string") {
+            throw new Error('createOffer: "note" musi byc tekstem');
+        }
+        note = info.note.slice(0, 500);
+    }
+
     const offers = load();
+
+    // NAPRAWA: nie bylo ZADNEGO limitu liczby ofert. Przy 60 zadaniach
+    // na minute (strictLimiter) to 86 400 ofert dziennie w pliku, ktory
+    // przy kazdym odczycie jest w calosci parsowany.
+    //
+    // Najpierw sprzatamy wygasle, dopiero potem sprawdzamy limit - zeby
+    // naturalny obrot nie blokowal nowych ofert.
+    const teraz = Date.now();
+    for (const [id, o] of Object.entries(offers)) {
+        const wygasa = (o.createdAt || 0) + (o.timeoutHours || 0) * 3600000;
+        if (o.status === "pending" && teraz > wygasa) {
+            delete offers[id];
+        }
+    }
+
+    const MAX_OFERT = 1000;
+    if (Object.keys(offers).length >= MAX_OFERT) {
+        throw new Error(
+            `createOffer: osiagnieto limit ${MAX_OFERT} ofert - sprobuj pozniej`
+        );
+    }
+
+    const offerId = crypto.randomBytes(8).toString("hex");
+
+    /*
+     * NAPRAWA: bylo { offerId, ...info, ... }.
+     *
+     * Rozsypanie "...info" wstawialo do zapisanego obiektu DOWOLNE pola
+     * przyslane przez uzytkownika - a poniewaz stalo PO "offerId",
+     * pozwalalo je nadpisac. Klucz w pliku byl losowy, ale pole offerId
+     * w srodku mogl ustawic atakujacy, wiec jedno i drugie przestawalo
+     * sie zgadzac.
+     *
+     * Budujemy obiekt z JAWNIE wymienionych pol. Cokolwiek innego
+     * przyjdzie w zadaniu, zostaje odrzucone.
+     */
+    const offer = {
+        offerId,
+        chain: info.chain,
+        bbcAmount: info.bbcAmount,
+        expectedAmount: info.expectedAmount,
+        timeoutHours: info.timeoutHours,
+        targetSellerAddress: info.targetSellerAddress,
+        note,
+        status: "pending",
+        createdAt: teraz
+    };
+
     offers[offerId] = offer;
     save(offers);
     return offer;
