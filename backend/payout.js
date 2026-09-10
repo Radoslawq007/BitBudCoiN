@@ -59,7 +59,51 @@ async function main(privateKeyPath, serverUrl, minPayout) {
         return;
     }
 
+    /*
+     * NAPRAWA - gorny limit pojedynczej wyplaty.
+     *
+     * Nie bylo ZADNEGO sufitu. Kwota brala sie wprost z sumy kredytow w
+     * bazie, a te juz raz ulegly uszkodzeniu (przyczyna zamknieta przez
+     * MAX_MINER_DIFFICULTY_RATIO). Jeden zepsuty wiersz mogl wyslac cale
+     * saldo puli na jeden adres.
+     *
+     * Wezel i tak odrzucilby wyplate przekraczajaca saldo, wiec strata
+     * jest ograniczona do stanu puli - ale to za slaba gwarancja przy
+     * pieniadzach. Limit odpowiada 200 nagrodom blokowym; realna wyplata
+     * pojedynczego gornika nigdy sie do niego nie zbliza.
+     *
+     * Przekroczenie NIE jest ciche - konczy proces, zeby czlowiek na to
+     * spojrzal, zamiast pozwalac kolejnym probom isc dalej.
+     */
+    const MAX_POJEDYNCZEJ_WYPLATY = CONFIG.BLOCK_REWARD * 200;
+
     async function sendPayout(minerAddress, amount) {
+
+        if (
+            typeof amount !== "number" ||
+            !Number.isFinite(amount) ||
+            !(amount > 0)
+        ) {
+            console.error(
+                "STOP: nieprawidlowa kwota wyplaty dla " + minerAddress +
+                ": " + amount
+            );
+            process.exit(1);
+        }
+
+        if (amount > MAX_POJEDYNCZEJ_WYPLATY) {
+            console.error(
+                "STOP: wyplata " + amount.toFixed(4) + " BbC dla " +
+                minerAddress + " przekracza limit " +
+                MAX_POJEDYNCZEJ_WYPLATY + " BbC."
+            );
+            console.error(
+                "To wyglada na uszkodzone dane w tabeli kredytow, nie na " +
+                "prawdziwy zarobek. Sprawdz recznie przed wznowieniem."
+            );
+            process.exit(1);
+        }
+
         const tx = { from: poolAddress, to: minerAddress, amount, fee: CONFIG.MIN_FEE, timestamp: Date.now() };
         const signature = signTransaction(tx, privateKey);
         const candidate = { ...tx, publicKey, signature };
