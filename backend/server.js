@@ -19,6 +19,7 @@ const {
     difficultyToTargetHex
 } = require("./bbcblockchain");
 
+const crypto = require("crypto");   // potrzebne przez sekretPoprawny()
 const bridgeTags = require("./bridge-tags");
 const swapOffers = require("./swap-offers");
 const { FamilyChat } = require("./family-chat");
@@ -115,6 +116,32 @@ app.use(
 );
 
 app.use(rateLimiter);
+
+
+/*
+ * Porownanie sekretu odporne na pomiar czasu.
+ *
+ * Zwykle "a !== b" konczy porownanie na pierwszym roznym znaku, wiec czas
+ * odpowiedzi zdradza, ile poczatkowych znakow zgadlo sie poprawnie.
+ * Atakujacy moze odgadywac sekret znak po znaku zamiast probowac
+ * wszystkich kombinacji.
+ *
+ * Przy sekrecie 64-znakowym i limicie 1000 zadan na minute to atak
+ * odlegly, ale kosztuje nas jedna funkcje, a zamyka cala klase problemu.
+ */
+function sekretPoprawny(podany) {
+
+    if (typeof podany !== "string") return false;
+
+    const a = Buffer.from(podany, "utf8");
+    const b = Buffer.from(bridgeTags.ADMIN_SECRET, "utf8");
+
+    // timingSafeEqual wymaga rownych dlugosci - sama dlugosc nie jest
+    // tajemnica, wiec sprawdzamy ja osobno.
+    if (a.length !== b.length) return false;
+
+    return crypto.timingSafeEqual(a, b);
+}
 
 
 /*
@@ -1039,8 +1066,7 @@ app.post(
         } = req.body || {};
 
         if (
-            secret !==
-            bridgeTags.ADMIN_SECRET
+            !sekretPoprawny(secret)
         ) {
 
             return res.status(403).json({
@@ -1110,8 +1136,7 @@ app.post(
         } = req.body || {};
 
         if (
-            secret !==
-            bridgeTags.ADMIN_SECRET
+            !sekretPoprawny(secret)
         ) {
 
             return res.status(403).json({
@@ -1434,8 +1459,7 @@ app.get(
     (req, res) => {
 
         if (
-            req.query.secret !==
-            bridgeTags.ADMIN_SECRET
+            !sekretPoprawny(req.query.secret)
         ) {
             return res.status(403).json({
                 error: "Zły sekret"
@@ -1459,7 +1483,7 @@ app.post(
             decision
         } = req.body || {};
 
-        if (secret !== bridgeTags.ADMIN_SECRET) {
+        if (!sekretPoprawny(secret)) {
             return res.status(403).json({
                 error: "Zły sekret"
             });
