@@ -294,7 +294,8 @@ function asertNextDifficulty({
     halflife,
     maxTarget
 ,
-    minDifficulty}) {
+    minDifficulty,
+    minDifficultyActivationHeight}) {
     anchorDifficulty = BigInt(
         Math.max(
             1,
@@ -342,9 +343,26 @@ function asertNextDifficulty({
      * Brak MIN_DIFFICULTY w konfiguracji => brak podlogi, zachowanie
      * identyczne jak przed ta zmiana. Mainnet jej nie ma celowo.
      */
+    /*
+     * Podloga obowiazuje dopiero od wysokosci aktywacji - patrz
+     * MIN_DIFFICULTY_ACTIVATION_HEIGHT w konfiguracji.
+     *
+     * Dzieki temu zmiany nie trzeba uzgadniac z operatorami wezlow,
+     * ktorych nie znamy: kazdy ma czas zaktualizowac przed tym blokiem,
+     * a do tego czasu wszystkie wezly licza IDENTYCZNIE.
+     *
+     * Brak wysokosci w konfiguracji => podloga od zawsze (tak dziala
+     * testnet, ktory startowal z czysta historia).
+     */
     const podloga = Number(minDifficulty) || 0;
 
-    return podloga > 0
+    const odBloku = Number(minDifficultyActivationHeight);
+
+    const aktywna =
+        !Number.isFinite(odBloku) ||
+        Number(evalHeight) >= odBloku;
+
+    return (podloga > 0 && aktywna)
         ? Math.max(podloga, wyliczona)
         : wyliczona;
 }
