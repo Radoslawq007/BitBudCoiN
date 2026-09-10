@@ -863,6 +863,7 @@ class Blockchain {
         // _recomputeDifficultyFromHistory).
         const rawDifficulty =
             asertNextDifficulty({
+                minDifficulty: CONFIG.MIN_DIFFICULTY,
 
                 anchorHeight:
                     anchor.anchorHeight,
@@ -2213,6 +2214,7 @@ class Blockchain {
                 const expected =
                     Number(
                         asertNextDifficulty({
+                            minDifficulty: CONFIG.MIN_DIFFICULTY,
 
                             anchorHeight:
                                 BigInt(
