@@ -183,6 +183,19 @@
       </div>
     </div>
 
+    <!-- Kod polecający: rejestracja adresu w Growth API (osobny,
+         opcjonalny licznik - brak rejestracji albo błąd sieci nie mogą
+         zepsuć reszty portfela, stąd karta ukryta domyślnie i cichy
+         catch w refreshGrowth(). Wyłączone w trybie testnet, bo Growth
+         API nie jest tam wdrożone. -->
+    <div class="card" id="growthCard" style="display:none;">
+      <h3 data-i18n="wallet_growth_heading">Poleć znajomym</h3>
+      <p class="hint" data-i18n="wallet_growth_desc">Realni ludzie, realne portfele — bez tego się nie liczy.</p>
+      <div id="growthBody">
+        <div class="skeleton" style="height:60px;border-radius:8px;"></div>
+      </div>
+    </div>
+
     <!-- Historia transakcji zalogowanego portfela.
          Do tej pory trzeba bylo skopiowac wlasny adres i wkleic go w
          address.html, zeby zobaczyc wlasne przelewy. Ten sam endpoint,
@@ -389,6 +402,7 @@ window.addEventListener("beforeunload", (e) => {
 
 // --- Wczytywanie istniejącego portfela ---
 let currentWallet = null; // { address, publicKeyPem, privateKey: CryptoKey }
+const pendingReferralCode = new URLSearchParams(location.search).get("ref");
 let currentBundleText = null; // surowy tekst kluczy - potrzebny tylko do ewentualnego zapisania zaszyfrowanego
 
 const REMEMBERED_WALLET_KEY = "bbc_encrypted_wallet";
@@ -423,6 +437,7 @@ async function loadWalletFromBundleText(text) {
     await refreshHtlcCreateDefaults();
     await refreshBalance();
     refreshHistory();
+    refreshGrowth();
     return true;
 }
 
@@ -653,6 +668,50 @@ async function refreshHistory() {
                 tf("wallet_history_error", "Nie udało się pobrać historii.") +
                 '</div>';
         }
+    }
+}
+
+
+async function refreshGrowth() {
+    if (!currentWallet) return;
+    if (window.BBC_NETWORK === "testnet") return; // Growth API nie wdrożone na testnecie
+
+    const card = document.getElementById("growthCard");
+    const body = document.getElementById("growthBody");
+
+    try {
+        const reg = await apiPost("/api/growth/register", {
+            wallet: currentWallet.address,
+            referral: pendingReferralCode || undefined
+        });
+
+        const code = reg.user.referral_code;
+        const info = await apiGet(`/api/growth/referral?code=${encodeURIComponent(code)}`);
+
+        body.innerHTML =
+            `<div class="addr-display">${escapeHtml(code)}</div>` +
+            '<div class="btn-row">' +
+                '<button class="btn secondary" id="copyGrowthLinkBtn" data-i18n="wallet_growth_copy_link">Kopiuj link</button>' +
+            '</div>' +
+            `<p class="hint"><span data-i18n="wallet_growth_referrals_label">Polecenia</span>: <strong>${escapeHtml(String(info.referrals))}</strong></p>`;
+
+        if (window.BbCI18n) BbCI18n.refresh();
+
+        document.getElementById("copyGrowthLinkBtn").addEventListener("click", async () => {
+            const link = `${location.origin}${location.pathname.replace(/wallet\.html$/, "join.html")}?ref=${encodeURIComponent(code)}`;
+            await navigator.clipboard.writeText(link);
+            const btn = document.getElementById("copyGrowthLinkBtn");
+            const original = btn.textContent;
+            btn.textContent = t("wallet_copied");
+            setTimeout(() => { btn.textContent = original; }, 1500);
+        });
+
+        card.style.display = "block";
+
+    } catch (e) {
+        // Dodatek, nie krytyczna funkcja portfela - cichy brak zamiast
+        // psucia reszty strony błędem, gdy Growth API jest niedostępne.
+        card.style.display = "none";
     }
 }
 
