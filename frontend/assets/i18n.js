@@ -478,6 +478,18 @@ const translations = {
         wallet_share_fallback:
             "Adres skopiowany (udostępnianie niedostępne w tej przeglądarce)",
 
+        wallet_growth_heading:
+            "Poleć znajomym",
+
+        wallet_growth_desc:
+            "Realni ludzie, realne portfele — bez tego się nie liczy.",
+
+        wallet_growth_copy_link:
+            "Kopiuj link",
+
+        wallet_growth_referrals_label:
+            "Polecenia",
+
         wallet_need_recipient:
             "Podaj adres odbiorcy",
 
@@ -1711,6 +1723,18 @@ const translations = {
 
         wallet_share_fallback:
             "Address copied (sharing not available in this browser)",
+
+        wallet_growth_heading:
+            "Refer friends",
+
+        wallet_growth_desc:
+            "Real people, real wallets — nothing else counts.",
+
+        wallet_growth_copy_link:
+            "Copy link",
+
+        wallet_growth_referrals_label:
+            "Referrals",
 
         wallet_need_recipient:
             "Enter recipient address",
