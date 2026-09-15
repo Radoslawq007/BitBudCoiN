@@ -490,6 +490,9 @@ const translations = {
         wallet_growth_referrals_label:
             "Polecenia",
 
+        wallet_growth_miners_label:
+            "Górnicy",
+
         wallet_need_recipient:
             "Podaj adres odbiorcy",
 
@@ -1735,6 +1738,9 @@ const translations = {
 
         wallet_growth_referrals_label:
             "Referrals",
+
+        wallet_growth_miners_label:
+            "Miners",
 
         wallet_need_recipient:
             "Enter recipient address",
