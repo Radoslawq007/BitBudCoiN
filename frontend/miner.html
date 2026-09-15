@@ -268,6 +268,34 @@ function formatDuration(seconds) {
     if (seconds < 3600) return Math.round(seconds / 60) + " " + t("miner_bench_min");
     return (seconds / 3600).toFixed(1) + " " + t("miner_bench_hr");
 }
+// Growth: zgłoszenie "ten adres kopie" przy starcie. Nigdy nie blokuje
+// ani nie opóźnia startu kopania - błąd/timeout Growth API jest po
+// cichu ignorowany. Rejestracja jest idempotentna (bezpieczna nawet
+// gdy adres już zarejestrowany z wallet.html), więc ta strona działa
+// samodzielnie, niezależnie od tego czy ktoś wcześniej odwiedził
+// portfel. localStorage pilnuje, żeby wielokrotne start/stop na tym
+// samym urządzeniu i adresie nie zawyżało licznika miners - zapisujemy
+// flagę DOPIERO po udanym zgłoszeniu, więc błąd sieci po prostu
+// spróbuje ponownie przy następnym starcie.
+function hasNotifiedGrowthMiner(addr) {
+    try { return localStorage.getItem("bbc_growth_miner_" + addr) === "1"; }
+    catch (e) { return false; }
+}
+function markNotifiedGrowthMiner(addr) {
+    try { localStorage.setItem("bbc_growth_miner_" + addr, "1"); } catch (e) {}
+}
+async function notifyGrowthMinerStart(addr) {
+    if (window.BBC_NETWORK === "testnet") return;
+    if (hasNotifiedGrowthMiner(addr)) return;
+    try {
+        await apiPost("/api/growth/register", { wallet: addr });
+        await apiPost("/api/growth/miner", { wallet: addr });
+        markNotifiedGrowthMiner(addr);
+    } catch (e) {
+        // Cicho ignorujemy - kopanie nie może zależeć od Growth API.
+    }
+}
+
 document.getElementById("benchBtn").addEventListener("click", async () => {
     const btn = document.getElementById("benchBtn");
     const resultEl = document.getElementById("benchResult");
@@ -302,6 +330,7 @@ document.getElementById("autoMineToggle").addEventListener("click", () => {
     } else {
         const addr = document.getElementById("autoMinerAddress").value.trim();
         if (!addr) { alert(t("miner_need_address_alert")); return; }
+        notifyGrowthMinerStart(addr);
         BrowserMiner.start(addr, API_BASE, document.getElementById("autoMineThreads").value, {
             onUpdate: (s) => {
                 document.getElementById("autoStatShares").textContent = s.shares;
@@ -334,6 +363,7 @@ document.getElementById("soloAutoToggle").addEventListener("click", () => {
     } else {
         const addr = document.getElementById("soloAutoAddress").value.trim();
         if (!addr) { alert(t("miner_need_address_alert")); return; }
+        notifyGrowthMinerStart(addr);
         SoloMiner.start(addr, API_BASE, document.getElementById("soloAutoThreads").value, {
             onUpdate: (s) => {
                 document.getElementById("soloAutoBlocks").textContent = s.blocksFound;
