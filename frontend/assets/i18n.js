@@ -31,6 +31,7 @@ const translations = {
         nav_wallet: "Portfel",
         nav_swap: "Kup BbC",
         nav_family: "Rodzina BbC",
+        nav_join: "Dołącz",
 
         /* COMMON */
 
@@ -1113,6 +1114,7 @@ const translations = {
         nav_wallet: "Wallet",
         nav_swap: "Buy BbC",
         nav_family: "BbC Family",
+        nav_join: "Join",
 
         /* COMMON */
 
