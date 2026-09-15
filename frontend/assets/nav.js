@@ -3,6 +3,7 @@
 // żeby nie wywalać i18n.js na nieznanym data-i18n.
 const NAV_PAGES = [
     { href: "index.html",     label: "Start" },
+    { href: "join.html",      label: "Dołącz",    i18n: "nav_join" },
     { href: "dashboard.html", label: "Dashboard", i18n: "nav_dashboard" },
     { href: "explorer.html",  label: "Explorer",  i18n: "nav_explorer" },
     { href: "miner.html",     label: "Kopanie",   i18n: "nav_mining" },
