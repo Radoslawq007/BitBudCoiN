@@ -693,7 +693,8 @@ async function refreshGrowth() {
             '<div class="btn-row">' +
                 '<button class="btn secondary" id="copyGrowthLinkBtn" data-i18n="wallet_growth_copy_link">Kopiuj link</button>' +
             '</div>' +
-            `<p class="hint"><span data-i18n="wallet_growth_referrals_label">Polecenia</span>: <strong>${escapeHtml(String(info.referrals))}</strong></p>`;
+            `<p class="hint"><span data-i18n="wallet_growth_referrals_label">Polecenia</span>: <strong>${escapeHtml(String(info.referrals))}</strong>` +
+            ` · <span data-i18n="wallet_growth_miners_label">Górnicy</span>: <strong>${escapeHtml(String(info.miners))}</strong></p>`;
 
         if (window.BbCI18n) BbCI18n.refresh();
 
