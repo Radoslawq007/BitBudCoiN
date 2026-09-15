@@ -30,4 +30,4 @@ function createLimiter({ windowMs, max, message }) {
 // razem z liczbą ludzi, inaczej sukces (więcej górników) sam siebie blokuje.
 const rateLimiter = createLimiter({ windowMs: 60 * 1000, max: 1000 });
 const strictLimiter = createLimiter({ windowMs: 60 * 1000, max: 60 });
-module.exports = { rateLimiter, strictLimiter };
+module.exports = { rateLimiter, strictLimiter, createLimiter };
