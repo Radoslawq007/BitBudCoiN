@@ -35,6 +35,8 @@ const {
     verifyHtlcRefundSignature
 } = require("./htlc-wallet");
 
+const growth = require("./growth");
+
 
 /*
  * NAPRAWA (dzisiaj): 821 wierszy w pool_credits mialo jako
@@ -2265,6 +2267,66 @@ app.get(
     (req, res) => {
 
         res.json([]);
+    }
+);
+
+
+/*
+ * ============================================================
+ * GROWTH — REJESTRACJA / REFERRALE / STATYSTYKI
+ * ============================================================
+ */
+
+app.get(
+    "/api/growth/stats",
+    (req, res) => {
+
+        res.json(
+            growth.getStats()
+        );
+    }
+);
+
+app.post(
+    "/api/growth/register",
+    growth.limiter,
+    (req, res) => {
+
+        const {
+            wallet,
+            referral
+        } = req.body || {};
+
+        const result = growth.registerWallet(wallet, referral);
+
+        res.status(result.status).json(result.body);
+    }
+);
+
+app.post(
+    "/api/growth/miner",
+    growth.limiter,
+    (req, res) => {
+
+        const {
+            wallet
+        } = req.body || {};
+
+        const result = growth.pingMiner(wallet);
+
+        res.status(result.status).json(result.body);
+    }
+);
+
+app.get(
+    "/api/growth/referral",
+    (req, res) => {
+
+        const result = growth.getReferralInfo(
+            req.query.code
+        );
+
+        res.status(result.status).json(result.body);
     }
 );
 
