@@ -85,6 +85,17 @@
 <script src="assets/native-responsive.js"></script>
 <script src="assets/i18n.js"></script>
 <script>
+// Kod polecający: jeśli ktoś wszedł z linku ?ref=, przekaż go dalej do
+// portfela - rejestracja w Growth API dzieje się tam, gdzie adres już
+// jest znany, nie tutaj.
+(() => {
+    const ref = new URLSearchParams(location.search).get("ref");
+    if (ref) {
+        const btn = document.querySelector('a[href="wallet.html"]');
+        if (btn) btn.href = `wallet.html?ref=${encodeURIComponent(ref)}`;
+    }
+})();
+
 let lastBlocks = null, lastPool = null, lastGrowth = null;
 
 function timeAgo(ts) {
