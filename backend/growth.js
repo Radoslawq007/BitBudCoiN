@@ -11,30 +11,36 @@
  * - brak custody
  * - brak sztucznego wolumenu
  *
- * Wersja zintegrowana z server.js (zamiast osobnego procesu + growth.json):
- * - dane w SQLite przez ./database — ta sama baza co reszta backendu
- * - montowane jako trasy w server.js, więc dziedziczy CORS, express.json,
- *   "trust proxy: loopback" i istniejący rate-limit.js zamiast duplikować
- *   to wszystko w drugim procesie
+ * POPRAWKA: pierwsza wersja wymagała ./database (better-sqlite3), którego
+ * nie ma na serwerze — nic go tam nie wymaga, więc nigdy nie został
+ * wdrożony. Prawdziwą warstwą bazy jest ./storage (node:sqlite), używana
+ * przez bbcblockchain.js, payout.js i payout-watcher.js. Growth otwiera
+ * WŁASNĄ instancję Storage na ten sam plik (CONFIG.DATABASE) — dokładnie
+ * tak jak robi to payout-watcher.js jako osobny proces. WAL + busy_timeout
+ * w Storage są tam właśnie po to, żeby to było bezpieczne.
+ *
+ * - montowane jako trasy w server.js — dziedziczy CORS, express.json,
+ *   "trust proxy: loopback" i istniejący rate-limit.js
  * - rate limit na register/miner przez createLimiter z ./rate-limit
- *   (30/h per IP — osobny koszyk od ogólnego rateLimiter/strictLimiter,
- *   bo to inny profil ryzyka niż reszta API). To NIE jest dowód własności
- *   portfela, tylko podnosi próg dla najprostszego skryptowania. Prawdziwa
- *   ochrona = podpis wiadomości kluczem portfela przy rejestracji — nie
- *   dodane, bo nie wiadomo czy portfel w przeglądarce dziś umie podpisać
- *   dowolną wiadomość poza transakcją
- * - adres: CELOWO tylko mainnet, w odróżnieniu od ADDRESS_FORMAT w
- *   server.js (który celowo akceptuje też prefiks "t" dla testnet) —
- *   /stats ma mierzyć prawdziwy wzrost, nie aktywność testnetową. Zmień na
- *   /^t?BbC[0-9a-fA-F]{40}$/ jeśli testnet też ma się liczyć
+ *   (30/h per IP). To NIE jest dowód własności portfela, tylko podnosi
+ *   próg dla najprostszego skryptowania. Prawdziwa ochrona = podpis
+ *   wiadomości kluczem portfela przy rejestracji — nie dodane, bo nie
+ *   wiadomo czy portfel w przeglądarce dziś umie podpisać dowolną
+ *   wiadomość poza transakcją
+ * - adres: CELOWO tylko mainnet (bez opcjonalnego "t") — /stats ma
+ *   mierzyć prawdziwy wzrost, nie testnet
  */
 
 const crypto = require('crypto');
-const db = require('./database');
+const CONFIG = require('./config');
+const Storage = require('./storage');
 
 const { createLimiter } = require('./rate-limit');
 
-db.prepare(`
+const storage = new Storage(CONFIG.DATABASE);
+const db = storage.db;
+
+db.exec(`
 CREATE TABLE IF NOT EXISTS growth_users (
 
     id TEXT PRIMARY KEY,
@@ -46,9 +52,9 @@ CREATE TABLE IF NOT EXISTS growth_users (
     referrals INTEGER DEFAULT 0
 
 )
-`).run();
+`);
 
-db.prepare(`
+db.exec(`
 CREATE TABLE IF NOT EXISTS growth_referrals (
 
     id TEXT PRIMARY KEY,
@@ -57,9 +63,9 @@ CREATE TABLE IF NOT EXISTS growth_referrals (
     created_at INTEGER
 
 )
-`).run();
+`);
 
-db.prepare(`
+db.exec(`
 CREATE TABLE IF NOT EXISTS growth_events (
 
     id TEXT PRIMARY KEY,
@@ -68,7 +74,7 @@ CREATE TABLE IF NOT EXISTS growth_events (
     data TEXT
 
 )
-`).run();
+`);
 
 function randomId(prefix) {
     return prefix + '_' + crypto.randomBytes(12).toString('hex');
