@@ -4,6 +4,7 @@ const Storage = require("./storage");
 const CONFIG = require("./config");
 const { deriveAddress, signTransaction } = require("./wallet");
 const crypto = require("crypto");
+const growth = require("./growth");
 
 const ADDRESS_FORMAT = /^t?BbC[0-9a-fA-F]{40}$/;
 
@@ -150,11 +151,22 @@ async function main(privateKeyPath, serverUrl, minPayout) {
             continue;
         }
         try {
+            const wasNeverPaidBefore = storage.getCreditsForAddress(minerAddress).paidCount === 0;
             const result = await sendPayout(minerAddress, currentTotal);
             if (result.accepted) {
                 const creditIds = storage.getUnpaidCreditIdsForAddressSince(minerAddress, legacyState.cutoffTimestamp);
                 storage.markCreditsPaid(creditIds);
                 console.log(`✅   [current] Wypłacono ${currentTotal.toFixed(4)} BbC dla ${minerAddress}`);
+                if (wasNeverPaidBefore) {
+                    try {
+                        const ref = growth.creditReferralReward(minerAddress, storage);
+                        if (ref.credited) {
+                            console.log(`🎁   [referral] +${ref.amount} BbC dla ${ref.referrerWallet} (polecił ${minerAddress})`);
+                        }
+                    } catch (refErr) {
+                        console.error(`⚠️  [referral] Nagroda nie naliczona (payout mimo to poprawny): ${refErr.message}`);
+                    }
+                }
             } else {
                 const reason = result.reason ?? result.error ?? JSON.stringify(result);
                 console.warn(`⚠️  [current] Odrzucono (${minerAddress}, próba: ${currentTotal.toFixed(4)} BbC): ${reason}`);
@@ -180,12 +192,23 @@ async function main(privateKeyPath, serverUrl, minPayout) {
             );
             if (amount > 0) {
                 try {
+                    const wasNeverPaidBefore = storage.getCreditsForAddress(target.minerAddress).paidCount === 0;
                     const result = await sendPayout(target.minerAddress, amount);
                     if (result.accepted) {
                         storage.markCreditsPaid(creditIds);
                         legacyState.accruedBudget -= amount;
                         saveLegacyState(legacyState);
                         console.log(`✅   [legacy] Wypłacono ${amount.toFixed(4)} BbC dla ${target.minerAddress} (zostało z długu legacy tego adresu: ${(target.legacyTotal - amount).toFixed(4)} BbC, budżet: ${legacyState.accruedBudget.toFixed(4)} BbC)`);
+                        if (wasNeverPaidBefore) {
+                            try {
+                                const ref = growth.creditReferralReward(target.minerAddress, storage);
+                                if (ref.credited) {
+                                    console.log(`🎁   [referral] +${ref.amount} BbC dla ${ref.referrerWallet} (polecił ${target.minerAddress})`);
+                                }
+                            } catch (refErr) {
+                                console.error(`⚠️  [referral] Nagroda nie naliczona (payout mimo to poprawny): ${refErr.message}`);
+                            }
+                        }
                     } else {
                         const reason = result.reason ?? result.error ?? JSON.stringify(result);
                         console.warn(`⚠️  [legacy] Odrzucono (${target.minerAddress}, próba: ${amount.toFixed(4)} BbC): ${reason}`);
