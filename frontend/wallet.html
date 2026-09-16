@@ -194,6 +194,14 @@
       <div id="growthBody">
         <div class="skeleton" style="height:60px;border-radius:8px;"></div>
       </div>
+      <div class="field" style="margin-top:14px;">
+        <label data-i18n="wallet_growth_enter_label">Masz kod znajomego?</label>
+        <input id="growthReferralInput" placeholder="np. ABCDE12345" maxlength="10">
+      </div>
+      <div class="btn-row">
+        <button class="btn secondary" id="applyGrowthReferralBtn" data-i18n="wallet_growth_apply_btn">Zastosuj</button>
+      </div>
+      <p class="hint" id="growthApplyStatus"></p>
     </div>
 
     <!-- Historia transakcji zalogowanego portfela.
@@ -715,6 +723,35 @@ async function refreshGrowth() {
         card.style.display = "none";
     }
 }
+
+document.getElementById("applyGrowthReferralBtn").addEventListener("click", async () => {
+    if (!currentWallet || window.BBC_NETWORK === "testnet") return;
+
+    const input = document.getElementById("growthReferralInput");
+    const status = document.getElementById("growthApplyStatus");
+    const code = input.value.trim().toUpperCase();
+
+    if (!code) return;
+
+    try {
+        const reg = await apiPost("/api/growth/register", {
+            wallet: currentWallet.address,
+            referral: code
+        });
+
+        if (reg.referral_status === "linked") {
+            status.textContent = t("wallet_growth_apply_ok");
+            input.value = "";
+            refreshGrowth();
+        } else if (reg.referral_status === "already_linked") {
+            status.textContent = t("wallet_growth_apply_already");
+        } else {
+            status.textContent = t("wallet_growth_apply_invalid");
+        }
+    } catch (e) {
+        status.textContent = t("wallet_growth_apply_invalid");
+    }
+});
 
 
 async function refreshBalance() {
