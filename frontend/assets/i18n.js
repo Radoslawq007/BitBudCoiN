@@ -494,6 +494,21 @@ const translations = {
         wallet_growth_miners_label:
             "Górnicy",
 
+        wallet_growth_enter_label:
+            "Masz kod znajomego?",
+
+        wallet_growth_apply_btn:
+            "Zastosuj",
+
+        wallet_growth_apply_ok:
+            "Zastosowano ✓",
+
+        wallet_growth_apply_already:
+            "Masz już przypisany kod polecającego.",
+
+        wallet_growth_apply_invalid:
+            "Nieprawidłowy kod.",
+
         wallet_need_recipient:
             "Podaj adres odbiorcy",
 
@@ -1743,6 +1758,21 @@ const translations = {
 
         wallet_growth_miners_label:
             "Miners",
+
+        wallet_growth_enter_label:
+            "Have a friend's code?",
+
+        wallet_growth_apply_btn:
+            "Apply",
+
+        wallet_growth_apply_ok:
+            "Applied ✓",
+
+        wallet_growth_apply_already:
+            "You already have a referrer linked.",
+
+        wallet_growth_apply_invalid:
+            "Invalid code.",
 
         wallet_need_recipient:
             "Enter recipient address",
