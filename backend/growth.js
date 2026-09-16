@@ -132,11 +132,52 @@ function registerWallet(walletInput, referralInput) {
     const existing = findUserByWallet(wallet);
 
     if (existing) {
+        // Doczepienie kodu po fakcie - tylko jeśli jeszcze nie ma
+        // referrera (nigdy nie nadpisujemy raz ustawionego) i podano nowy
+        // kod. Obsługuje przypadek "dostałem sam kod, nie link" - portfel
+        // mógł się już zarejestrować bez niego. referral_status mówi
+        // wywołującemu DOKŁADNIE co się stało, żeby zły kod nie wyglądał
+        // jak sukces w interfejsie.
+        let referralStatus = 'none';
+
+        if (referral) {
+            if (existing.referred_by) {
+                referralStatus = 'already_linked';
+            } else {
+                const referrer = findUserByReferral(referral);
+
+                if (referrer && referrer.wallet !== wallet) {
+                    db.prepare(
+                        `UPDATE growth_users SET referred_by = ? WHERE id = ?`
+                    ).run(referrer.id, existing.id);
+
+                    db.prepare(
+                        `UPDATE growth_users SET referrals = referrals + 1 WHERE id = ?`
+                    ).run(referrer.id);
+
+                    db.prepare(
+                        `INSERT INTO growth_referrals (id, referrer, referred, created_at)
+                         VALUES (?, ?, ?, ?)`
+                    ).run(randomId('ref'), referrer.id, existing.id, Date.now());
+
+                    recordEvent('referral_linked_late', {
+                        user_id: existing.id,
+                        referral: referrer.referral_code
+                    });
+
+                    referralStatus = 'linked';
+                } else {
+                    referralStatus = 'invalid_code';
+                }
+            }
+        }
+
         return {
             status: 200,
             body: {
                 ok: true,
                 existing: true,
+                referral_status: referralStatus,
                 user: {
                     id: existing.id,
                     referral_code: existing.referral_code
@@ -176,6 +217,9 @@ function registerWallet(walletInput, referralInput) {
         status: 201,
         body: {
             ok: true,
+            referral_status: referral
+                ? (referrer ? 'linked' : 'invalid_code')
+                : 'none',
             user: { id, referral_code: code }
         }
     };
