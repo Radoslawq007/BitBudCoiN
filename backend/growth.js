@@ -76,6 +76,15 @@ CREATE TABLE IF NOT EXISTS growth_events (
 )
 `);
 
+// Licznik nagrodzonych poleceń per referrer - dodane po fakcie, więc ALTER,
+// nie CREATE. Bezpieczne do powtarzania: SQLite rzuca przy istniejącej
+// kolumnie, co po prostu ignorujemy.
+try {
+    db.exec(`ALTER TABLE growth_users ADD COLUMN rewarded_referrals INTEGER DEFAULT 0`);
+} catch (e) {
+    // Kolumna już istnieje - normalne przy każdym starcie poza pierwszym.
+}
+
 function randomId(prefix) {
     return prefix + '_' + crypto.randomBytes(12).toString('hex');
 }
@@ -256,11 +265,70 @@ const limiter = createLimiter({
     message: 'Zbyt wiele żądań rejestracji/zgłoszeń, spróbuj później.'
 });
 
+/*
+ * Nagroda za polecenie - odblokowuje się dopiero przy PIERWSZEJ prawdziwej
+ * wypłacie poleconego adresu (wołane z payout.js, nie stąd). Limit per
+ * referrer chroni przed farmieniem kontami - bez niego jedna osoba mogłaby
+ * zarejestrować i "wykopać" 1000 fałszywych adresów samodzielnie.
+ *
+ * Kwota leci przez storage.saveCredit() - ten sam, już zabezpieczony
+ * mechanizm co zwykłe kredyty za shares (sufit MAX_POJEDYNCZEJ_WYPLATY w
+ * payout.js chroni też te wiersze), zamiast osobnego, niezależnego przelewu.
+ */
+const REFERRAL_REWARD_BBC = 2;
+const REFERRAL_REWARD_CAP = 10;
+
+function creditReferralReward(minerAddress, storage) {
+    const referred = db.prepare(
+        `SELECT referred_by FROM growth_users WHERE wallet = ?`
+    ).get(minerAddress);
+
+    if (!referred || !referred.referred_by) {
+        return { credited: false, reason: 'not-referred' };
+    }
+
+    const referrer = db.prepare(
+        `SELECT wallet, rewarded_referrals FROM growth_users WHERE id = ?`
+    ).get(referred.referred_by);
+
+    if (!referrer) {
+        return { credited: false, reason: 'referrer-missing' };
+    }
+
+    if ((referrer.rewarded_referrals || 0) >= REFERRAL_REWARD_CAP) {
+        return { credited: false, reason: 'cap-reached' };
+    }
+
+    const heights = storage.getBlockHeightsSince(-1);
+    const tip = heights.length > 0 ? heights[heights.length - 1] : 0;
+
+    storage.saveCredit({
+        minerAddress: referrer.wallet,
+        blockHeight: tip,
+        shares: 0,
+        amount: REFERRAL_REWARD_BBC,
+        timestamp: Date.now()
+    });
+
+    db.prepare(
+        `UPDATE growth_users SET rewarded_referrals = rewarded_referrals + 1 WHERE id = ?`
+    ).run(referred.referred_by);
+
+    recordEvent('referral_reward_credited', {
+        referred_wallet: minerAddress,
+        referrer_wallet: referrer.wallet,
+        amount: REFERRAL_REWARD_BBC
+    });
+
+    return { credited: true, referrerWallet: referrer.wallet, amount: REFERRAL_REWARD_BBC };
+}
+
 module.exports = {
     registerWallet,
     pingMiner,
     getStats,
     getReferralInfo,
     validAddress,
-    limiter
+    limiter,
+    creditReferralReward
 };
