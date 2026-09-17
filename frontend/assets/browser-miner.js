@@ -63,7 +63,14 @@ const BrowserMiner = (() => {
         });
     }
 
+    // UTWARDZENIE: solo-miner.js owija swoją pętlę w try/finally, więc
+    // workery są sprzątane nawet gdyby coś w środku rzuciło wyjątek.
+    // Ta pętla dotąd polegała wyłącznie na dojściu do końca funkcji -
+    // dziś nic w środku nie rzuca niezłapane (sprawdzone czytaniem), ale
+    // przyszła zmiana mogłaby to zepsuć po cichu. Ta sama gwarancja, bez
+    // zmiany żadnego kroku samego mining loopu (fetch/mine/submit).
     async function loop(minerAddress, apiBase) {
+      try {
         while (mining) {
             let work;
             try {
@@ -129,7 +136,9 @@ const BrowserMiner = (() => {
                 await new Promise((r) => setTimeout(r, 3000));
             }
         }
+      } finally {
         terminateWorkers();
+      }
     }
 
     return {
