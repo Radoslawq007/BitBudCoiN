@@ -9,8 +9,88 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/theme.css">
 <style>
-  #autoMineLog { max-height:180px; overflow-y:auto; font-family:var(--font-mono); font-size:.78rem; color:var(--text-dim); margin-top:12px; border-top:1px solid var(--border); padding-top:10px; }
-  #autoMineLog div { padding:3px 0; }
+  /* ============================================================
+     MINER.HTML — warstwa wizualna. Paleta, fonty i klasy .card/.btn
+     itd. zostają z theme.css bez zmian (spójność z resztą strony) —
+     to, co poniżej, to nowe, dodatkowe klasy tylko dla tej strony.
+     ============================================================ */
+
+  /* --- Hero / onboarding --- */
+  .miner-hero { padding: 28px 0 6px; }
+  .status-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: .78rem; letter-spacing: .03em;
+    color: var(--text-dim); background: var(--surface-2); border: 1px solid var(--border);
+    padding: 5px 12px; border-radius: 999px; margin-bottom: 14px;
+  }
+  .status-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }
+  .status-chip.active { color: var(--leaf); border-color: var(--leaf-dim); }
+  .status-chip.active .dot { background: var(--leaf); box-shadow: 0 0 8px 2px var(--leaf); animation: chip-pulse 1.6s ease-in-out infinite; }
+  @keyframes chip-pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+
+  .miner-hero h1 { margin-bottom: 6px; }
+  .miner-hero-sub { color: var(--text); font-size: 1.05rem; margin: 0 0 4px; }
+  .miner-hero-desc { color: var(--text-dim); font-size: .92rem; margin: 0; }
+
+  .promo-card { font-size: .92rem; line-height: 1.6; }
+  .promo-card p { margin: 0; color: var(--text-dim); }
+  .promo-card strong { color: var(--text); font-weight: 600; }
+
+  /* --- Pool vs Solo, wyjaśnienie prostym językiem --- */
+  .mode-explainer {
+    display: grid; grid-template-columns: 1fr; gap: 12px; margin: 20px 0;
+  }
+  @media (min-width: 720px) { .mode-explainer { grid-template-columns: 1fr 1fr; } }
+  .mode-explainer .mx {
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px;
+    background: var(--surface);
+  }
+  .mode-explainer .mx b { font-family: var(--font-display); color: var(--text); display: block; margin-bottom: 4px; font-size: .95rem; }
+  .mode-explainer .mx.mx-flame { border-color: rgba(90,126,246,.4); }
+  .mode-explainer .mx p { margin: 0; color: var(--text-dim); font-size: .86rem; }
+
+  /* --- Karta kopania: wyróżniony nagłówek trybu --- */
+  .miner-control-card h3 { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .miner-control-card .mode-tag { font-family: var(--font-mono); font-size: .68rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--leaf-dim); color: var(--leaf); text-transform: none; letter-spacing: 0; }
+  .flame-card .mode-tag { border-color: var(--flame-deep); color: var(--flame); }
+
+  .device-note {
+    display: flex; gap: 8px; align-items: flex-start; margin-top: 10px;
+    font-size: .8rem; color: var(--text-dim); background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px;
+  }
+  .device-note .ic { flex-shrink: 0; }
+
+  /* --- Siatka live-statystyk podczas kopania --- */
+  .live-stats-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 16px;
+  }
+  @media (min-width: 560px) { .live-stats-grid { grid-template-columns: repeat(3, 1fr); } }
+  .live-stat {
+    border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px;
+    background: var(--surface-2);
+  }
+  .live-stat .lv { font-family: var(--font-mono); font-size: 1.15rem; color: var(--text); }
+  .live-stat .lv.leaf { color: var(--leaf); text-shadow: 0 0 16px rgba(63,251,123,.35); }
+  .live-stat .lv.flame { color: var(--flame); }
+  .live-stat .lv.gold { color: #f5c15a; text-shadow: 0 0 16px rgba(245,193,90,.4); }
+  .live-stat .ll { font-family: var(--font-mono); font-size: .64rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; margin-top: 3px; }
+  .live-stats-grid.hashrate-hero .live-stat:first-child .lv { font-size: 1.55rem; }
+
+  /* --- Terminal log --- */
+  .term-log {
+    max-height: 200px; overflow-y: auto; font-family: var(--font-mono); font-size: .78rem;
+    margin-top: 14px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 10px 12px; background: rgba(2, 8, 5, 0.55);
+  }
+  .term-log div { padding: 3px 0; color: var(--text-dim); border-bottom: 1px dashed rgba(29,92,51,.25); }
+  .term-log div:last-child { border-bottom: none; }
+  .term-log .log-warn { color: var(--danger); }
+  .term-log .log-share { color: var(--leaf); }
+  .term-log .log-block { color: #f5c15a; font-weight: 600; }
+  .term-log .log-info { color: var(--text-dim); }
+  .term-log:empty::before { content: "Czekam na start…"; opacity: .5; }
+
   .mine-stats { display:flex; gap:24px; font-family:var(--font-mono); font-size:.95rem; margin-top:14px; }
   .mine-stats .n { color:var(--leaf); font-size:1.3rem; display:block; }
   .mine-stats .l { color:var(--text-dim); font-size:.72rem; text-transform:uppercase; }
@@ -26,12 +106,27 @@
   @keyframes live-pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.4; transform:scale(.8); } }
 
   .th-hashrate { text-align:right; }
+
+  @media (max-width: 640px) {
+    .live-stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .live-stats-grid.hashrate-hero .live-stat:first-child .lv { font-size: 1.3rem; }
+  }
 </style>
 </head>
 <body>
 
 <div class="page">
-  <h1 style="margin-top:32px;" data-i18n="miner_h1">Kopanie</h1>
+
+  <div class="miner-hero">
+    <span class="status-chip" id="globalStatusChip"><span class="dot"></span><span id="globalStatusText">Bezczynny</span></span>
+    <h1 data-i18n="miner_h1">Kopanie</h1>
+    <p class="miner-hero-sub">Bez instalowania programu. Wklej adres, kliknij start.</p>
+    <p class="miner-hero-desc">Kopanie w przeglądarce. Wielowątkowo. Bez instalacji.</p>
+  </div>
+
+  <div class="card promo-card">
+    <p><strong>BitBudCoin (BbC)</strong> to mały, młody blockchain proof-of-work (SHA-256), zbudowany od zera jako projekt hobbystyczny — nie firma, nie obietnica zysku. Ten miner liczy hashe w tej przeglądarce, na wielu wątkach naraz, bez instalowania niczego. Do wyboru: kopanie przez pulę albo solo.</p>
+  </div>
 
   <div class="card">
     <h3 data-i18n="miner_pool_status">Status puli<span class="live-indicator"><span class="live-dot"></span><span data-i18n="explorer_live_label">na żywo</span></span></h3>
@@ -48,8 +143,19 @@
     <div id="activePoolList" class="skeleton" style="height:60px;"></div>
   </div>
 
-  <div class="card">
-    <h3 data-i18n="miner_auto_title">Kopanie automatyczne (w tej przeglądarce)</h3>
+  <div class="mode-explainer">
+    <div class="mx">
+      <b>Pula</b>
+      <p>Liczysz razem z innymi górnikami. Nagroda dzielona proporcjonalnie do wysłanych shares — mniejsze wypłaty, ale częściej.</p>
+    </div>
+    <div class="mx mx-flame">
+      <b>Solo</b>
+      <p>Liczysz sam na cały blok. Jeśli go znajdziesz — cała nagroda trafia do Ciebie. Rzadziej, ale bez dzielenia się.</p>
+    </div>
+  </div>
+
+  <div class="card miner-control-card">
+    <h3><span data-i18n="miner_auto_title">Kopanie automatyczne (w tej przeglądarce)</span><span class="mode-tag">POOL</span></h3>
     <p data-i18n="miner_auto_desc">Liczy hashe tutaj, na Twoim urządzeniu, i samo zgłasza znalezione shares — bez klikania czegokolwiek co chwilę.</p>
     <div class="field">
       <label data-i18n="miner_your_address">Twój adres BbC</label>
@@ -61,17 +167,22 @@
       <div style="text-align:center;font-family:var(--font-mono);color:var(--leaf);margin-top:4px;" id="autoMineThreadsLabel">2</div>
     </div>
     <button class="btn" id="autoMineToggle" data-i18n="miner_start_btn">Zacznij kopać</button>
+
+    <div class="device-note"><span class="ic">ℹ️</span><span>Wydajność zależy od Twojego urządzenia — telefon policzy mniej niż komputer. Możesz zatrzymać kopanie w dowolnej chwili, bez utraty niczego.</span></div>
     <p class="hint" style="margin-top:10px;color:var(--text-dim);font-size:.8rem;" data-i18n="miner_auto_hint">Kopie dopóki ta karta jest otwarta na ekranie — zamknięcie karty albo zgaszenie ekranu telefonu może to zatrzymać.</p>
 
-    <div class="mine-stats">
-      <div><span class="n" id="autoStatShares">0</span><span class="l">Shares</span></div>
-      <div><span class="n" id="autoStatBlocks">0</span><span class="l" data-i18n="miner_blocks_label">Bloki</span></div>
+    <div class="live-stats-grid hashrate-hero" id="poolLiveStats" hidden>
+      <div class="live-stat"><div class="lv leaf" id="poolStatHashrate">0 H/s</div><div class="ll">Hashrate</div></div>
+      <div class="live-stat"><div class="lv" id="poolStatWorkers">0</div><div class="ll">Workery</div></div>
+      <div class="live-stat"><div class="lv" id="poolStatUptime">0s</div><div class="ll">Czas pracy</div></div>
+      <div class="live-stat"><div class="lv leaf" id="autoStatShares">0</div><div class="ll">Shares</div></div>
+      <div class="live-stat"><div class="lv gold" id="autoStatBlocks">0</div><div class="ll" data-i18n="miner_blocks_label">Bloki</div></div>
     </div>
-    <div id="autoMineLog"></div>
+    <div id="autoMineLog" class="term-log"></div>
   </div>
 
-  <div class="card" style="border-color:var(--flame);">
-    <h3 data-i18n="miner_solo_title">⚡ Solo — cała nagroda dla Ciebie</h3>
+  <div class="card miner-control-card flame-card" style="border-color:var(--flame);">
+    <h3><span data-i18n="miner_solo_title">⚡ Solo — cała nagroda dla Ciebie</span><span class="mode-tag">SOLO</span></h3>
     <p data-i18n="miner_solo_desc">Liczy w tej przeglądarce, tak jak kopanie przez pulę — ale bez dzielenia się. Znajdziesz blok, cała nagroda trafia prosto na Twój adres.</p>
     <div class="field">
       <label data-i18n="miner_your_address">Twój adres BbC</label>
@@ -83,8 +194,17 @@
       <div style="text-align:center;font-family:var(--font-mono);color:var(--flame);margin-top:4px;" id="soloAutoThreadsLabel">2</div>
     </div>
     <button class="btn flame" id="soloAutoToggle" data-i18n="miner_solo_start">Zacznij kopać solo</button>
-    <div style="margin-top:14px;font-family:var(--font-mono);font-size:.85rem;"><span data-i18n="miner_blocks_label">Bloki</span>: <span id="soloAutoBlocks">0</span> · <span data-i18n="miner_attempts_label">Próby</span>: <span id="soloAutoAttempts">0</span></div>
-    <div id="soloAutoLog" style="max-height:160px;overflow-y:auto;font-family:var(--font-mono);font-size:.78rem;color:var(--text-dim);margin-top:10px;"></div>
+
+    <div class="device-note"><span class="ic">ℹ️</span><span>Wydajność zależy od Twojego urządzenia. Możesz zatrzymać kopanie w dowolnej chwili, bez utraty niczego.</span></div>
+
+    <div class="live-stats-grid hashrate-hero" id="soloLiveStats" hidden>
+      <div class="live-stat"><div class="lv flame" id="soloStatHashrate">0 H/s</div><div class="ll">Hashrate</div></div>
+      <div class="live-stat"><div class="lv" id="soloStatWorkers">0</div><div class="ll">Workery</div></div>
+      <div class="live-stat"><div class="lv" id="soloStatUptime">0s</div><div class="ll">Czas pracy</div></div>
+      <div class="live-stat"><div class="lv gold" id="soloAutoBlocks">0</div><div class="ll" data-i18n="miner_blocks_label">Bloki</div></div>
+      <div class="live-stat"><div class="lv" id="soloAutoAttempts">0</div><div class="ll" data-i18n="miner_attempts_label">Próby</div></div>
+    </div>
+    <div id="soloAutoLog" class="term-log"></div>
   </div>
 
   <div class="card">
@@ -126,6 +246,24 @@ function formatHashrate(h) {
     return Math.round(h) + " H/s";
 }
 
+function formatUptime(ms) {
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return s + "s";
+    if (s < 3600) return Math.floor(s / 60) + "m " + (s % 60) + "s";
+    return Math.floor(s / 3600) + "h " + Math.floor((s % 3600) / 60) + "m";
+}
+
+// Pomocnik: pokazuje/chowa globalny chip statusu ("Bezczynny" / "Kopanie...").
+// Sprawdza oba minery naraz, bo tylko jeden może działać na raz (patrz
+// wzajemne wyłączanie przycisków niżej - to nie jest nowy mechanizm).
+function refreshGlobalStatusChip() {
+    const chip = document.getElementById("globalStatusChip");
+    const text = document.getElementById("globalStatusText");
+    const active = BrowserMiner.isMining() || SoloMiner.isMining();
+    chip.classList.toggle("active", active);
+    text.textContent = active ? "Kopanie…" : "Bezczynny";
+}
+
 const VARDIFF_TARGET_SECONDS = 12;
 function estimateMinerHashrate(difficulty) {
     return difficulty / VARDIFF_TARGET_SECONDS;
@@ -134,13 +272,6 @@ function estimatePoolHashrate(minerDifficulties) {
     return Object.values(minerDifficulties || {}).reduce((sum, d) => sum + estimateMinerHashrate(d), 0);
 }
 
-// NAPRAWA (dzisiaj): korzystala z apiGet("/pool/status") co 8s, i przy
-// KAZDYM chwilowym bledzie CZYSCILA wszystkie trzy tabele do banera
-// bledu - dokladnie "znika i pokazuje smieci" zamiast trzymac ostatnie
-// dobre dane. Teraz jedno zrodlo (BBCLiveState, ten sam co odznaka na
-// gorze), zero osobnego pollingu, i baner bledu tylko gdy NIGDY jeszcze
-// nie bylo zadnych danych - poza tym zawsze ostatni dobry stan +
-// dyskretne oznaczenie ⚠️ gdy dane nie sa live.
 function renderPoolStatus(status, live) {
     const poolStatusEl = document.getElementById("poolStatus");
     const soloListEl = document.getElementById("activeSoloList");
@@ -156,11 +287,6 @@ function renderPoolStatus(status, live) {
             <div><div class="stat-value leaf">#${fmtNumber(status.workingOnHeight, 0)}${warn}</div><div class="stat-label">${t("miner_working_on_block")}</div></div>
             <div><div class="stat-value">${status.totalSharesThisRound}</div><div class="stat-label">${t("miner_shares_this_round")}</div></div>
             <div><div class="stat-value">${(status.poolFee * 100).toFixed(0)}%</div><div class="stat-label">${t("miner_pool_fee_label")}</div></div>
-            <!-- Kafelek mowil "TRUDNOSC SHARE / BLOKU", a pokazywal WYLACZNIE
-                 trudnosc share (256). Wygladalo to, jakby trudnosc sieci
-                 runela z miliardow do 256 - mylace na tyle, ze sam sie na
-                 tym potknalem przy diagnozie. Teraz obie liczby, share nad
-                 trudnoscia bloku. -->
             <div title="share: ${fmtNumber(status.shareDifficulty)} / blok: ${status.blockDifficulty ? fmtNumber(status.blockDifficulty, 0) : "?"}"><div class="stat-value">${fmtNumber(status.shareDifficulty)}<span style="color:var(--text-dim);font-size:.6em;"> / </span><span style="font-size:.62em;">${status.blockDifficulty ? fmtDifficulty(status.blockDifficulty) : "—"}</span></div><div class="stat-label">${t("miner_share_block_diff")}</div></div>
             <div><div class="stat-value leaf">${formatHashrate(poolHashrate)}</div><div class="stat-label">${t("miner_pool_hashrate")}</div></div>
             <div><div class="stat-value flame">${formatHashrate(status.soloHashrate)}</div><div class="stat-label">${t("miner_solo_hashrate")}</div></div>
@@ -224,9 +350,6 @@ function showPoolStatusError(message) {
 
 BBCLiveState.subscribe(({ state, live }) => {
     if (!state || !state.pool) {
-        // NAPRAWA: poprzednio przekazywalem juz-przetlumaczony tekst jako
-        // "message", a showPoolStatusError SAMA doklejala ten sam prefiks -
-        // stad "Pula niedostepna: Pula niedostepna". Teraz bez duplikatu.
         if (!BBCLiveState.getLastGoodAt()) showPoolStatusError("");
         return;
     }
@@ -268,15 +391,6 @@ function formatDuration(seconds) {
     if (seconds < 3600) return Math.round(seconds / 60) + " " + t("miner_bench_min");
     return (seconds / 3600).toFixed(1) + " " + t("miner_bench_hr");
 }
-// Growth: zgłoszenie "ten adres kopie" przy starcie. Nigdy nie blokuje
-// ani nie opóźnia startu kopania - błąd/timeout Growth API jest po
-// cichu ignorowany. Rejestracja jest idempotentna (bezpieczna nawet
-// gdy adres już zarejestrowany z wallet.html), więc ta strona działa
-// samodzielnie, niezależnie od tego czy ktoś wcześniej odwiedził
-// portfel. localStorage pilnuje, żeby wielokrotne start/stop na tym
-// samym urządzeniu i adresie nie zawyżało licznika miners - zapisujemy
-// flagę DOPIERO po udanym zgłoszeniu, więc błąd sieci po prostu
-// spróbuje ponownie przy następnym starcie.
 function hasNotifiedGrowthMiner(addr) {
     try { return localStorage.getItem("bbc_growth_miner_" + addr) === "1"; }
     catch (e) { return false; }
@@ -318,6 +432,20 @@ document.getElementById("benchBtn").addEventListener("click", async () => {
     btn.textContent = t("miner_bench_btn");
 });
 
+// --- Log z kolorem wg typu. browser-miner.js/solo-miner.js JUZ wysylaly
+// drugi argument (onLog(msg, type)) - poprzedni handler go ignorowal i
+// kazda linia wygladala tak samo. Zero zmian w plikach minera, tylko
+// UZYCIE danych, ktore juz istnialy. ---
+function appendLogLine(containerId, msg, type) {
+    const line = document.createElement("div");
+    line.textContent = msg;
+    if (type) line.className = "log-" + type;
+    const log = document.getElementById(containerId);
+    log.prepend(line);
+    while (log.children.length > 30) log.removeChild(log.lastChild);
+}
+
+let poolStartedAt = null;
 document.getElementById("autoMineToggle").addEventListener("click", () => {
     const btn = document.getElementById("autoMineToggle");
     if (BrowserMiner.isMining()) {
@@ -327,31 +455,37 @@ document.getElementById("autoMineToggle").addEventListener("click", () => {
         document.getElementById("soloAutoToggle").disabled = false;
         document.getElementById("benchBtn").disabled = false;
         document.getElementById("autoMineThreads").disabled = false;
+        document.getElementById("poolLiveStats").hidden = true;
+        refreshGlobalStatusChip();
     } else {
         const addr = document.getElementById("autoMinerAddress").value.trim();
         if (!addr) { alert(t("miner_need_address_alert")); return; }
         notifyGrowthMinerStart(addr);
-        BrowserMiner.start(addr, API_BASE, document.getElementById("autoMineThreads").value, {
+        poolStartedAt = Date.now();
+        const threadCount = document.getElementById("autoMineThreads").value;
+        document.getElementById("poolStatWorkers").textContent = threadCount;
+        document.getElementById("poolLiveStats").hidden = false;
+        BrowserMiner.start(addr, API_BASE, threadCount, {
             onUpdate: (s) => {
                 document.getElementById("autoStatShares").textContent = s.shares;
                 document.getElementById("autoStatBlocks").textContent = s.blocksFound;
+                const elapsedMs = Date.now() - poolStartedAt;
+                const hashrate = s.attempts / (elapsedMs / 1000);
+                document.getElementById("poolStatHashrate").textContent = formatHashrate(hashrate);
+                document.getElementById("poolStatUptime").textContent = formatUptime(elapsedMs);
             },
-            onLog: (msg) => {
-                const line = document.createElement("div");
-                line.textContent = msg;
-                const log = document.getElementById("autoMineLog");
-                log.prepend(line);
-                while (log.children.length > 30) log.removeChild(log.lastChild);
-            }
+            onLog: (msg, type) => appendLogLine("autoMineLog", msg, type)
         });
         btn.textContent = t("miner_stop_btn");
         btn.classList.add("flame");
         document.getElementById("autoMineThreads").disabled = true;
         document.getElementById("soloAutoToggle").disabled = true;
         document.getElementById("benchBtn").disabled = true;
+        refreshGlobalStatusChip();
     }
 });
 
+let soloStartedAt = null;
 document.getElementById("soloAutoToggle").addEventListener("click", () => {
     const btn = document.getElementById("soloAutoToggle");
     if (SoloMiner.isMining()) {
@@ -360,27 +494,32 @@ document.getElementById("soloAutoToggle").addEventListener("click", () => {
         document.getElementById("autoMineToggle").disabled = false;
         document.getElementById("benchBtn").disabled = false;
         document.getElementById("soloAutoThreads").disabled = false;
+        document.getElementById("soloLiveStats").hidden = true;
+        refreshGlobalStatusChip();
     } else {
         const addr = document.getElementById("soloAutoAddress").value.trim();
         if (!addr) { alert(t("miner_need_address_alert")); return; }
         notifyGrowthMinerStart(addr);
-        SoloMiner.start(addr, API_BASE, document.getElementById("soloAutoThreads").value, {
+        soloStartedAt = Date.now();
+        const threadCount = document.getElementById("soloAutoThreads").value;
+        document.getElementById("soloStatWorkers").textContent = threadCount;
+        document.getElementById("soloLiveStats").hidden = false;
+        SoloMiner.start(addr, API_BASE, threadCount, {
             onUpdate: (s) => {
                 document.getElementById("soloAutoBlocks").textContent = s.blocksFound;
                 document.getElementById("soloAutoAttempts").textContent = fmtNumber(s.attempts);
+                const elapsedMs = Date.now() - soloStartedAt;
+                const hashrate = s.attempts / (elapsedMs / 1000);
+                document.getElementById("soloStatHashrate").textContent = formatHashrate(hashrate);
+                document.getElementById("soloStatUptime").textContent = formatUptime(elapsedMs);
             },
-            onLog: (msg) => {
-                const line = document.createElement("div");
-                line.textContent = msg;
-                const log = document.getElementById("soloAutoLog");
-                log.prepend(line);
-                while (log.children.length > 30) log.removeChild(log.lastChild);
-            }
+            onLog: (msg, type) => appendLogLine("soloAutoLog", msg, type)
         });
         btn.textContent = t("miner_stop_btn");
         document.getElementById("autoMineToggle").disabled = true;
         document.getElementById("soloAutoThreads").disabled = true;
         document.getElementById("benchBtn").disabled = true;
+        refreshGlobalStatusChip();
     }
 });
 </script>
