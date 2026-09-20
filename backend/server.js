@@ -16,7 +16,8 @@ const {
 } = require("./rate-limit");
 
 const {
-    difficultyToTargetHex
+    difficultyToTargetHex,
+    computeBlockHash
 } = require("./bbcblockchain");
 
 const crypto = require("crypto");   // potrzebne przez sekretPoprawny()
@@ -2003,6 +2004,34 @@ app.post(
 
 
 /*
+ * NAPRAWA (20.09.2026): "Live" hashrate solo-gorników opieral sie
+ * wylacznie na samozglaszanych attempts/interval w /solo/heartbeat -
+ * zero weryfikacji, kazdy mogl jednym POST-em zglosic dowolna liczbe
+ * bez realnego kopania (ta sama klasa buga co falszywe 1.52 GH/s z
+ * przegladarki kiedys, patrz solo-tracker.js). Solo dostaje teraz
+ * wlasny, lzejszy "share" - DOKLADNIE ten sam mechanizm co juz dziala
+ * w pool.js (patrz submitShare/shareTargetHex), tylko ze STALA
+ * trudnoscia zamiast adaptacyjnej personalDifficulty - solo nie
+ * potrzebuje precyzji proporcjonalnej wyplaty (payout idzie wylacznie
+ * przez realny /solo/submit), tylko uczciwego pomiaru do wyswietlenia.
+ *
+ * WAZNE: to NIE jest parametr konsensusu - nie wchodzi do bloku, nie
+ * jest propagowany P2P. Nie musi byc identyczny na wszystkich wezlach
+ * (w odroznieniu od config.js/GENESIS_ADDRESS/DIFFICULTY itd.).
+ */
+const SOLO_SHARE_DIFFICULTY_DIVISOR = 200;
+
+function getSoloShareDifficulty() {
+    return Math.max(
+        1,
+        Math.round(
+            blockchain.difficulty / SOLO_SHARE_DIFFICULTY_DIVISOR
+        )
+    );
+}
+
+
+/*
  * ============================================================
  * SOLO WORK
  * ============================================================
@@ -2083,6 +2112,31 @@ app.get(
             safeBlockTarget = null;
         }
 
+        // Lzejszy prog "share" - patrz komentarz przy
+        // SOLO_SHARE_DIFFICULTY_DIVISOR powyzej. Ten sam bezpieczny
+        // wzorzec konwersji co safeBlockTarget powyzej.
+        const soloShareDifficulty =
+            getSoloShareDifficulty();
+
+        let safeShareTarget;
+
+        try {
+
+            safeShareTarget =
+                difficultyToTargetHex(
+                    soloShareDifficulty
+                );
+
+        } catch (err) {
+
+            console.error(
+                "difficultyToTargetHex() zawiodlo dla share w /solo/work: " +
+                err.message
+            );
+
+            safeShareTarget = null;
+        }
+
         res.json({
 
             height:
@@ -2104,7 +2158,13 @@ app.get(
                 safeDifficulty,
 
             blockTarget:
-                safeBlockTarget
+                safeBlockTarget,
+
+            shareDifficulty:
+                soloShareDifficulty,
+
+            shareTarget:
+                safeShareTarget
         });
     }
 );
@@ -2185,19 +2245,23 @@ app.post(
 
 /*
  * ============================================================
- * SOLO HEARTBEAT
+ * SOLO SHARE
+ *
+ * Realny, zweryfikowany dowod pracy dla "Live" hashrate solo-gorników
+ * - patrz solo-tracker.js i NAPRAWA (20.09.2026) przy
+ * SOLO_SHARE_DIFFICULTY_DIVISOR powyzej. Zastepuje stary,
+ * niczym-niezweryfikowany /solo/heartbeat jako zrodlo hashrate.
  * ============================================================
  */
 
 app.post(
-    "/solo/heartbeat",
+    "/solo/share",
     strictLimiter,
     (req, res) => {
 
         const {
             minerAddress,
-            attempts,
-            intervalSeconds
+            candidate
         } = req.body || {};
 
         if (!minerAddress) {
@@ -2216,14 +2280,114 @@ app.post(
             });
         }
 
-        soloTracker.heartbeat(
+        if (
+            !candidate ||
+            typeof candidate !== "object" ||
+            typeof candidate.hash !== "string" ||
+            typeof candidate.nonce === "undefined"
+        ) {
+
+            return res.status(400).json({
+                error:
+                    "Brak lub niepoprawny candidate"
+            });
+        }
+
+        // Przeliczamy hash NIEZALEZNIE od tego co przyslal klient -
+        // dokladnie ta sama funkcja co w receiveBlock() dla prawdziwych
+        // blokow. Klient nie moze zaklamac hasha bez zaklamania nonce,
+        // a zaklamany nonce da INNY hash niz ten zgloszony.
+        const recomputedHash =
+            computeBlockHash(candidate);
+
+        if (recomputedHash !== candidate.hash) {
+
+            return res.status(400).json({
+                error:
+                    "hash nie zgadza sie z nonce"
+            });
+        }
+
+        // Trudnosc share'a liczona TERAZ, przez serwer - NIGDY z tego
+        // co deklarowalby klient. Klient nie ma zadnego pola do
+        // zaklamania trudnosci wlasnego share'a: gdyby zadeklarowal
+        // wyzsza trudnosc niz realnie osiagnieta, jego prawdziwy hash
+        // nie spelnilby tak twardego targetu i odpadlby ponizej; gdyby
+        // zadeklarowal nizsza, wniosloby to mniej do wzoru na hashrate
+        // - nie ma tu zadnej korzysci z klamstwa w zadna strone.
+        const shareDifficulty =
+            getSoloShareDifficulty();
+
+        const shareTargetHex =
+            difficultyToTargetHex(
+                shareDifficulty
+            );
+
+        if (recomputedHash > shareTargetHex) {
+
+            return res.status(400).json({
+                error:
+                    "nie spelnia trudnosci share"
+            });
+        }
+
+        soloTracker.recordShare(
             minerAddress,
-            attempts,
-            intervalSeconds
+            shareDifficulty
+        );
+
+        res.json({
+            ok:
+                true
+        });
+    }
+);
+
+
+/*
+ * ============================================================
+ * SOLO HEARTBEAT
+ * ============================================================
+ */
+
+app.post(
+    "/solo/heartbeat",
+    strictLimiter,
+    (req, res) => {
+
+        // NAPRAWA (20.09.2026): attempts/intervalSeconds z body NIE SA
+        // JUZ CZYTANE - to byly one samozglaszane, bez zadnej
+        // weryfikacji (patrz NAPRAWA przy SOLO_SHARE_DIFFICULTY_DIVISOR
+        // powyzej). Endpoint zostaje wylacznie jako "widziany ostatnio"
+        // dla starszych zakladek przegladarki jeszcze bez nowego kodu -
+        // touch() nigdy nie wplywa na wyswietlany hashrate, tylko
+        // /solo/share (realnie zweryfikowany) to robi.
+        const {
+            minerAddress
+        } = req.body || {};
+
+        if (!minerAddress) {
+
+            return res.status(400).json({
+                error:
+                    "Brak adresu"
+            });
+        }
+
+        if (!ADDRESS_FORMAT.test(minerAddress)) {
+
+            return res.status(400).json({
+                error:
+                    "Nieprawidlowy format adresu"
+            });
+        }
+
+        soloTracker.touch(
+            minerAddress
         );
 
         /*
-         * Hashrate/miner status zmienił się.
+         * Status obecnosci mogl sie zmienic.
          */
         broadcastLiveState();
 
