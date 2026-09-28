@@ -10,7 +10,9 @@
  * - każdy worker dostaje osobny zakres nonce
  * - brak sztucznego limitu prób
  * - automatyczne odświeżanie work po znalezieniu/stale block
- * - heartbeat dla aktywności solo minera
+ * - heartbeat dla aktywności solo minera ("widziany ostatnio")
+ * - realne share (lżejszy próg obok blockTarget) -> /solo/share,
+ *   jedyne źródło "Live" H/s od 20.09.2026 (patrz backend)
  * - szybkie zatrzymanie wszystkich workerów
  * - ochrona przed równoczesnymi sesjami
  * - obsługa rozłączenia API
@@ -50,8 +52,16 @@ const SoloMiner = (() => {
     const WORK_RETRY_DELAY_MS = 3000;
     const SERVER_ERROR_DELAY_MS = 5000;
 
+    // NAPRAWA (24.09.2026): patrz komentarz w mining-worker.js - to jest
+    // druga polowa tego samego fixu, throttling zgloszen /solo/share
+    // dokladnie tym samym wzorcem co maybeSendHeartbeat() ponizej.
+    const SHARE_INTERVAL_MS = 15000;
+
     let lastHeartbeatTime = null;
     let attemptsAtLastHeartbeat = 0;
+
+    let lastShareSubmitTime = null;
+    let pendingShareCandidate = null;
 
     /*
      * --------------------------------------------------------
@@ -161,21 +171,42 @@ const SoloMiner = (() => {
 
     /*
      * --------------------------------------------------------
-     * SHARE
-     *
-     * NAPRAWA (20.09.2026): to zastępuje heartbeat jako źródło
-     * wyświetlanego hashrate. Worker sam sprawdza hash <= shareTarget
-     * (patrz mining-worker.js) i przysyła tu TYLKO realne, znalezione
-     * share'y - serwer (/solo/share) niezależnie przelicza hash z
-     * nonce i sam ustala trudność, więc nic tu nie da się zawyżyć
-     * samym zgłoszeniem.
+     * SHARE (Live H/s) - NAPRAWA (24.09.2026)
      * --------------------------------------------------------
+     *
+     * heartbeat powyzej NIE karmi juz "Live" H/s (patrz backend,
+     * 20.09.2026) - zostaje wylacznie jako "widziany ostatnio".
+     * Realny pomiar idzie tu, dokladnie tym samym throttlem co
+     * heartbeat: najnowszy share nadpisuje starszy, wysylamy co
+     * najwyzej raz na SHARE_INTERVAL_MS, nigdy nie zatrzymuje PoW.
      */
 
-    function sendShare(candidate) {
-        if (!currentMinerAddress || !currentApiBase) {
+    function maybeSendShare() {
+        if (
+            !mining ||
+            !currentMinerAddress ||
+            !currentApiBase ||
+            !pendingShareCandidate
+        ) {
             return;
         }
+
+        const now = Date.now();
+
+        if (
+            lastShareSubmitTime !== null &&
+            now - lastShareSubmitTime <
+            SHARE_INTERVAL_MS
+        ) {
+            return;
+        }
+
+        lastShareSubmitTime = now;
+
+        const candidateToSend =
+            pendingShareCandidate;
+
+        pendingShareCandidate = null;
 
         const shareController =
             new AbortController();
@@ -193,12 +224,12 @@ const SoloMiner = (() => {
             },
             body: JSON.stringify({
                 minerAddress: currentMinerAddress,
-                candidate
+                candidate: candidateToSend
             }),
             signal: shareController.signal
         }).catch(() => {
             /*
-             * Share jest informacyjny dla Live.
+             * Share jest informacyjny, tak samo jak heartbeat.
              * Brak API nie zatrzymuje PoW.
              */
         }).finally(() => {
@@ -337,17 +368,10 @@ const SoloMiner = (() => {
                         }
 
                         case "share": {
-                            const attempts =
-                                Number(msg.attempts) || 0;
+                            pendingShareCandidate =
+                                msg.candidate;
 
-                            sessionStats.attempts +=
-                                attempts;
-
-                            sendShare(
-                                msg.candidate
-                            );
-
-                            safeUpdate();
+                            maybeSendShare();
 
                             break;
                         }
@@ -931,6 +955,9 @@ const SoloMiner = (() => {
 
             lastHeartbeatTime = null;
             attemptsAtLastHeartbeat = 0;
+
+            lastShareSubmitTime = null;
+            pendingShareCandidate = null;
 
             onUpdate =
                 callbacks.onUpdate ||
