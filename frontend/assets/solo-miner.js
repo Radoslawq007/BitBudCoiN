@@ -10,7 +10,9 @@
  * - każdy worker dostaje osobny zakres nonce
  * - brak sztucznego limitu prób
  * - automatyczne odświeżanie work po znalezieniu/stale block
- * - heartbeat dla aktywności solo minera
+ * - heartbeat dla aktywności solo minera ("widziany ostatnio")
+ * - realne share (lżejszy próg obok blockTarget) -> /solo/share,
+ *   jedyne źródło "Live" H/s od 20.09.2026 (patrz backend)
  * - szybkie zatrzymanie wszystkich workerów
  * - ochrona przed równoczesnymi sesjami
  * - obsługa rozłączenia API
@@ -50,8 +52,27 @@ const SoloMiner = (() => {
     const WORK_RETRY_DELAY_MS = 3000;
     const SERVER_ERROR_DELAY_MS = 5000;
 
+    // NAPRAWA (24.09.2026): patrz komentarz w mining-worker.js - to jest
+    // druga polowa tego samego fixu.
+    //
+    // NAPRAWA 2 (tego samego dnia, po symulacji na prawdziwym SoloTracker
+    // i realnej trudnosci z /info): SOLO_SHARE_DIFFICULTY_DIVISOR=200
+    // (backend) dawal share co dziesiatki minut przy 3-20 kH/s - Live
+    // pokazywalby 0 praktycznie caly czas, niezaleznie od tego pliku.
+    // Po zmianie dzielnika na 5000 (osobna instrukcja dla server.js)
+    // share'y sa czeste na tyle, ze pojedyncze, nadpisywane miejsce
+    // zaczyna GUBIC realne share'y silniejszych gornikow zamiast tylko
+    // je opozniac - stad kolejka FIFO zamiast jednego pola, i krotszy
+    // odstep (limit to 60 zadan/min NA IP, dzielony z heartbeatem - 4s
+    // przy max ~4 w kolejce miesci sie z duzym zapasem).
+    const SHARE_INTERVAL_MS = 4000;
+    const SHARE_QUEUE_MAX = 4;
+
     let lastHeartbeatTime = null;
     let attemptsAtLastHeartbeat = 0;
+
+    let lastShareSubmitTime = null;
+    let shareQueue = [];
 
     /*
      * --------------------------------------------------------
@@ -156,6 +177,78 @@ const SoloMiner = (() => {
              */
         }).finally(() => {
             clearTimeout(heartbeatTimeoutId);
+        });
+    }
+
+    /*
+     * --------------------------------------------------------
+     * SHARE (Live H/s) - NAPRAWA (24.09.2026)
+     * --------------------------------------------------------
+     *
+     * heartbeat powyzej NIE karmi juz "Live" H/s (patrz backend,
+     * 20.09.2026) - zostaje wylacznie jako "widziany ostatnio".
+     * Realny pomiar idzie tu, dokladnie tym samym throttlem co
+     * heartbeat: najnowszy share nadpisuje starszy, wysylamy co
+     * najwyzej raz na SHARE_INTERVAL_MS, nigdy nie zatrzymuje PoW.
+     */
+
+    function maybeSendShare() {
+        if (
+            !mining ||
+            !currentMinerAddress ||
+            !currentApiBase ||
+            shareQueue.length === 0
+        ) {
+            return;
+        }
+
+        const now = Date.now();
+
+        if (
+            lastShareSubmitTime !== null &&
+            now - lastShareSubmitTime <
+            SHARE_INTERVAL_MS
+        ) {
+            return;
+        }
+
+        lastShareSubmitTime = now;
+
+        /*
+         * Najstarszy najpierw - FIFO, nie LIFO. Kazdy wyslany share to
+         * jedno recordShare() po stronie serwera; wysylanie zawsze
+         * najnowszego zgubilibysmy licznik shareCount dla kazdego
+         * gornika, ktory trafia wiecej niz jeden share na okno.
+         */
+        const candidateToSend =
+            shareQueue.shift();
+
+        const shareController =
+            new AbortController();
+
+        const shareTimeoutId =
+            setTimeout(
+                () => shareController.abort(),
+                8000
+            );
+
+        fetch(`${currentApiBase}/solo/share`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                minerAddress: currentMinerAddress,
+                candidate: candidateToSend
+            }),
+            signal: shareController.signal
+        }).catch(() => {
+            /*
+             * Share jest informacyjny, tak samo jak heartbeat.
+             * Brak API nie zatrzymuje PoW.
+             */
+        }).finally(() => {
+            clearTimeout(shareTimeoutId);
         });
     }
 
@@ -284,7 +377,31 @@ const SoloMiner = (() => {
                                 attempts;
 
                             maybeSendHeartbeat();
+                            maybeSendShare();
                             safeUpdate();
+
+                            break;
+                        }
+
+                        case "share": {
+                            shareQueue.push(
+                                msg.candidate
+                            );
+
+                            if (
+                                shareQueue.length >
+                                SHARE_QUEUE_MAX
+                            ) {
+                                /*
+                                 * Kolejka pelna - gubimy NAJSTARSZY,
+                                 * nie nowo znaleziony. Prawo do
+                                 * spadku wypelnienia, nie do
+                                 * blokowania nowych znalezisk.
+                                 */
+                                shareQueue.shift();
+                            }
+
+                            maybeSendShare();
 
                             break;
                         }
@@ -868,6 +985,9 @@ const SoloMiner = (() => {
 
             lastHeartbeatTime = null;
             attemptsAtLastHeartbeat = 0;
+
+            lastShareSubmitTime = null;
+            shareQueue = [];
 
             onUpdate =
                 callbacks.onUpdate ||
