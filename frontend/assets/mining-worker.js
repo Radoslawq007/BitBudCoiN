@@ -25,6 +25,23 @@ self.onmessage = async (e) => {
     shouldStop = false;
     const { work, targetField, workerIndex, workerCount, maxAttemptsPerWorker } = msg;
     const targetHex = work[targetField];
+
+    // NAPRAWA (24.09.2026): SOLO "Live" H/s bazuje od 20.09 wylacznie na
+    // /solo/share (patrz server.js, SOLO_SHARE_DIFFICULTY_DIVISOR) - ten
+    // worker nigdy nie zglaszal share'ow, tylko pelne bloki ("found"),
+    // wiec Live zawsze pokazywalo 0. Dodatkowy, LZEJSZY prog obok
+    // istniejacego blockTarget - nie zatrzymuje petli, szuka dalej
+    // pelnego bloku.
+    // POOL: tam work TEZ ma pole shareTarget, ale to jest wtedy glowny
+    // prog petli (targetField === "shareTarget", "found" = share dla
+    // puli) - dodatkowa kontrola jest jawnie wylaczona, zero zmiany
+    // zachowania dla POOL.
+    const shareTargetHex =
+        targetField !== "shareTarget" &&
+        typeof work.shareTarget === "string"
+            ? work.shareTarget
+            : null;
+
     const candidate = {
         height: work.height, previousHash: work.previousHash, timestamp: work.timestamp,
         transactions: work.transactions, difficulty: work.difficulty, nonce: workerIndex
@@ -37,6 +54,9 @@ self.onmessage = async (e) => {
         if (shouldStop) {
             self.postMessage({ type: "stopped", attempts: sinceLastReport });
             return;
+        }
+        if (shareTargetHex !== null && hash <= shareTargetHex) {
+            self.postMessage({ type: "share", candidate: { ...candidate, hash } });
         }
         candidate.nonce += workerCount;
         localAttempts++;
