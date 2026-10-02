@@ -1,0 +1,84 @@
+{
+  "name": "BitBudCoiN",
+  "shortName": "bbc",
+  "symbol": "BbC",
+  "chainId": 28000000,
+  "evmCompatible": false,
+  "nativeCurrency": {
+    "name": "BitBudCoin",
+    "symbol": "BbC",
+    "decimals": null,
+    "amountModel": "liczby zmiennoprzecinkowe (JS Number) w API i transakcjach; dokładna precyzja do potwierdzenia"
+  },
+  "rpc": {
+    "type": "REST (nie JSON-RPC EVM)",
+    "urls": [
+      "https://141-147-98-57.sslip.io"
+    ],
+    "routes": {
+      "info": "GET /info",
+      "state": "GET /state",
+      "balance": "GET /balance/:address",
+      "blocks": "GET /blocks",
+      "block": "GET /blocks/:height",
+      "transactionsByAddress": "GET /transactions/address/:address",
+      "peers": "GET /peers",
+      "send": "POST /transactions/send",
+      "htlcSubmit": "POST /htlc/submit",
+      "htlc": "GET /htlc/:id",
+      "blocksLimit": "GET /blocks?limit=N"
+    }
+  },
+  "explorer": {
+    "name": "BitBudCoiN Dziennik",
+    "url": "https://radoslawq007.github.io/BitBudCoiN"
+  },
+  "p2p": {
+    "host": "141.147.98.57",
+    "port": 6001
+  },
+  "addressFormat": {
+    "prefix": "BbC",
+    "body": "40 znaków hex = pierwsze 40 z SHA-256(klucz publiczny SPKI DER)",
+    "regex": "^BbC[0-9a-fA-F]{40}$",
+    "example": "BbCcbcfc6f043ddb1f5ac83dd59feab439e192a1fb7",
+    "note": "Portfel WWW pokazuje wielkość liter jako sumę kontrolną; do sieci i podpisu idzie forma z małymi literami."
+  },
+  "ledgerModel": "account/balance",
+  "consensus": {
+    "type": "Proof-of-Work",
+    "hash": "SHA-256",
+    "difficultyAdjustment": "ASERT",
+    "asertActiveFromHeight": 100000
+  },
+  "signatureSystem": {
+    "scheme": "Ed25519",
+    "enforcedFromHeight": 3070,
+    "publicKeyFormat": "PEM (SPKI)",
+    "privateKeyFormat": "PEM (PKCS8)",
+    "payload": "JSON.stringify({from,to,amount,fee,timestamp}) w UTF-8",
+    "signatureEncoding": "base64"
+  },
+  "bridge": {
+    "type": "atomic swap (HTLC)",
+    "pair": "BTC"
+  },
+  "testnet": {
+    "name": "BitBudCoiN Testnet",
+    "chainId": 28000001,
+    "symbol": "tBbC",
+    "blockTimeSeconds": 60,
+    "asertActiveFromHeight": 10,
+    "rpc": {
+      "urls": [
+        "https://testnet.141-147-98-57.sslip.io"
+      ]
+    }
+  },
+  "repository": "https://github.com/Radoslawq007/BitBudCoiN",
+  "feeTiers": {
+    "low": "max(0.001, 0.05% kwoty)",
+    "fast": "max(0.003, 0.15% kwoty)",
+    "turbo": "max(0.008, 0.4% kwoty)"
+  }
+}
