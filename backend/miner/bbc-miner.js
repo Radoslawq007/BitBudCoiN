@@ -107,7 +107,7 @@ async function main() {
   // ----- wątki -----
   const stats = { hashes: 0, ok: 0, rejected: 0, blocks: 0, credited: 0, stale: 0, started: Date.now() };
   const jobs = new Map(); let jobSeq = 0, current = null;
-  const submitQueue = []; let submitting = false;
+  const submitQueue = []; let submitting = false, hold = false, lastSubmitAt = 0;
   const workers = [];
   const nonceBase = crypto.randomInt(0, 2 ** 40);
   for (let i = 0; i < o.threads; i++) {
@@ -115,6 +115,7 @@ async function main() {
     w.on('message', (m) => {
       if (m.type === 'rate') stats.hashes += m.hashes;
       else if (m.type === 'share') {
+        if (hold) return; // czekamy na nowy cel z puli — udziały policzone dla starego celu zwykle odpadają
         const j = jobs.get(m.jobId);
         // kandydat na pełny blok idzie na początek kolejki — nigdy nie czeka za zwykłymi udziałami
         if (j && j.blockTarget && m.hash <= j.blockTarget) submitQueue.unshift(m); else submitQueue.push(m);
@@ -149,18 +150,30 @@ async function main() {
       while (submitQueue.length) {
         const m = submitQueue.shift(), j = jobs.get(m.jobId);
         if (!j) continue;
+        if (current && m.hash > current.shareTarget) continue; // cel puli już się zaostrzył (VARDIFF) — taki udział i tak by odpadł
         const candidate = { height: j.height, previousHash: j.previousHash, timestamp: j.timestamp, transactions: j.transactions, difficulty: j.difficulty, nonce: m.nonce, hash: m.hash };
         if (blockHash(j, m.nonce) !== m.hash) { console.error('Wewnętrzny błąd hasha — pomijam'); continue; } // nigdy nie wysyłamy czegoś, co sami nie potwierdziliśmy
+        const wait = 400 - (Date.now() - lastSubmitAt); // pula ma wspólny limit zapytań dla wszystkich górników
+        if (wait > 0) await sleep(wait);
+        lastSubmitAt = Date.now();
         let res;
         try { res = await http('POST', base + '/pool/submit', { minerAddress: address, candidate }); }
         catch (e) { stats.rejected++; await sleep(2000); continue; }
         const d = res.data || {};
         if (d.accepted) {
           stats.ok++; stats.credited += Number(d.paidNow) || 0;
+          refreshSoon(); // pula po każdym udziale może podnieść trudność (VARDIFF) — bierzemy nowy cel
           if (d.blockFound) { stats.blocks++; console.log(`\n★ ZNALEZIONO BLOK na wysokości ${j.height}!`); refresh(true); }
         } else {
           stats.rejected++;
-          if (/nieaktualn|wysokosc/i.test(String(d.reason))) { stats.stale++; refresh(true); }
+          if (/nieaktualn|wysokosc/i.test(String(d.reason))) { // ktoś znalazł blok: wstrzymaj, wyrzuć stare udziały, weź nową pracę
+            stats.stale++; hold = true; submitQueue.length = 0;
+            refresh(true).finally(() => { hold = false; });
+          }
+          else if (/trudnosci/i.test(String(d.reason))) { // cel puli się zaostrzył (VARDIFF): wstrzymaj wysyłkę, weź nowy cel
+            hold = true; submitQueue.length = 0;
+            refresh(false).finally(() => { hold = false; });
+          }
           else if (res.status === 429) await sleep(3000);
           else if (stats.rejected <= 5) console.log('Udział odrzucony: ' + (d.reason || d.error || res.status));
         }
@@ -182,6 +195,12 @@ async function main() {
     } catch (e) {
       fails++; if (fails === 1 || fails % 6 === 0) console.log('Brak połączenia z pulą (' + e.message + ') — ponawiam…');
     } finally { refreshing = false; }
+  }
+
+  let lastRefreshAt = 0, refreshTimer = null;
+  function refreshSoon() { // nie częściej niż co ~1 s (limit zapytań puli jest wspólny dla wszystkich górników)
+    if (refreshTimer) return;
+    refreshTimer = setTimeout(() => { refreshTimer = null; lastRefreshAt = Date.now(); refresh(false); }, Math.max(0, 1000 - (Date.now() - lastRefreshAt)));
   }
 
   console.log(`BitBudCoin koparka\n  adres:   ${address}\n  pula:    ${base}\n  wątki:   ${o.threads}\n  (Ctrl+C kończy)\n`);
