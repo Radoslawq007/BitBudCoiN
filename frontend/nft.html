@@ -48,26 +48,88 @@ dialog::backdrop{background:#0b0614e8;backdrop-filter:blur(6px)}
 .sheet dd{margin:0 0 10px;color:var(--bone);font-family:ui-monospace,Menlo,monospace;overflow-wrap:anywhere}
 .sheet .x{position:absolute;top:10px;right:10px;background:#0006;color:var(--bone);border:1px solid #3b2a5c;border-radius:50%;width:38px;height:38px;font-size:18px;cursor:pointer}
 #fx{position:fixed;inset:0;pointer-events:none;z-index:50}
+header{position:relative}
+.langs{position:absolute;top:14px;right:20px;display:flex}
+.langs[hidden]{display:none}
+.langs .lang-switch-btn{padding:6px 11px;font:600 .72rem ui-monospace,Menlo,monospace;border:1px solid #3b2a5c;background:var(--ink2);color:var(--mute);cursor:pointer}
+.langs .lang-switch-btn:first-child{border-radius:8px 0 0 8px}
+.langs .lang-switch-btn:last-child{border-radius:0 8px 8px 0;border-left:none}
+.langs .lang-switch-btn.active{background:var(--gold);color:#2a1700;border-color:var(--gold)}
 @media (prefers-reduced-motion:reduce){.card{transition:none}}
 </style>
 </head>
 <body>
 <header>
-  <h1>Legendarne BitBud</h1>
-  <p>Kolekcja wybita przez właściciela węzła BitBudCoin. Każdy token ma jednego właściciela, a każde zdarzenie trafia do dziennika ze skrótami łańcuchowymi.</p>
+  <div class="langs" id="langs" hidden>
+    <button type="button" class="lang-switch-btn" data-lang="pl" aria-pressed="false" aria-label="Polski">PL</button>
+    <button type="button" class="lang-switch-btn" data-lang="en" aria-pressed="false" aria-label="English">EN</button>
+  </div>
+  <h1 data-i18n="nft_h1">Legendarne BitBud</h1>
+  <p data-i18n="nft_intro">Kolekcja wybita przez właściciela węzła BitBudCoin. Każdy token ma jednego właściciela, a każde zdarzenie trafia do dziennika ze skrótami łańcuchowymi.</p>
 </header>
 <div class="bar">
-  <input id="owner" placeholder="Twój adres NFT (NFT + 40 znaków) — pokaż tylko moje" aria-label="Adres NFT właściciela" autocomplete="off" spellcheck="false">
-  <button id="filter">Pokaż moje</button>
-  <button id="all" class="ghost">Wszystkie</button>
+  <input id="owner" placeholder="Twój adres NFT (NFT + 40 znaków) — pokaż tylko moje" data-i18n-placeholder="nft_owner_placeholder" aria-label="Adres NFT właściciela" data-i18n-aria-label="nft_owner_label" autocomplete="off" spellcheck="false">
+  <button id="filter" data-i18n="nft_btn_mine">Pokaż moje</button>
+  <button id="all" class="ghost" data-i18n="nft_btn_all">Wszystkie</button>
   <span class="count" id="count"></span>
 </div>
 <main id="grid" aria-live="polite"></main>
 <div id="status" class="msg">Ładowanie kolekcji…</div>
 <dialog id="dlg"><div class="sheet" id="sheet"></div></dialog>
 <canvas id="fx"></canvas>
+<script src="assets/i18n.js"></script>
 <script>
 (function(){
+'use strict';
+/* ---- Tłumaczenia tej strony: dopisywane do słownika z assets/i18n.js (bez zmiany tamtego pliku) ---- */
+var DICT={
+  pl:{
+    nft_title:'Legendarne BitBud — BitBudCoin',
+    nft_h1:'Legendarne BitBud',
+    nft_intro:'Kolekcja wybita przez właściciela węzła BitBudCoin. Każdy token ma jednego właściciela, a każde zdarzenie trafia do dziennika ze skrótami łańcuchowymi.',
+    nft_owner_placeholder:'Twój adres NFT (NFT + 40 znaków) — pokaż tylko moje',
+    nft_owner_label:'Adres NFT właściciela',
+    nft_btn_mine:'Pokaż moje', nft_btn_all:'Wszystkie',
+    nft_count:'{n} w kolekcji',
+    nft_loading:'Ładowanie kolekcji…',
+    nft_empty:'Brak tokenów. Pierwszy wybijesz na serwerze: ',
+    nft_err_api:'Nie mogę połączyć się z API ({msg}). Sprawdź, czy serwer działa i czy nft.js jest podpięty. Adres: {api}',
+    nft_err_addr:'Zły adres. Oczekiwane: NFT + 40 znaków hex.',
+    nft_open_aria:'Otwórz {name}, numer {id}',
+    nft_close:'Zamknij', nft_no_desc:'Bez opisu.',
+    nft_owner:'Właściciel', nft_minted:'Wybity', nft_number:'Numer',
+    nft_rarity_Legendary:'Legendarny'
+  },
+  en:{
+    nft_title:'Legendary BitBud — BitBudCoin',
+    nft_h1:'Legendary BitBud',
+    nft_intro:'A collection minted by the owner of the BitBudCoin node. Every token has exactly one owner, and every event goes into a log with chained hashes.',
+    nft_owner_placeholder:'Your NFT address (NFT + 40 characters) — show only mine',
+    nft_owner_label:'Owner NFT address',
+    nft_btn_mine:'Show mine', nft_btn_all:'All',
+    nft_count:'{n} in the collection',
+    nft_loading:'Loading the collection…',
+    nft_empty:'No tokens yet. You mint the first one on the server: ',
+    nft_err_api:"Can't reach the API ({msg}). Check that the server is running and nft.js is mounted. Address: {api}",
+    nft_err_addr:'Invalid address. Expected: NFT + 40 hex characters.',
+    nft_open_aria:'Open {name}, number {id}',
+    nft_close:'Close', nft_no_desc:'No description.',
+    nft_owner:'Owner', nft_minted:'Minted', nft_number:'Number',
+    nft_rarity_Legendary:'Legendary'
+  }
+};
+if(window.BbCI18n&&BbCI18n.getTranslations){var TR=BbCI18n.getTranslations();Object.assign(TR.pl,DICT.pl);Object.assign(TR.en,DICT.en)}
+/* T(): t() z i18n.js; gdyby tamten plik się nie wczytał — działa po polsku */
+function T(k,r){
+  if(typeof window.t==='function'){return window.t(k,r||{})}
+  var v=DICT.pl[k]!==undefined?DICT.pl[k]:k;r=r||{};
+  Object.keys(r).forEach(function(n){v=v.split('{'+n+'}').join(String(r[n]))});return v;
+}
+function lang(){return window.BbCI18n?BbCI18n.getLanguage():'pl'}
+function locale(){return lang()==='en'?'en-GB':'pl-PL'}
+if(window.BbCI18n){document.getElementById('langs').hidden=false;
+  document.querySelectorAll('.langs .lang-switch-btn').forEach(function(b){b.addEventListener('click',function(){BbCI18n.setLanguage(b.dataset.lang)})})}
+var S={list:null,total:0,status:{kind:'loading'},openToken:null};
 'use strict';
 var API=(new URLSearchParams(location.search).get('api')||'https://141-147-98-57.sslip.io').replace(/\/+$/,'')+'/api/nft';
 var $=function(i){return document.getElementById(i)};
@@ -93,16 +155,17 @@ function artEl(t){
   else box.appendChild(art(t.id));
   return box;
 }
+function rarityLabel(r){var k='nft_rarity_'+r,v=T(k);return v===k?r:v}
 function cardEl(t,tag){
   var c=document.createElement(tag||'button');c.className='card';if(c.tagName==='BUTTON')c.type='button';
   c.appendChild(artEl(t));
   var x=document.createElement('div');x.className='txt';
   var h=document.createElement('h3');h.textContent=t.name;x.appendChild(h);
   var m=document.createElement('div');m.className='meta';
-  var a=document.createElement('span');a.textContent=t.rarity;var b=document.createElement('span');b.textContent='#'+t.id;
+  var a=document.createElement('span');a.textContent=rarityLabel(t.rarity);var b=document.createElement('span');b.textContent='#'+t.id;
   m.appendChild(a);m.appendChild(b);x.appendChild(m);c.appendChild(x);
   var ho=document.createElement('div');ho.className='holo';var gl=document.createElement('div');gl.className='glare';c.appendChild(ho);c.appendChild(gl);
-  if(c.tagName==='BUTTON')c.setAttribute('aria-label','Otwórz '+t.name+', numer '+t.id);
+  if(c.tagName==='BUTTON')c.setAttribute('aria-label',T('nft_open_aria',{name:t.name,id:t.id}));
   tilt(c);return c;
 }
 function tilt(c){
@@ -133,35 +196,51 @@ function burst(){
     if(alive)requestAnimationFrame(f);else cx.clearRect(0,0,cv.width,cv.height)})();
 }
 function row(dl,k,v){var dt=document.createElement('dt');dt.textContent=k;var dd=document.createElement('dd');dd.textContent=v;dl.appendChild(dt);dl.appendChild(dd)}
-function open(t){
+function fillSheet(t){
   var s=$('sheet');s.textContent='';
-  var x=document.createElement('button');x.className='x';x.type='button';x.textContent='✕';x.setAttribute('aria-label','Zamknij');x.onclick=function(){$('dlg').close()};
+  var x=document.createElement('button');x.className='x';x.type='button';x.textContent='✕';x.setAttribute('aria-label',T('nft_close'));x.onclick=function(){$('dlg').close()};
   s.appendChild(x);s.appendChild(cardEl(t,'div'));
   var h=document.createElement('h2');h.textContent=t.name;s.appendChild(h);
-  var p=document.createElement('p');p.textContent=t.description||'Bez opisu.';s.appendChild(p);
-  var dl=document.createElement('dl');row(dl,'Właściciel',t.owner);row(dl,'Wybity',new Date(t.mintedAt).toLocaleString('pl-PL'));row(dl,'Numer',String(t.id));s.appendChild(dl);
-  $('dlg').showModal();burst();
+  var p=document.createElement('p');p.textContent=t.description||T('nft_no_desc');s.appendChild(p);
+  var dl=document.createElement('dl');row(dl,T('nft_owner'),t.owner);row(dl,T('nft_minted'),new Date(t.mintedAt).toLocaleString(locale()));row(dl,T('nft_number'),String(t.id));s.appendChild(dl);
 }
+function open(t){S.openToken=t;fillSheet(t);$('dlg').showModal();burst()}
+$('dlg').addEventListener('close',function(){S.openToken=null});
 $('dlg').addEventListener('click',function(e){if(e.target===this)this.close()});
 
-var cache={};
+function paintGrid(){
+  var g=$('grid');g.textContent='';cards=[];
+  (S.list||[]).forEach(function(t){var c=cardEl(t);c.onclick=function(){open(t)};g.appendChild(c);cards.push(c)});
+  $('count').textContent=S.list?T('nft_count',{n:S.total}):'';
+}
+function paintStatus(){
+  var st=$('status'),k=S.status&&S.status.kind;
+  if(!k){st.style.display='none';return}
+  st.style.display='block';st.textContent='';
+  if(k==='loading')st.textContent=T('nft_loading');
+  else if(k==='badaddr')st.textContent=T('nft_err_addr');
+  else if(k==='error')st.textContent=T('nft_err_api',{msg:S.status.msg,api:API});
+  else if(k==='empty'){st.append(T('nft_empty'));var cd=document.createElement('code');cd.textContent='node nft.js mint <adres> "Nazwa" "Opis"';st.appendChild(cd)}
+}
 function render(list,total){
-  var g=$('grid');g.textContent='';cards=[];cache={};
-  list.forEach(function(t){cache[t.id]=t;var c=cardEl(t);c.onclick=function(){open(t)};g.appendChild(c);cards.push(c)});
-  $('count').textContent=total+' w kolekcji';
-  var st=$('status');
-  if(!list.length){st.style.display='block';st.textContent='';st.append('Brak tokenów. Pierwszy wybijesz na serwerze: ');var cd=document.createElement('code');cd.textContent='node nft.js mint <adres> "Nazwa" "Opis"';st.appendChild(cd)}
-  else st.style.display='none';
+  S.list=list;S.total=total;S.status=list.length?null:{kind:'empty'};
+  paintGrid();paintStatus();
 }
 function load(owner){
-  $('status').style.display='block';$('status').textContent='Ładowanie kolekcji…';
+  S.status={kind:'loading'};paintStatus();
   fetch(API+'/list'+(owner?'?owner='+encodeURIComponent(owner):''),{cache:'no-store'})
     .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})
     .then(function(d){render(d.tokens,d.total)})
-    .catch(function(e){var st=$('status');st.style.display='block';st.textContent='Nie mogę połączyć się z API ('+e.message+'). Sprawdź, czy serwer działa i czy nft.js jest podpięty. Adres: '+API;$('grid').textContent=''});
+    .catch(function(e){S.list=null;S.status={kind:'error',msg:e.message};paintGrid();paintStatus()});
 }
+document.addEventListener('bbc:langchange',function(){
+  document.title=T('nft_title');
+  paintGrid();paintStatus();
+  if(S.openToken&&$('dlg').open)fillSheet(S.openToken);
+});
+document.title=T('nft_title');
 try{$('owner').value=localStorage.getItem('bbc_nft_owner')||''}catch(e){}
-$('filter').onclick=function(){var v=$('owner').value.trim();if(v&&!/^NFT[0-9a-f]{40}$/.test(v)){$('status').style.display='block';$('status').textContent='Zły adres. Oczekiwane: NFT + 40 znaków hex.';return}
+$('filter').onclick=function(){var v=$('owner').value.trim();if(v&&!/^NFT[0-9a-f]{40}$/.test(v)){S.status={kind:'badaddr'};paintStatus();return}
   try{localStorage.setItem('bbc_nft_owner',v)}catch(e){}load(v)};
 $('all').onclick=function(){load('')};
 load('');
