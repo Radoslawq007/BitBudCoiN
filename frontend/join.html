@@ -25,6 +25,16 @@
   .cta-card h3 { margin: 0 0 6px; font-size: .95rem; }
   .cta-card p { font-size: .82rem; color: var(--text-dim); margin: 0 0 12px; line-height: 1.5; }
   .cta-card .btn { width: 100%; justify-content: center; text-decoration: none; }
+  .cmd-box { font-family: var(--font-mono); font-size: .8rem; color: var(--leaf); word-break: break-all; background: var(--surface-2); padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid var(--leaf-dim); margin: 10px 0; }
+  .steps { font-size: .82rem; color: var(--text-dim); line-height: 1.6; margin: 0 0 14px; padding-left: 18px; }
+  .steps li { margin-bottom: 4px; }
+  .steps code, .cta-card code { font-family: var(--font-mono); font-size: .78rem; color: var(--text); }
+  .cta-card .field { margin: 0 0 6px; }
+  .cta-card .field label { display: block; font-size: .78rem; color: var(--text-dim); margin-bottom: 4px; }
+  .cta-card .field input { width: 100%; box-sizing: border-box; }
+  .miner-msg { font-family: var(--font-mono); font-size: .75rem; min-height: 1.1em; margin: 4px 0 8px; color: var(--text-dim); }
+  .cta-card .note { font-size: .76rem; color: var(--text-dim); margin: 12px 0 0; line-height: 1.5; }
+  .cta-card .note a { color: var(--leaf); }
 </style>
 </head>
 <body>
@@ -69,6 +79,24 @@
             <h3 data-i18n="join_cta_mine_title">2. Kop BbC</h3>
             <p data-i18n="join_cta_mine_desc">Liczysz hashe w przeglądarce, solo albo w puli z innymi. Realny udział w nagrodzie, nie punkty.</p>
             <a class="btn flame" href="miner.html" data-i18n="join_cta_mine_btn">Zacznij kopać →</a>
+        </div>
+        <div class="card cta-card" id="minerDownloadCard">
+            <h3>2b. Albo kop programem (szybciej)</h3>
+            <p>Jeden plik, bez instalatora. Kopiesz procesorem swojego komputera albo telefonu (Termux). Podaj swój adres BbC, a dostaniesz gotowe polecenie.</p>
+            <ol class="steps">
+                <li>Zainstaluj <strong>Node.js 18 lub nowszy</strong> (nodejs.org). Na Androidzie: aplikacja Termux i polecenie <code>pkg install nodejs</code>.</li>
+                <li>Pobierz plik koparki i zapisz go w osobnym folderze.</li>
+                <li>W tym folderze wklej polecenie z kroku poniżej. <code>Ctrl+C</code> kończy.</li>
+            </ol>
+            <a class="btn secondary" href="miner/bbc-miner.js" download="bbc-miner.js" id="minerDownloadBtn">⬇ Pobierz bbc-miner.js</a>
+            <div class="field" style="margin-top:14px;">
+                <label for="minerAddr">Twój adres BbC (z portfela)</label>
+                <input id="minerAddr" type="text" placeholder="BbC…" autocomplete="off" autocapitalize="off" spellcheck="false">
+            </div>
+            <div class="miner-msg" id="minerMsg"></div>
+            <div class="cmd-box" id="minerCmd">node bbc-miner.js BbCtwojadres</div>
+            <button type="button" class="btn flame" id="minerCopyBtn" disabled>Kopiuj polecenie</button>
+            <p class="note">Zarobek jest proporcjonalny do mocy procesora. Pula nalicza nagrody i wypłaca je automatycznie, nie od razu. Plik jest krótki i czytelny, robi tylko pobieranie pracy i wysyłanie wyników, nie czyta Twoich plików i nie pyta o klucz prywatny. <a href="miner/bbc-miner.js">Przeczytaj jego kod</a>.</p>
         </div>
         <div class="card cta-card">
             <h3 data-i18n="join_cta_buy_title">3. Albo kup za BTC</h3>
@@ -206,6 +234,51 @@ document.addEventListener("bbc:langchange", () => {
     const s = BBCLiveState.getState();
     if (s) renderStats(s);
 });
+</script>
+<script>
+// Pobranie koparki: gotowe polecenie z adresem wpisanym przez odwiedzającego.
+// Wszystko tylko lokalnie w przeglądarce, nic nie jest nigdzie wysyłane.
+(() => {
+    const input = document.getElementById("minerAddr");
+    const box = document.getElementById("minerCmd");
+    const msg = document.getElementById("minerMsg");
+    const copyBtn = document.getElementById("minerCopyBtn");
+    const ADDR_RE = /^t?BbC[0-9a-fA-F]{40}$/;
+    const EMPTY = "node bbc-miner.js BbCtwojadres";
+
+    function update() {
+        const v = input.value.trim();
+        if (!v) { box.textContent = EMPTY; msg.textContent = ""; msg.style.color = ""; copyBtn.disabled = true; return; }
+        if (!ADDR_RE.test(v)) {
+            box.textContent = EMPTY;
+            msg.textContent = "To nie wygląda jak adres BbC (BbC + 40 znaków).";
+            msg.style.color = "var(--danger)";
+            copyBtn.disabled = true;
+            return;
+        }
+        // do puli idzie forma z małymi literami (jak w portfelu)
+        const addr = v.replace(/^(t?BbC)(.*)$/, (m, p, h) => p + h.toLowerCase());
+        box.textContent = "node bbc-miner.js " + addr;
+        msg.textContent = "✓ adres wygląda poprawnie";
+        msg.style.color = "var(--leaf)";
+        copyBtn.disabled = false;
+    }
+    input.addEventListener("input", update);
+
+    copyBtn.addEventListener("click", async () => {
+        const original = copyBtn.textContent;
+        try {
+            await navigator.clipboard.writeText(box.textContent);
+            copyBtn.textContent = "Skopiowano ✓";
+        } catch (e) {
+            const r = document.createRange(); r.selectNodeContents(box);
+            const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+            copyBtn.textContent = "Zaznaczone, skopiuj ręcznie";
+        }
+        setTimeout(() => { copyBtn.textContent = original; }, 2000);
+    });
+    update();
+})();
 </script>
 </body>
 </html>
