@@ -13,10 +13,13 @@
  *   node nft.js keygen                                  -> adres + klucz prywatny (zapisz!)
  *   node nft.js mint <adres> "<nazwa>" "<opis>" [url_https_obrazka]
  *   node nft.js list
+ *   node nft.js admin-token [--rotate]                  -> włącza wybijanie ze strony nft.html (token w ~/secrets/nft-admin-token)
  *   W server.js (jedna linia, po utworzeniu `app`):  require('./nft').mount(app);
  */
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 
 const SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
 const PKCS8_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex');
@@ -130,6 +133,19 @@ function openDb(file) {
   return db;
 }
 
+// ---- Wybijanie ze strony: token administratora (mint = onlyOwner) ----
+const httpErr = (msg, code) => { const e = new Error(msg); e.code = code; return e; };
+const adminTokenFile = () => process.env.NFT_ADMIN_TOKEN_FILE || path.join(os.homedir(), 'secrets', 'nft-admin-token');
+/** Czytany przy każdym żądaniu: po `node nft.js admin-token` wybijanie działa od razu, bez restartu. */
+function loadAdminToken(opts) {
+  if (opts && opts.adminToken) return opts.adminToken.length >= 32 ? opts.adminToken : null;
+  const env = process.env.NFT_ADMIN_TOKEN;
+  if (env && env.length >= 32) return env;
+  try { const t = fs.readFileSync((opts && opts.tokenFile) || adminTokenFile(), 'utf8').trim(); return t.length >= 32 ? t : null; }
+  catch (e) { return null; }
+}
+const sameSecret = (a, b) => crypto.timingSafeEqual(crypto.createHash('sha256').update(a).digest(), crypto.createHash('sha256').update(b).digest());
+
 function mount(app, opts = {}) {
   const express = require('express');
   const db = opts.db || openDb(opts.file || process.env.NFT_DB || path.join(__dirname, 'nft.db'));
@@ -137,7 +153,7 @@ function mount(app, opts = {}) {
   const r = express.Router();
   r.use((req, res, next) => {
     res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Token');
     res.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
@@ -156,12 +172,26 @@ function mount(app, opts = {}) {
   r.get('/balance/:addr', safe((q) => ({ address: q.params.addr, balance: nft.balanceOf(q.params.addr) })));
   r.get('/nonce/:addr', safe((q) => ({ address: q.params.addr, nonce: nft.nextNonce(q.params.addr) })));
   r.get('/events', safe((q) => ({ events: nft.events(q.query.limit) })));
+  // Błędne próby tokenu: 5 / 15 min na adres IP oraz 30 / godz. łącznie — potem blokada (także dla dobrego tokenu).
+  const bad = new Map(); let badAll = [];
+  const recent = (arr, ms) => { const n = Date.now(); return arr.filter((t) => n - t < ms); };
+  r.get('/mint-status', safe(() => ({ enabled: !!loadAdminToken(opts) })));
+  r.post('/mint', limited, express.json({ limit: '4kb' }), safe((q) => {
+    const token = loadAdminToken(opts);
+    if (!token) throw httpErr('Wybijanie przez stronę jest wyłączone (brak tokenu na serwerze)', 403);
+    const mine = recent(bad.get(q.ip) || [], 900000); bad.set(q.ip, mine); badAll = recent(badAll, 3600000);
+    if (mine.length >= 5 || badAll.length >= 30) throw httpErr('Za dużo błędnych prób — spróbuj za 15 minut', 429);
+    const given = String((q.headers && q.headers['x-admin-token']) || '');
+    if (!given || !sameSecret(given, token)) { mine.push(Date.now()); badAll.push(Date.now()); throw httpErr('Zły token', 403); }
+    const b = q.body || {};
+    return { id: nft.mint(b.to, b.name, b.description, b.image) };
+  }));
   r.post('/transfer', limited, express.json({ limit: '2kb' }), safe((q) => nft.transfer(q.body || {})));
   app.use('/api/nft', r);
   return nft;
 }
 
-module.exports = { mount, createNFT, openDb, keygen, signTransfer, transferMessage, addressFromPublicKey, verifySig };
+module.exports = { loadAdminToken, mount, createNFT, openDb, keygen, signTransfer, transferMessage, addressFromPublicKey, verifySig };
 
 if (require.main === module) {
   const [cmd, ...a] = process.argv.slice(2);
@@ -169,5 +199,15 @@ if (require.main === module) {
   if (cmd === 'keygen') { const k = keygen(); console.log('Adres NFT:    ', k.address, '\nKlucz publ.:  ', k.publicKey, '\nKlucz PRYWATNY (zapisz, nigdy nie pokazuj):', k.privateKey); }
   else if (cmd === 'mint') { const id = createNFT(openDb(file)).mint(a[0], a[1], a[2], a[3]); console.log('Wybito token #' + id); }
   else if (cmd === 'list') { console.table(createNFT(openDb(file)).list()); }
-  else console.log('Komendy: keygen | mint <adres> "<nazwa>" "<opis>" [https-obrazek] | list');
+  else if (cmd === 'admin-token') {
+    const f = adminTokenFile();
+    if (fs.existsSync(f) && !a.includes('--rotate')) console.log('Token już istnieje: ' + f + '\nAby go wymienić: node nft.js admin-token --rotate');
+    else {
+      fs.mkdirSync(path.dirname(f), { recursive: true, mode: 0o700 });
+      const tok = crypto.randomBytes(32).toString('hex');
+      fs.writeFileSync(f, tok + '\n', { mode: 0o600 }); fs.chmodSync(f, 0o600);
+      console.log('Token do wybijania ze strony (zapisz w menedżerze haseł):\n' + tok + '\nPlik na serwerze: ' + f + '\nWybijanie ze strony jest teraz włączone.');
+    }
+  }
+  else console.log('Komendy: keygen | mint <adres> "<nazwa>" "<opis>" [https-obrazek] | list | admin-token [--rotate]');
 }
