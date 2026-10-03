@@ -51,6 +51,27 @@ dialog::backdrop{background:#0b0614e8;backdrop-filter:blur(6px)}
 header{position:relative}
 .langs{position:absolute;top:14px;right:20px;display:flex}
 .langs[hidden]{display:none}
+[hidden]{display:none!important}
+.back{position:absolute;top:16px;left:20px;color:var(--mute);text-decoration:none;font:600 .8rem ui-monospace,Menlo,monospace}
+.back:hover{color:var(--gold)}
+header{padding-top:58px}
+.mint{max-width:1000px;margin:0 auto;padding:0 20px 18px}
+.mint .panel{background:var(--ink2);border:1px solid #3b2a5c;border-radius:16px;padding:6px 16px 18px;margin-top:12px}
+.mint label{display:block;font-size:.8rem;color:var(--mute);margin:14px 0 5px}
+.mint input,.mint textarea{width:100%;background:#12091f;border:1px solid #3b2a5c;color:var(--bone);border-radius:10px;padding:11px 12px;font:14px ui-monospace,Menlo,monospace}
+.mint textarea{min-height:70px;resize:vertical}
+.mint .row{display:flex;gap:10px;flex-wrap:wrap}.mint .row input{flex:1 1 220px;min-width:0}
+.mint button{background:var(--gold);color:#2a1700;border:0;border-radius:10px;padding:11px 16px;font-weight:700;cursor:pointer}
+.mint button.ghost,.mint button.sm{background:transparent;color:var(--bone);border:1px solid #3b2a5c}
+.mint button.sm{padding:8px 12px;font-size:.8rem}
+.mint button:disabled{opacity:.5;cursor:wait}
+.keybox{margin-top:12px;border:1px dashed var(--gold);border-radius:12px;padding:12px;background:#1a0f2d}
+.keybox .warn{color:#ffd9a0;font-size:.82rem;margin:0 0 10px}
+.keybox dt{font-size:.75rem;color:var(--mute);margin-top:8px}
+.keybox dd{margin:2px 0 0;font:13px ui-monospace,Menlo,monospace;word-break:break-all;color:var(--bone)}
+.mintmsg{margin-top:12px;font:13px ui-monospace,Menlo,monospace;min-height:1.2em}
+.mintmsg.ok{color:#8fe3a5}.mintmsg.err{color:#ff9d8f}
+.mint .tiny{font-size:.74rem;color:var(--mute);margin:6px 0 0}
 .langs .lang-switch-btn{padding:6px 11px;font:600 .72rem ui-monospace,Menlo,monospace;border:1px solid #3b2a5c;background:var(--ink2);color:var(--mute);cursor:pointer}
 .langs .lang-switch-btn:first-child{border-radius:8px 0 0 8px}
 .langs .lang-switch-btn:last-child{border-radius:0 8px 8px 0;border-left:none}
@@ -60,6 +81,7 @@ header{position:relative}
 </head>
 <body>
 <header>
+  <a class="back" href="index.html">← BitBudCoin</a>
   <div class="langs" id="langs" hidden>
     <button type="button" class="lang-switch-btn" data-lang="pl" aria-pressed="false" aria-label="Polski">PL</button>
     <button type="button" class="lang-switch-btn" data-lang="en" aria-pressed="false" aria-label="English">EN</button>
@@ -73,6 +95,40 @@ header{position:relative}
   <button id="all" class="ghost" data-i18n="nft_btn_all">Wszystkie</button>
   <span class="count" id="count"></span>
 </div>
+<section class="mint" id="mintBox" hidden>
+  <button type="button" id="mintToggle" class="ghost" aria-expanded="false" aria-controls="mintPanel" data-i18n="nft_mint_open">＋ Wybij NFT</button>
+  <div class="panel" id="mintPanel" hidden>
+    <label for="mintToken" data-i18n="nft_mint_token">Token administratora</label>
+    <input id="mintToken" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <p class="tiny" data-i18n="nft_mint_token_hint">Zostaje tylko w tej karcie, nigdzie się nie zapisuje.</p>
+
+    <label for="mintTo" data-i18n="nft_mint_to">Adres odbiorcy (NFT + 40 znaków)</label>
+    <div class="row">
+      <input id="mintTo" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="NFT…">
+      <button type="button" class="sm" id="genKey" data-i18n="nft_mint_gen">Wygeneruj nowy adres</button>
+    </div>
+    <div class="keybox" id="keyBox" hidden>
+      <p class="warn" data-i18n="nft_key_warn">⚠️ Zapisz klucz prywatny teraz. Bez niego nie przekażesz tego NFT dalej, a my go nigdzie nie przechowujemy.</p>
+      <dl>
+        <dt data-i18n="nft_key_addr">Adres NFT</dt><dd id="keyAddr"></dd>
+        <dt data-i18n="nft_key_priv">Klucz prywatny (tajny)</dt><dd id="keyPriv"></dd>
+      </dl>
+      <div class="row" style="margin-top:10px">
+        <button type="button" class="sm" id="copyKey" data-i18n="nft_copy_key">Kopiuj oba</button>
+        <button type="button" class="sm" id="saveKey" data-i18n="nft_save_key">Pobierz plik</button>
+      </div>
+    </div>
+
+    <label for="mintName" data-i18n="nft_mint_name">Nazwa</label>
+    <input id="mintName" maxlength="80" autocomplete="off">
+    <label for="mintDesc" data-i18n="nft_mint_desc">Opis (opcjonalnie)</label>
+    <textarea id="mintDesc" maxlength="500"></textarea>
+    <label for="mintImg" data-i18n="nft_mint_image">Obrazek, link https (opcjonalnie — bez niego powstaje unikalny kryształ)</label>
+    <input id="mintImg" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://…">
+    <div style="margin-top:16px"><button type="button" id="mintGo" data-i18n="nft_mint_submit">Wybij</button></div>
+    <div class="mintmsg" id="mintMsg" role="status" aria-live="polite"></div>
+  </div>
+</section>
 <main id="grid" aria-live="polite"></main>
 <div id="status" class="msg">Ładowanie kolekcji…</div>
 <dialog id="dlg"><div class="sheet" id="sheet"></div></dialog>
@@ -98,7 +154,24 @@ var DICT={
     nft_open_aria:'Otwórz {name}, numer {id}',
     nft_close:'Zamknij', nft_no_desc:'Bez opisu.',
     nft_owner:'Właściciel', nft_minted:'Wybity', nft_number:'Numer',
-    nft_rarity_Legendary:'Legendarny'
+    nft_rarity_Legendary:'Legendarny',
+    nft_mint_open:'＋ Wybij NFT', nft_mint_close:'Zwiń',
+    nft_mint_token:'Token administratora',
+    nft_mint_token_hint:'Zostaje tylko w tej karcie, nigdzie się nie zapisuje.',
+    nft_mint_to:'Adres odbiorcy (NFT + 40 znaków)',
+    nft_mint_gen:'Wygeneruj nowy adres',
+    nft_mint_name:'Nazwa', nft_mint_desc:'Opis (opcjonalnie)',
+    nft_mint_image:'Obrazek, link https (opcjonalnie — bez niego powstaje unikalny kryształ)',
+    nft_mint_submit:'Wybij', nft_mint_working:'Wybijam…',
+    nft_mint_ok:'Wybito token #{id}',
+    nft_mint_need:'Podaj token, adres odbiorcy i nazwę.',
+    nft_mint_err_token:'Zły token albo wybijanie jest wyłączone na serwerze.',
+    nft_mint_err_rate:'Za dużo prób. Spróbuj za kilka minut.',
+    nft_mint_err_net:'Nie udało się połączyć z serwerem.',
+    nft_key_warn:'⚠️ Zapisz klucz prywatny teraz. Bez niego nie przekażesz tego NFT dalej, a my go nigdzie nie przechowujemy.',
+    nft_key_addr:'Adres NFT', nft_key_priv:'Klucz prywatny (tajny)',
+    nft_copy_key:'Kopiuj oba', nft_save_key:'Pobierz plik', nft_copied:'Skopiowano ✓',
+    nft_key_unsupported:'Ta przeglądarka nie umie generować kluczy Ed25519. Użyj: node nft.js keygen'
   },
   en:{
     nft_title:'Legendary BitBud — BitBudCoin',
@@ -115,7 +188,24 @@ var DICT={
     nft_open_aria:'Open {name}, number {id}',
     nft_close:'Close', nft_no_desc:'No description.',
     nft_owner:'Owner', nft_minted:'Minted', nft_number:'Number',
-    nft_rarity_Legendary:'Legendary'
+    nft_rarity_Legendary:'Legendary',
+    nft_mint_open:'＋ Mint an NFT', nft_mint_close:'Collapse',
+    nft_mint_token:'Admin token',
+    nft_mint_token_hint:'Stays in this tab only and is never stored.',
+    nft_mint_to:'Recipient address (NFT + 40 characters)',
+    nft_mint_gen:'Generate a new address',
+    nft_mint_name:'Name', nft_mint_desc:'Description (optional)',
+    nft_mint_image:'Image, https link (optional — without it a unique crystal is drawn)',
+    nft_mint_submit:'Mint', nft_mint_working:'Minting…',
+    nft_mint_ok:'Minted token #{id}',
+    nft_mint_need:'Enter the token, a recipient address and a name.',
+    nft_mint_err_token:'Wrong token, or minting is disabled on the server.',
+    nft_mint_err_rate:'Too many attempts. Try again in a few minutes.',
+    nft_mint_err_net:"Couldn't reach the server.",
+    nft_key_warn:"⚠️ Save the private key now. Without it you can't pass this NFT on, and we don't store it anywhere.",
+    nft_key_addr:'NFT address', nft_key_priv:'Private key (secret)',
+    nft_copy_key:'Copy both', nft_save_key:'Download file', nft_copied:'Copied ✓',
+    nft_key_unsupported:"This browser can't generate Ed25519 keys. Use: node nft.js keygen"
   }
 };
 if(window.BbCI18n&&BbCI18n.getTranslations){var TR=BbCI18n.getTranslations();Object.assign(TR.pl,DICT.pl);Object.assign(TR.en,DICT.en)}
@@ -239,6 +329,52 @@ document.addEventListener('bbc:langchange',function(){
   if(S.openToken&&$('dlg').open)fillSheet(S.openToken);
 });
 document.title=T('nft_title');
+
+/* ================= Wybijanie ze strony ================= */
+function hex(u8){return Array.prototype.map.call(u8,function(b){return ('0'+b.toString(16)).slice(-2)}).join('')}
+function genKeypair(){ // ten sam wzór co node nft.js keygen: adres = NFT + pierwsze 40 hex z SHA-256(surowy klucz publiczny)
+  if(!(window.crypto&&crypto.subtle))return Promise.reject(new Error('unsupported'));
+  return crypto.subtle.generateKey({name:'Ed25519'},true,['sign','verify']).then(function(kp){
+    return Promise.all([crypto.subtle.exportKey('raw',kp.publicKey),crypto.subtle.exportKey('pkcs8',kp.privateKey)]).then(function(r){
+      var pub=new Uint8Array(r[0]),pk8=new Uint8Array(r[1]);
+      return crypto.subtle.digest('SHA-256',pub).then(function(h){
+        return {address:'NFT'+hex(new Uint8Array(h)).slice(0,40),publicKey:hex(pub),privateKey:hex(pk8.slice(pk8.length-32))}
+      })})});
+}
+var keyPair=null;
+function setMsg(kind,text){var m=$('mintMsg');m.className='mintmsg '+(kind||'');m.textContent=text||''}
+fetch(API+'/mint-status',{cache:'no-store'}).then(function(r){return r.json()}).then(function(d){if(d&&d.enabled)$('mintBox').hidden=false}).catch(function(){});
+$('mintToggle').onclick=function(){var p=$('mintPanel');p.hidden=!p.hidden;$('mintToggle').setAttribute('aria-expanded',String(!p.hidden));
+  $('mintToggle').setAttribute('data-i18n',p.hidden?'nft_mint_open':'nft_mint_close');$('mintToggle').textContent=T(p.hidden?'nft_mint_open':'nft_mint_close')};
+$('genKey').onclick=function(){
+  genKeypair().then(function(k){keyPair=k;$('keyAddr').textContent=k.address;$('keyPriv').textContent=k.privateKey;$('keyBox').hidden=false;$('mintTo').value=k.address})
+    .catch(function(){setMsg('err',T('nft_key_unsupported'))});
+};
+function keyText(){return 'NFT address: '+keyPair.address+'\nPrivate key: '+keyPair.privateKey+'\n'}
+$('copyKey').onclick=function(){if(!keyPair)return;var b=$('copyKey');
+  (navigator.clipboard?navigator.clipboard.writeText(keyText()):Promise.reject()).then(function(){b.textContent=T('nft_copied')},function(){b.textContent='…'});
+  setTimeout(function(){b.textContent=T('nft_copy_key')},1800)};
+$('saveKey').onclick=function(){if(!keyPair)return;var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([keyText()],{type:'text/plain'}));a.download=keyPair.address+'.txt';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},2000)};
+$('mintGo').onclick=function(){
+  var token=$('mintToken').value,to=$('mintTo').value.trim(),name=$('mintName').value.trim();
+  if(!token||!to||!name){setMsg('err',T('nft_mint_need'));return}
+  if(!/^NFT[0-9a-f]{40}$/.test(to)){setMsg('err',T('nft_err_addr'));return}
+  var b=$('mintGo');b.disabled=true;setMsg('',T('nft_mint_working'));
+  fetch(API+'/mint',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':token},
+    body:JSON.stringify({to:to,name:name,description:$('mintDesc').value.trim(),image:$('mintImg').value.trim()})})
+    .then(function(r){return r.json().catch(function(){return {}}).then(function(d){return {status:r.status,d:d}})})
+    .then(function(x){
+      if(x.status===200){setMsg('ok',T('nft_mint_ok',{id:x.d.id}));$('mintName').value='';$('mintDesc').value='';$('mintImg').value='';
+        return fetch(API+'/list',{cache:'no-store'}).then(function(r){return r.json()}).then(function(d){
+          render(d.tokens,d.total);var t=d.tokens.filter(function(k){return k.id===x.d.id})[0];if(t)open(t)})}
+      if(x.status===403)setMsg('err',T('nft_mint_err_token'));
+      else if(x.status===429)setMsg('err',T('nft_mint_err_rate'));
+      else setMsg('err',x.d&&x.d.error?x.d.error:'HTTP '+x.status);
+    })
+    .catch(function(){setMsg('err',T('nft_mint_err_net'))})
+    .then(function(){b.disabled=false});
+};
 try{$('owner').value=localStorage.getItem('bbc_nft_owner')||''}catch(e){}
 $('filter').onclick=function(){var v=$('owner').value.trim();if(v&&!/^NFT[0-9a-f]{40}$/.test(v)){S.status={kind:'badaddr'};paintStatus();return}
   try{localStorage.setItem('bbc_nft_owner',v)}catch(e){}load(v)};
