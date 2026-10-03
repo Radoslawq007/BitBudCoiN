@@ -81,22 +81,22 @@
             <a class="btn flame" href="miner.html" data-i18n="join_cta_mine_btn">Zacznij kopać →</a>
         </div>
         <div class="card cta-card" id="minerDownloadCard">
-            <h3>2b. Albo kop programem (szybciej)</h3>
-            <p>Jeden plik, bez instalatora. Kopiesz procesorem swojego komputera albo telefonu (Termux). Podaj swój adres BbC, a dostaniesz gotowe polecenie.</p>
+            <h3 data-i18n="join_miner_title">2b. Albo kop programem (szybciej)</h3>
+            <p data-i18n="join_miner_desc">Jeden plik, bez instalatora. Kopiesz procesorem swojego komputera albo telefonu (Termux). Podaj swój adres BbC, a dostaniesz gotowe polecenie.</p>
             <ol class="steps">
-                <li>Zainstaluj <strong>Node.js 18 lub nowszy</strong> (nodejs.org). Na Androidzie: aplikacja Termux i polecenie <code>pkg install nodejs</code>.</li>
-                <li>Pobierz plik koparki i zapisz go w osobnym folderze.</li>
-                <li>W tym folderze wklej polecenie z kroku poniżej. <code>Ctrl+C</code> kończy.</li>
+                <li><span data-i18n="join_miner_step1">Zainstaluj Node.js 18 lub nowszy (nodejs.org). Na Androidzie: aplikacja Termux i polecenie</span> <code>pkg install nodejs</code>.</li>
+                <li data-i18n="join_miner_step2">Pobierz plik koparki i zapisz go w osobnym folderze.</li>
+                <li><span data-i18n="join_miner_step3">W tym folderze wklej polecenie z kroku poniżej.</span> <code>Ctrl+C</code> <span data-i18n="join_miner_step3b">kończy.</span></li>
             </ol>
-            <a class="btn secondary" href="miner/bbc-miner.js" download="bbc-miner.js" id="minerDownloadBtn">⬇ Pobierz bbc-miner.js</a>
+            <a class="btn secondary" href="miner/bbc-miner.js" download="bbc-miner.js" id="minerDownloadBtn" data-i18n="join_miner_download">⬇ Pobierz bbc-miner.js</a>
             <div class="field" style="margin-top:14px;">
-                <label for="minerAddr">Twój adres BbC (z portfela)</label>
+                <label for="minerAddr" data-i18n="join_miner_label">Twój adres BbC (z portfela)</label>
                 <input id="minerAddr" type="text" placeholder="BbC…" autocomplete="off" autocapitalize="off" spellcheck="false">
             </div>
             <div class="miner-msg" id="minerMsg"></div>
             <div class="cmd-box" id="minerCmd">node bbc-miner.js BbCtwojadres</div>
-            <button type="button" class="btn flame" id="minerCopyBtn" disabled>Kopiuj polecenie</button>
-            <p class="note">Zarobek jest proporcjonalny do mocy procesora. Pula nalicza nagrody i wypłaca je automatycznie, nie od razu. Plik jest krótki i czytelny, robi tylko pobieranie pracy i wysyłanie wyników, nie czyta Twoich plików i nie pyta o klucz prywatny. <a href="miner/bbc-miner.js">Przeczytaj jego kod</a>.</p>
+            <button type="button" class="btn flame" id="minerCopyBtn" data-i18n="join_miner_copy" disabled>Kopiuj polecenie</button>
+            <p class="note"><span data-i18n="join_miner_note">Zarobek jest proporcjonalny do mocy procesora. Pula nalicza nagrody i wypłaca je automatycznie, nie od razu. Plik jest krótki i czytelny, robi tylko pobieranie pracy i wysyłanie wyników, nie czyta Twoich plików i nie pyta o klucz prywatny.</span> <a href="miner/bbc-miner.js" data-i18n="join_miner_readcode">Przeczytaj jego kod</a>.</p>
         </div>
         <div class="card cta-card">
             <h3 data-i18n="join_cta_buy_title">3. Albo kup za BTC</h3>
@@ -236,6 +236,46 @@ document.addEventListener("bbc:langchange", () => {
 });
 </script>
 <script>
+// Tłumaczenia karty 2b: dopisywane do słownika z assets/i18n.js (bez zmiany tamtego pliku).
+(() => {
+    const PL = {
+        join_miner_title: "2b. Albo kop programem (szybciej)",
+        join_miner_desc: "Jeden plik, bez instalatora. Kopiesz procesorem swojego komputera albo telefonu (Termux). Podaj swój adres BbC, a dostaniesz gotowe polecenie.",
+        join_miner_step1: "Zainstaluj Node.js 18 lub nowszy (nodejs.org). Na Androidzie: aplikacja Termux i polecenie",
+        join_miner_step2: "Pobierz plik koparki i zapisz go w osobnym folderze.",
+        join_miner_step3: "W tym folderze wklej polecenie z kroku poniżej.",
+        join_miner_step3b: "kończy.",
+        join_miner_download: "⬇ Pobierz bbc-miner.js",
+        join_miner_label: "Twój adres BbC (z portfela)",
+        join_miner_copy: "Kopiuj polecenie",
+        join_miner_bad: "To nie wygląda jak adres BbC (BbC + 40 znaków).",
+        join_miner_ok: "✓ adres wygląda poprawnie",
+        join_miner_select: "Zaznaczone, skopiuj ręcznie",
+        join_miner_note: "Zarobek jest proporcjonalny do mocy procesora. Pula nalicza nagrody i wypłaca je automatycznie, nie od razu. Plik jest krótki i czytelny, robi tylko pobieranie pracy i wysyłanie wyników, nie czyta Twoich plików i nie pyta o klucz prywatny.",
+        join_miner_readcode: "Przeczytaj jego kod"
+    };
+    const EN = {
+        join_miner_title: "2b. Or mine with a program (faster)",
+        join_miner_desc: "One file, no installer. You mine with the CPU of your computer or phone (Termux). Enter your BbC address and you get a ready-to-run command.",
+        join_miner_step1: "Install Node.js 18 or newer (nodejs.org). On Android: the Termux app and the command",
+        join_miner_step2: "Download the miner file and save it in a folder of its own.",
+        join_miner_step3: "In that folder, paste the command from the step below.",
+        join_miner_step3b: "stops it.",
+        join_miner_download: "⬇ Download bbc-miner.js",
+        join_miner_label: "Your BbC address (from your wallet)",
+        join_miner_copy: "Copy command",
+        join_miner_bad: "That doesn't look like a BbC address (BbC + 40 characters).",
+        join_miner_ok: "✓ the address looks valid",
+        join_miner_select: "Selected, copy it manually",
+        join_miner_note: "Earnings are proportional to your CPU power. The pool credits rewards and pays them out automatically, not instantly. The file is short and readable: it only fetches work and submits results, it doesn't read your files and never asks for a private key.",
+        join_miner_readcode: "Read its code"
+    };
+    if (window.BbCI18n && BbCI18n.getTranslations) {
+        const TR = BbCI18n.getTranslations();
+        Object.assign(TR.pl, PL); Object.assign(TR.en, EN);
+    }
+})();
+
 // Pobranie koparki: gotowe polecenie z adresem wpisanym przez odwiedzającego.
 // Wszystko tylko lokalnie w przeglądarce, nic nie jest nigdzie wysyłane.
 (() => {
@@ -251,7 +291,7 @@ document.addEventListener("bbc:langchange", () => {
         if (!v) { box.textContent = EMPTY; msg.textContent = ""; msg.style.color = ""; copyBtn.disabled = true; return; }
         if (!ADDR_RE.test(v)) {
             box.textContent = EMPTY;
-            msg.textContent = "To nie wygląda jak adres BbC (BbC + 40 znaków).";
+            msg.textContent = t("join_miner_bad");
             msg.style.color = "var(--danger)";
             copyBtn.disabled = true;
             return;
@@ -259,7 +299,7 @@ document.addEventListener("bbc:langchange", () => {
         // do puli idzie forma z małymi literami (jak w portfelu)
         const addr = v.replace(/^(t?BbC)(.*)$/, (m, p, h) => p + h.toLowerCase());
         box.textContent = "node bbc-miner.js " + addr;
-        msg.textContent = "✓ adres wygląda poprawnie";
+        msg.textContent = t("join_miner_ok");
         msg.style.color = "var(--leaf)";
         copyBtn.disabled = false;
     }
@@ -269,14 +309,15 @@ document.addEventListener("bbc:langchange", () => {
         const original = copyBtn.textContent;
         try {
             await navigator.clipboard.writeText(box.textContent);
-            copyBtn.textContent = "Skopiowano ✓";
+            copyBtn.textContent = t("wallet_copied");
         } catch (e) {
             const r = document.createRange(); r.selectNodeContents(box);
             const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
-            copyBtn.textContent = "Zaznaczone, skopiuj ręcznie";
+            copyBtn.textContent = t("join_miner_select");
         }
-        setTimeout(() => { copyBtn.textContent = original; }, 2000);
+        setTimeout(() => { copyBtn.textContent = t("join_miner_copy"); }, 2000);
     });
+    document.addEventListener("bbc:langchange", update); // komunikat o adresie zmienia język razem ze stroną
     update();
 })();
 </script>
