@@ -188,6 +188,7 @@ function mount(app, opts = {}) {
   }));
   r.post('/transfer', limited, express.json({ limit: '2kb' }), safe((q) => nft.transfer(q.body || {})));
   app.use('/api/nft', r);
+  app.use('/nft', r); // alias: działa też, gdyby proxy kierowało /api/* do innego procesu
   return nft;
 }
 
