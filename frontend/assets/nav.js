@@ -14,7 +14,7 @@ const NAV_PAGES = [
     { href: "address.html",   label: "Adres" },
     { href: "wallet.html",    label: "Portfel",   i18n: "nav_wallet" },
     { href: "family.html",    label: "Rodzina BbC", i18n: "nav_family" },
-    { href: "nft.html",       label: "NFT" },
+    { href: "nft.html",       label: "NFT",       i18n: "nav_nft" },
     { href: "docks.html",     label: "Docs",      i18n: "nav_docs" }
 ];
 
