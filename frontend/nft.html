@@ -90,7 +90,7 @@ header{padding-top:58px}
   <p data-i18n="nft_intro">Kolekcja wybita przez właściciela węzła BitBudCoin. Każdy token ma jednego właściciela, a każde zdarzenie trafia do dziennika ze skrótami łańcuchowymi.</p>
 </header>
 <div class="bar">
-  <input id="owner" placeholder="Twój adres NFT (NFT + 40 znaków) — pokaż tylko moje" data-i18n-placeholder="nft_owner_placeholder" aria-label="Adres NFT właściciela" data-i18n-aria-label="nft_owner_label" autocomplete="off" spellcheck="false">
+  <input id="owner" placeholder="Twój adres (BbC… z portfela lub NFT…) — pokaż tylko moje" data-i18n-placeholder="nft_owner_placeholder" aria-label="Adres właściciela" data-i18n-aria-label="nft_owner_label" autocomplete="off" spellcheck="false">
   <button id="filter" data-i18n="nft_btn_mine">Pokaż moje</button>
   <button id="all" class="ghost" data-i18n="nft_btn_all">Wszystkie</button>
   <span class="count" id="count"></span>
@@ -102,10 +102,10 @@ header{padding-top:58px}
     <input id="mintToken" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
     <p class="tiny" data-i18n="nft_mint_token_hint">Zostaje tylko w tej karcie, nigdzie się nie zapisuje.</p>
 
-    <label for="mintTo" data-i18n="nft_mint_to">Adres odbiorcy (NFT + 40 znaków)</label>
+    <label for="mintTo" data-i18n="nft_mint_to">Adres odbiorcy: Twój adres BbC z portfela (najprościej) albo NFT…</label>
     <div class="row">
-      <input id="mintTo" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="NFT…">
-      <button type="button" class="sm" id="genKey" data-i18n="nft_mint_gen">Wygeneruj nowy adres</button>
+      <input id="mintTo" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="BbC… / NFT…">
+      <button type="button" class="sm" id="genKey" data-i18n="nft_mint_gen">Albo wygeneruj osobny adres NFT</button>
     </div>
     <div class="keybox" id="keyBox" hidden>
       <p class="warn" data-i18n="nft_key_warn">⚠️ Zapisz klucz prywatny teraz. Bez niego nie przekażesz tego NFT dalej, a my go nigdzie nie przechowujemy.</p>
@@ -143,14 +143,14 @@ var DICT={
     nft_title:'Legendarne BitBud — BitBudCoin',
     nft_h1:'Legendarne BitBud',
     nft_intro:'Kolekcja wybita przez właściciela węzła BitBudCoin. Każdy token ma jednego właściciela, a każde zdarzenie trafia do dziennika ze skrótami łańcuchowymi.',
-    nft_owner_placeholder:'Twój adres NFT (NFT + 40 znaków) — pokaż tylko moje',
-    nft_owner_label:'Adres NFT właściciela',
+    nft_owner_placeholder:'Twój adres (BbC… z portfela lub NFT…) — pokaż tylko moje',
+    nft_owner_label:'Adres właściciela',
     nft_btn_mine:'Pokaż moje', nft_btn_all:'Wszystkie',
     nft_count:'{n} w kolekcji',
     nft_loading:'Ładowanie kolekcji…',
     nft_empty:'Brak tokenów. Pierwszy wybijesz na serwerze: ',
     nft_err_api:'Nie mogę połączyć się z API ({msg}). Sprawdź, czy serwer działa i czy nft.js jest podpięty. Adres: {api}',
-    nft_err_addr:'Zły adres. Oczekiwane: NFT + 40 znaków hex.',
+    nft_err_addr:'Zły adres. Oczekiwane: BbC lub NFT + 40 znaków hex.',
     nft_open_aria:'Otwórz {name}, numer {id}',
     nft_close:'Zamknij', nft_no_desc:'Bez opisu.',
     nft_owner:'Właściciel', nft_minted:'Wybity', nft_number:'Numer',
@@ -158,8 +158,8 @@ var DICT={
     nft_mint_open:'＋ Wybij NFT', nft_mint_close:'Zwiń',
     nft_mint_token:'Token administratora',
     nft_mint_token_hint:'Zostaje tylko w tej karcie, nigdzie się nie zapisuje.',
-    nft_mint_to:'Adres odbiorcy (NFT + 40 znaków)',
-    nft_mint_gen:'Wygeneruj nowy adres',
+    nft_mint_to:'Adres odbiorcy: Twój adres BbC z portfela (najprościej) albo NFT…',
+    nft_mint_gen:'Albo wygeneruj osobny adres NFT',
     nft_mint_name:'Nazwa', nft_mint_desc:'Opis (opcjonalnie)',
     nft_mint_image:'Obrazek, link https (opcjonalnie — bez niego powstaje unikalny kryształ)',
     nft_mint_submit:'Wybij', nft_mint_working:'Wybijam…',
@@ -177,14 +177,14 @@ var DICT={
     nft_title:'Legendary BitBud — BitBudCoin',
     nft_h1:'Legendary BitBud',
     nft_intro:'A collection minted by the owner of the BitBudCoin node. Every token has exactly one owner, and every event goes into a log with chained hashes.',
-    nft_owner_placeholder:'Your NFT address (NFT + 40 characters) — show only mine',
-    nft_owner_label:'Owner NFT address',
+    nft_owner_placeholder:'Your address (BbC… from your wallet, or NFT…) — show only mine',
+    nft_owner_label:'Owner address',
     nft_btn_mine:'Show mine', nft_btn_all:'All',
     nft_count:'{n} in the collection',
     nft_loading:'Loading the collection…',
     nft_empty:'No tokens yet. You mint the first one on the server: ',
     nft_err_api:"Can't reach the API ({msg}). Check that the server is running and nft.js is mounted. Address: {api}",
-    nft_err_addr:'Invalid address. Expected: NFT + 40 hex characters.',
+    nft_err_addr:'Invalid address. Expected: BbC or NFT + 40 hex characters.',
     nft_open_aria:'Open {name}, number {id}',
     nft_close:'Close', nft_no_desc:'No description.',
     nft_owner:'Owner', nft_minted:'Minted', nft_number:'Number',
@@ -192,8 +192,8 @@ var DICT={
     nft_mint_open:'＋ Mint an NFT', nft_mint_close:'Collapse',
     nft_mint_token:'Admin token',
     nft_mint_token_hint:'Stays in this tab only and is never stored.',
-    nft_mint_to:'Recipient address (NFT + 40 characters)',
-    nft_mint_gen:'Generate a new address',
+    nft_mint_to:'Recipient: your BbC wallet address (simplest) or NFT…',
+    nft_mint_gen:'Or generate a separate NFT address',
     nft_mint_name:'Name', nft_mint_desc:'Description (optional)',
     nft_mint_image:'Image, https link (optional — without it a unique crystal is drawn)',
     nft_mint_submit:'Mint', nft_mint_working:'Minting…',
@@ -221,6 +221,8 @@ if(window.BbCI18n){document.getElementById('langs').hidden=false;
   document.querySelectorAll('.langs .lang-switch-btn').forEach(function(b){b.addEventListener('click',function(){BbCI18n.setLanguage(b.dataset.lang)})})}
 var S={list:null,total:0,status:{kind:'loading'},openToken:null};
 'use strict';
+var ADDR_RE=/^(NFT|BbC|tBbC)[0-9a-fA-F]{40}$/;
+function normAddr(a){return a.replace(/^(NFT|tBbC|BbC)(.*)$/,function(m,p,h){return p+h.toLowerCase()})}
 var API=(new URLSearchParams(location.search).get('api')||'https://141-147-98-57.sslip.io').replace(/\/+$/,'')+'/api/nft';
 var $=function(i){return document.getElementById(i)};
 var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -359,7 +361,8 @@ $('saveKey').onclick=function(){if(!keyPair)return;var a=document.createElement(
 $('mintGo').onclick=function(){
   var token=$('mintToken').value,to=$('mintTo').value.trim(),name=$('mintName').value.trim();
   if(!token||!to||!name){setMsg('err',T('nft_mint_need'));return}
-  if(!/^NFT[0-9a-f]{40}$/.test(to)){setMsg('err',T('nft_err_addr'));return}
+  if(!ADDR_RE.test(to)){setMsg('err',T('nft_err_addr'));return}
+  to=normAddr(to);
   var b=$('mintGo');b.disabled=true;setMsg('',T('nft_mint_working'));
   fetch(API+'/mint',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':token},
     body:JSON.stringify({to:to,name:name,description:$('mintDesc').value.trim(),image:$('mintImg').value.trim()})})
@@ -376,7 +379,8 @@ $('mintGo').onclick=function(){
     .then(function(){b.disabled=false});
 };
 try{$('owner').value=localStorage.getItem('bbc_nft_owner')||''}catch(e){}
-$('filter').onclick=function(){var v=$('owner').value.trim();if(v&&!/^NFT[0-9a-f]{40}$/.test(v)){S.status={kind:'badaddr'};paintStatus();return}
+$('filter').onclick=function(){var v=$('owner').value.trim();if(v&&!ADDR_RE.test(v)){S.status={kind:'badaddr'};paintStatus();return}
+  if(v){v=normAddr(v);$('owner').value=v}
   try{localStorage.setItem('bbc_nft_owner',v)}catch(e){}load(v)};
 $('all').onclick=function(){load('')};
 load('');
