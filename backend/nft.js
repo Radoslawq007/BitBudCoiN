@@ -10,8 +10,8 @@
  *  - NIE synchronizuje się przez P2P — drugi węzeł ma własny, osobny rejestr
  *
  * Użycie:
- *   node nft.js keygen                                  -> adres + klucz prywatny (zapisz!)
- *   node nft.js mint <adres> "<nazwa>" "<opis>" [url_https_obrazka]
+ *   node nft.js mint <adres> "<nazwa>" "<opis>" [url_https_obrazka]   (adres: BbC… z portfela albo NFT…)
+ *   node nft.js keygen                                  -> osobny adres NFT… + klucz prywatny (opcjonalnie)
  *   node nft.js list
  *   node nft.js admin-token [--rotate]                  -> włącza wybijanie ze strony nft.html (token w ~/secrets/nft-admin-token)
  *   W server.js (jedna linia, po utworzeniu `app`):  require('./nft').mount(app);
@@ -23,7 +23,9 @@ const os = require('os');
 
 const SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
 const PKCS8_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex');
-const ADDR_RE = /^NFT[0-9a-f]{40}$/;
+// Właścicielem może być adres z portfela BbC (BbC… / tBbC…) albo osobny adres NFT… — w bazie zawsze małe litery
+const ADDR_RE = /^(NFT|BbC|tBbC)[0-9a-fA-F]{40}$/;
+const normAddr = (a) => (typeof a === 'string' && ADDR_RE.test(a)) ? a.replace(/^(NFT|tBbC|BbC)(.*)$/, (m, p, h) => p + h.toLowerCase()) : null;
 const RARITY = 'Legendary';
 
 function addressFromPublicKey(pubHex) {
@@ -34,6 +36,18 @@ function keygen() {
   const pub = publicKey.export({ format: 'der', type: 'spki' }).subarray(-32).toString('hex');
   const seed = privateKey.export({ format: 'der', type: 'pkcs8' }).subarray(-32).toString('hex');
   return { address: addressFromPublicKey(pub), publicKey: pub, privateKey: seed };
+}
+/** Podpis przelewu NFT kluczem z portfela BbC (PEM PKCS8) — base64, jak podpisy transakcji BbC */
+function signTransferPem(privateKeyPem, tokenId, to, nonce) {
+  return crypto.sign(null, Buffer.from(transferMessage(tokenId, to, nonce)), privateKeyPem).toString('base64');
+}
+function verifySigPem(publicKeyPem, msg, sigB64) {
+  try {
+    const key = crypto.createPublicKey(publicKeyPem);
+    if (key.asymmetricKeyType !== 'ed25519') return false;
+    const sig = Buffer.from(sigB64, 'base64');
+    return sig.length === 64 && crypto.verify(null, Buffer.from(msg), key, sig);
+  } catch (e) { return false; }
 }
 function transferMessage(tokenId, to, nonce) {
   return `BBCNFT1|transfer|${tokenId}|${to}|${nonce}`;
@@ -78,7 +92,8 @@ function createNFT(db) {
   return {
     mint(to, name, description, image) {
       name = String(name || '').trim(); description = String(description || '').trim(); image = String(image || '').trim();
-      if (!ADDR_RE.test(to)) throw fail('Zły adres odbiorcy (oczekiwano NFT + 40 znaków hex)');
+      to = normAddr(to);
+      if (!to) throw fail('Zły adres odbiorcy (oczekiwano BbC… z portfela albo NFT… + 40 znaków hex)');
       if (!name || name.length > 80) throw fail('Nazwa: 1–80 znaków');
       if (description.length > 500) throw fail('Opis: max 500 znaków');
       if (image && !/^https:\/\/[^\s"'<>]{1,280}$/.test(image)) throw fail('Obrazek: pusty albo URL https://');
@@ -93,16 +108,24 @@ function createNFT(db) {
     transfer({ publicKey, to, tokenId, signature }) {
       tokenId = Number(tokenId);
       if (!Number.isInteger(tokenId) || tokenId < 0) throw fail('Zły tokenId');
-      if (!ADDR_RE.test(String(to))) throw fail('Zły adres odbiorcy');
+      to = normAddr(to);
+      if (!to) throw fail('Zły adres odbiorcy');
       if (typeof publicKey !== 'string' || typeof signature !== 'string') throw fail('Brak podpisu');
-      const from = addressFromPublicKey(publicKey);
+      const pem = publicKey.includes('BEGIN PUBLIC KEY');
       return tx(() => {
         const t = db.prepare('SELECT owner FROM nft_tokens WHERE id=?').get(tokenId);
         if (!t) throw fail('Token nie istnieje', 404);
+        let from;
+        if (pem) { // klucz z portfela BbC: adres = prefiks + 40 hex z SHA-256(SPKI DER), jak w wallet.js
+          let der;
+          try { der = crypto.createPublicKey(publicKey).export({ type: 'spki', format: 'der' }); } catch (e) { throw fail('Zły klucz publiczny'); }
+          from = (t.owner.startsWith('tBbC') ? 'tBbC' : 'BbC') + crypto.createHash('sha256').update(der).digest('hex').slice(0, 40);
+        } else from = addressFromPublicKey(publicKey);
         if (t.owner !== from) throw fail('To nie jest twój token', 403);
         const row = db.prepare('SELECT nonce FROM nft_nonces WHERE addr=?').get(from);
         const nonce = (row ? row.nonce : 0) + 1;
-        if (!verifySig(publicKey, transferMessage(tokenId, to, nonce), signature)) throw fail('Zły podpis', 403);
+        const good = pem ? verifySigPem(publicKey, transferMessage(tokenId, to, nonce), signature) : verifySig(publicKey, transferMessage(tokenId, to, nonce), signature);
+        if (!good) throw fail('Zły podpis', 403);
         db.prepare('INSERT INTO nft_nonces VALUES(?,?) ON CONFLICT(addr) DO UPDATE SET nonce=excluded.nonce').run(from, nonce);
         db.prepare('UPDATE nft_tokens SET owner=? WHERE id=?').run(to, tokenId);
         addEvent('Transfer', tokenId, from, to, Date.now());
@@ -111,13 +134,13 @@ function createNFT(db) {
     },
     ownerOf: (id) => { const r = db.prepare('SELECT owner FROM nft_tokens WHERE id=?').get(Number(id)); return r ? r.owner : null; },
     getMetadata: (id) => db.prepare('SELECT id,owner,name,description,image,rarity,minted_at AS mintedAt FROM nft_tokens WHERE id=?').get(Number(id)) || null,
-    balanceOf: (a) => db.prepare('SELECT COUNT(*) AS n FROM nft_tokens WHERE owner=?').get(String(a)).n,
-    nextNonce: (a) => { const r = db.prepare('SELECT nonce FROM nft_nonces WHERE addr=?').get(String(a)); return (r ? r.nonce : 0) + 1; },
+    balanceOf: (a) => db.prepare('SELECT COUNT(*) AS n FROM nft_tokens WHERE owner=?').get(normAddr(a) || String(a)).n,
+    nextNonce: (a) => { const r = db.prepare('SELECT nonce FROM nft_nonces WHERE addr=?').get(normAddr(a) || String(a)); return (r ? r.nonce : 0) + 1; },
     list(owner, limit = 100, offset = 0) {
       limit = Math.min(Math.max(Number(limit) || 100, 1), 200); offset = Math.max(Number(offset) || 0, 0);
       const cols = 'id,owner,name,description,image,rarity,minted_at AS mintedAt';
       return owner
-        ? db.prepare(`SELECT ${cols} FROM nft_tokens WHERE owner=? ORDER BY id DESC LIMIT ? OFFSET ?`).all(String(owner), limit, offset)
+        ? db.prepare(`SELECT ${cols} FROM nft_tokens WHERE owner=? ORDER BY id DESC LIMIT ? OFFSET ?`).all(normAddr(owner) || String(owner), limit, offset)
         : db.prepare(`SELECT ${cols} FROM nft_tokens ORDER BY id DESC LIMIT ? OFFSET ?`).all(limit, offset);
     },
     total: () => db.prepare('SELECT COUNT(*) AS n FROM nft_tokens').get().n,
@@ -192,7 +215,7 @@ function mount(app, opts = {}) {
   return nft;
 }
 
-module.exports = { loadAdminToken, mount, createNFT, openDb, keygen, signTransfer, transferMessage, addressFromPublicKey, verifySig };
+module.exports = { signTransferPem, normAddr, loadAdminToken, mount, createNFT, openDb, keygen, signTransfer, transferMessage, addressFromPublicKey, verifySig };
 
 if (require.main === module) {
   const [cmd, ...a] = process.argv.slice(2);
